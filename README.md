@@ -1,6 +1,6 @@
 # Thread-pool Controls
 
-Python helpers to limit the number of thread used in thread-pool backed parallelism for C-libraries.
+Python helpers to limit the number of threads used in threadpool-backed parallelism for C-libraries.
 
 
 # Installation

@@ -5,8 +5,8 @@ import pytest
 from loky import cpu_count
 from threadpoolctl import threadpool_limits
 from threadpoolctl import get_threadpool_limits
-from threadpoolctl._threadpool_limiters import ALL_PREFIXES
 from threadpoolctl._threadpool_limiters import _set_threadpool_limits
+from threadpoolctl._threadpool_limiters import ALL_PREFIXES, ALL_USER_APIS
 
 from .utils import with_check_openmp_n_threads, libopenblas_paths
 
@@ -86,8 +86,9 @@ def test_set_threadpool_limits_apis(user_api):
 def test_set_threadpool_limits_bad_input():
     # Check that appropriate errors are raised for invalid arguments
 
-    with pytest.raises(ValueError, match="user_api must be either in {'openmp'"
-                       ", 'blas'} or None"):
+    with pytest.raises(ValueError,
+                       match="user_api must be either in {} or None."
+                       .format(ALL_USER_APIS)):
         threadpool_limits(limits=1, user_api="wrong")
 
     with pytest.raises(TypeError,

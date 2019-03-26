@@ -5,6 +5,7 @@
 #
 #
 import os
+import re
 import sys
 import ctypes
 import threading
@@ -47,19 +48,19 @@ class dl_phdr_info(ctypes.Structure):
 # MAP_API_TO_FUNC keys and the name of the user_api, in {"blas", "openmp"}.
 SUPPORTED_IMPLEMENTATIONS = [
     {
-        "filename_prefixes": ("libiomp", "libgomp", "libomp", "vcomp",),
+        "user_api": "openmp",
         "internal_api": "openmp",
-        "user_api": "openmp"
+        "filename_prefixes": ("libiomp", "libgomp", "libomp", "vcomp",),
     },
     {
-        "filename_prefixes": ("libopenblas",),
+        "user_api": "blas",
         "internal_api": "openblas",
-        "user_api": "blas"
+        "filename_prefixes": ("libopenblas",),
     },
     {
-        "filename_prefixes": ("libmkl_rt", "mkl_rt",),
+        "user_api": "blas",
         "internal_api": "mkl",
-        "user_api": "blas"
+        "filename_prefixes": ("libmkl_rt", "mkl_rt",),
     },
 ]
 
@@ -100,7 +101,7 @@ class _ThreadPoolLibrariesWrapper:
             return limits[user_api]
         return None
 
-    def set_thread_limits(self, limits=None, user_api=None):
+    def set_threadpool_limits(self, limits=None, user_api=None):
         """Limit maximal number of threads used by supported C-libraries.
 
         Return a list with the modules where the maximal number of threads
@@ -119,7 +120,7 @@ class _ThreadPoolLibrariesWrapper:
         else:
             if isinstance(limits, list):
                 # This should be a list of module, for compatibility with
-                # the result from get_thread_limits.
+                # the result from get_threadpool_limits.
                 limits = {module['prefix']: module['n_thread']
                           for module in limits}
 
@@ -148,7 +149,7 @@ class _ThreadPoolLibrariesWrapper:
 
         return report_threadpool_size
 
-    def get_thread_limits(self):
+    def get_threadpool_limits(self):
         """Return maximal number of threads available for supported C-libraries
         """
         report_threadpool_size = []
@@ -181,6 +182,9 @@ class _ThreadPoolLibrariesWrapper:
         mkl_clib.mkl_get_version_string(res, 200)
 
         version = res.value.decode('utf-8')
+        group = re.search(r"Version ([^ ]+) ", version)
+        if group is not None:
+            version = group.groups()[0]
         return version.strip()
 
     def _get_openblas_version(self, openblas_clib):
@@ -396,20 +400,20 @@ class _ThreadPoolLibrariesWrapper:
         return getattr(self, dll_name)
 
 
-_thread_pool_libraries_wrapper = None
+_threadpool_libraries_wrapper = None
 
 
 def _get_wrapper():
     """Helper function to only create one wrapper per process."""
-    global _thread_pool_libraries_wrapper
-    if _thread_pool_libraries_wrapper is None:
-        _thread_pool_libraries_wrapper = _ThreadPoolLibrariesWrapper()
+    global _threadpool_libraries_wrapper
+    if _threadpool_libraries_wrapper is None:
+        _threadpool_libraries_wrapper = _ThreadPoolLibrariesWrapper()
 
-    return _thread_pool_libraries_wrapper
+    return _threadpool_libraries_wrapper
 
 
 @_format_docstring(ALL_PREFIXES=ALL_PREFIXES, INTERN_APIS=INTERN_APIS)
-def _set_thread_limits(limits=None, user_api=None):
+def _set_threadpool_limits(limits=None, user_api=None):
     """Limit the maximal number of threads for threadpools in supported C-lib
 
     Set the maximal number of threads that can be used in thread pools used in
@@ -442,11 +446,11 @@ def _set_thread_limits(limits=None, user_api=None):
       - 'n_thread': current thread limit.
     """
     wrapper = _get_wrapper()
-    return wrapper.set_thread_limits(limits, user_api)
+    return wrapper.set_threadpool_limits(limits, user_api)
 
 
 @_format_docstring(ALL_PREFIXES=ALL_PREFIXES, INTERN_APIS=INTERN_APIS)
-def get_thread_limits():
+def get_threadpool_limits():
     """Return the maximal number of threads for threadpools in supported C-lib.
 
     Return a list with all the supported modules that have been found. Each
@@ -460,7 +464,7 @@ def get_thread_limits():
       - 'n_thread': current thread limit.
     """
     wrapper = _get_wrapper()
-    return wrapper.get_thread_limits()
+    return wrapper.get_threadpool_limits()
 
 
 class threadpool_limits:
@@ -492,8 +496,8 @@ class threadpool_limits:
     def __init__(self, limits=None, user_api=None):
         self._enabled = limits is not None
         if self._enabled:
-            self.old_limits = get_thread_limits()
-            _set_thread_limits(limits=limits, user_api=user_api)
+            self.old_limits = get_threadpool_limits()
+            _set_threadpool_limits(limits=limits, user_api=user_api)
 
     def __enter__(self):
         pass
@@ -503,4 +507,4 @@ class threadpool_limits:
 
     def unregister(self):
         if self._enabled:
-            _set_thread_limits(limits=self.old_limits)
+            _set_threadpool_limits(limits=self.old_limits)

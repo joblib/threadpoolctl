@@ -49,12 +49,12 @@ def test_threadpool_limits(openblas_present, mkl_present, prefix):
     assert new_limits[prefix] == old_limits[prefix]
 
 
-@pytest.mark.parametrize("user_api", ("all", None, "blas", "openmp"))
+@pytest.mark.parametrize("user_api", (None, "blas", "openmp"))
 def test_set_threadpool_limits_apis(user_api):
     # Check that the number of threads used by the multithreaded C-libs can be
     # modified dynamically.
 
-    if user_api in ("all", None):
+    if user_api is None:
         api_modules = ('blas', 'openmp')
     else:
         api_modules = (user_api,)
@@ -86,9 +86,8 @@ def test_set_threadpool_limits_apis(user_api):
 def test_set_threadpool_limits_bad_input():
     # Check that appropriate errors are raised for invalid arguments
 
-    with pytest.raises(ValueError,
-                       match="user_api must be either 'all', 'blas' "
-                             "or 'openmp'"):
+    with pytest.raises(ValueError, match="user_api must be either in {'openmp'"
+                       ", 'blas'} or None"):
         threadpool_limits(limits=1, user_api="wrong")
 
     with pytest.raises(TypeError,
@@ -96,11 +95,11 @@ def test_set_threadpool_limits_bad_input():
         threadpool_limits(limits=(1, 2, 3))
 
 
-@pytest.mark.parametrize("user_api", (None, "all", "blas", "openmp"))
+@pytest.mark.parametrize("user_api", (None, "blas", "openmp"))
 def test_thread_limit_context(user_api):
     # Tests the thread limits context manager
 
-    if user_api in [None, "all"]:
+    if user_api is None:
         apis = ('blas', 'openmp')
     else:
         apis = (user_api,)

@@ -20,10 +20,10 @@ jobs:
       displayName: Add conda to PATH
       condition: eq(variables['PACKAGER'], 'conda')
     - script: |
-        build_tools/install.sh
+        continuous_integration/install.sh
       displayName: 'Install'
     - script: |
-        build_tools/test_script.sh
+        continuous_integration/test_script.sh
       displayName: 'Test Library'
     - task: PublishTestResults@2
       inputs:
@@ -32,6 +32,6 @@ jobs:
       displayName: 'Publish Test Results'
       condition: succeededOrFailed()
     - script: |
-        bash continuous_integration\\upload_codecov.sh
+        bash continuous_integration/upload_codecov.sh
       displayName: 'Upload to codecov'
       condition: succeeded()

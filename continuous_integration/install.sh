@@ -40,9 +40,10 @@ fi
 
 python -m pip install coverage
 
+bash ./continuous_integration/build_test_ext.sh
 
 python --version
 python -c "import numpy; print('numpy %s' % numpy.__version__)" || echo "no numpy"
 python -c "import scipy; print('scipy %s' % scipy.__version__)" || echo "no scipy"
 
-python setup.py develop
+pip install -e .

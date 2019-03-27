@@ -92,7 +92,8 @@ def _get_limit(prefix, user_api, limits):
 
 
 @_format_docstring(ALL_PREFIXES=ALL_PREFIXES, INTERNAL_APIS=ALL_INTERNAL_APIS)
-def _set_threadpool_limits(limits=None, user_api=None):
+def _set_threadpool_limits(limits=None, user_api=None,
+                           return_original_limits=False):
     """Limit the maximal number of threads for threadpools in supported C-lib
 
     Set the maximal number of threads that can be used in thread pools used in
@@ -154,14 +155,14 @@ def _set_threadpool_limits(limits=None, user_api=None):
     modules = _load_modules(prefixes=prefixes, user_api=user_api)
     for module in modules:
         n_thread = _get_limit(module['prefix'], module['user_api'], limits)
+        if return_original_limits:
+            module['n_thread'] = module['get_num_threads']()
         if n_thread is not None:
             set_func = module['set_num_threads']
             set_func(n_thread)
 
-        # Store the module and remove un-necessary info
-        module['n_thread'] = module['get_num_threads']()
-        del module['set_num_threads'], module['get_num_threads']
-        del module['clib']
+        if not return_original_limits:
+            module['n_thread'] = module['get_num_threads']()
         report_threadpool_size.append(module)
 
     return report_threadpool_size
@@ -466,10 +467,9 @@ class threadpool_limits:
     they rely on OpenMP.
     """
     def __init__(self, limits=None, user_api=None):
-        self._enabled = limits is not None
-        if self._enabled:
-            self.old_limits = get_threadpool_limits()
-            _set_threadpool_limits(limits=limits, user_api=user_api)
+        if limits is not None:
+            self.original_limits = _set_threadpool_limits(
+                limits=limits, user_api=user_api, return_original_limits=True)
 
     def __enter__(self):
         pass
@@ -478,5 +478,6 @@ class threadpool_limits:
         self.unregister()
 
     def unregister(self):
-        if self._enabled:
-            _set_threadpool_limits(limits=self.old_limits)
+        if hasattr(self, "original_limits"):
+            for module in self.original_limits:
+                module['set_num_threads'](module['n_thread'])

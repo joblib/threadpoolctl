@@ -2,6 +2,6 @@
 
 set -e
 
-pip install codecov
+python -m pip --user install codecov
 
-codecov || echo "codecov upload failed"
+python -m codecov || echo "codecov upload failed"

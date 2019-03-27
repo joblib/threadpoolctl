@@ -57,8 +57,8 @@ def test_threadpool_limits(openblas_present, mkl_present, prefix):
 
 @pytest.mark.parametrize("user_api", (None, "blas", "openmp"))
 def test_set_threadpool_limits_apis(user_api):
-    # Check that the number of threads used by the multithreaded C-libs can be
-    # modified dynamically.
+    # Check that the number of threads used by the multithreaded libraries can
+    # be modified dynamically.
     if user_api is None:
         api_modules = ('blas', 'openmp')
     else:

@@ -93,26 +93,27 @@ def _get_limit(prefix, user_api, limits):
 @_format_docstring(ALL_PREFIXES=ALL_PREFIXES, INTERNAL_APIS=ALL_INTERNAL_APIS)
 def _set_threadpool_limits(limits=None, user_api=None,
                            return_original_limits=False):
-    """Limit the maximal number of threads for threadpools in supported C-lib
+    """Limit the maximal number of threads for threadpools in supported libs
 
     Set the maximal number of threads that can be used in thread pools used in
-    the supported C-libraries to `limit`. This function works for libraries
-    that are already loaded in the interpreter and can be changed dynamically.
+    the supported native libraries to `limit`. This function works for
+    libraries that are already loaded in the interpreter and can be changed
+    dynamically.
 
     The `limits` parameter can be either an integer or a dict to specify the
     maximal number of thread that can be used in thread pools. If it is an
-    integer, sets the maximum number of thread to `limits` for each C-lib
-    selected by `user_api`. If it is a dictionary `{{key: max_threads}}`,
-    this function sets a custom maximum number of thread for each `key` which
-    can be either a `user_api` or a `prefix` for a specific library.
-    If None, this function does not do anything.
+    integer, sets the maximum number of thread to `limits` for each library
+    selected by `user_api`. If it is a dictionary `{{key: max_threads}}`, this
+    function sets a custom maximum number of thread for each `key` which can be
+    either a `user_api` or a `prefix` for a specific library. If None, this
+    function does not do anything.
 
-    The `user_api` parameter selects particular APIs of C-libs to limit. Used
-    only if `limits` is an int. If it is None, this function will apply to all
-    supported C-libs. If it is "blas", it will limit only BLAS supported C-libs
-    and if it is "openmp", only OpenMP supported C-libs will be limited. Note
-    that the latter can affect the number of threads used by the BLAS C-libs if
-    they rely on OpenMP.
+    The `user_api` parameter selects particular APIs of libraries to limit.
+    Used only if `limits` is an int. If it is None, this function will apply to
+    all supported libraries. If it is "blas", it will limit only BLAS supported
+    libraries and if it is "openmp", only OpenMP supported libraries will be
+    limited. Note that the latter can affect the number of threads used by the
+    BLAS libraries if they rely on OpenMP.
 
     Return a list with all the supported modules that have been found. Each
     module is represented by a dict with the following information:
@@ -207,8 +208,7 @@ def get_version(dynlib, internal_api):
 
 
 def _get_mkl_version(mkl_dynlib):
-    """Return the MKL version
-    """
+    """Return the MKL version"""
     res = ctypes.create_string_buffer(200)
     mkl_dynlib.mkl_get_version_string(res, 200)
 
@@ -447,23 +447,23 @@ class threadpool_limits:
     block.
 
     Set the maximal number of threads that can be used in thread pools used in
-    the supported C-libraries to `limit`. This function works for libraries
-    that are already loaded in the interpreter and can be changed dynamically.
+    the supported libraries to `limit`. This function works for libraries that
+    are already loaded in the interpreter and can be changed dynamically.
 
     The `limits` parameter can be either an integer or a dict to specify the
     maximal number of thread that can be used in thread pools. If it is an
-    integer, sets the maximum number of thread to `limits` for each C-lib
-    selected by `user_api`. If it is a dictionary `{{key: max_threads}}`,
-    this function sets a custom maximum number of thread for each `key` which
-    can be either a `user_api` or a `prefix` for a specific library.
-    If None, this function does not do anything.
+    integer, sets the maximum number of thread to `limits` for each library
+    selected by `user_api`. If it is a dictionary `{{key: max_threads}}`, this
+    function sets a custom maximum number of thread for each `key` which can be
+    either a `user_api` or a `prefix` for a specific library. If None, this
+    function does not do anything.
 
-    The `user_api` parameter selects particular APIs of C-libs to limit. Used
-    only if `limits` is an int. If it is None, this function will apply to all
-    supported C-libs. If it is "blas", it will limit only BLAS supported C-libs
-    and if it is "openmp", only OpenMP supported C-libs will be limited. Note
-    that the latter can affect the number of threads used by the BLAS C-libs if
-    they rely on OpenMP.
+    The `user_api` parameter selects particular APIs of libraries to limit.
+    Used only if `limits` is an int. If it is None, this function will apply to
+    all supported libraries. If it is "blas", it will limit only BLAS supported
+    libraries and if it is "openmp", only OpenMP supported libraries will be
+    limited. Note that the latter can affect the number of threads used by the
+    BLAS libraries if they rely on OpenMP.
     """
     def __init__(self, limits=None, user_api=None):
         if limits is not None:

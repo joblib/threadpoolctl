@@ -23,7 +23,7 @@ def test_threadpool_limits(openblas_present, mkl_present, prefix):
 
     prefix_found = len([1 for module in old_limits
                         if prefix == module['prefix']])
-    old_limits = {clib['prefix']: clib['n_thread'] for clib in old_limits}
+    old_limits = {dynlib['prefix']: dynlib['n_thread'] for dynlib in old_limits}
 
     if not prefix_found:
         have_mkl = len({'mkl_rt', 'libmkl_rt'}.intersection(old_limits)) > 0
@@ -36,34 +36,37 @@ def test_threadpool_limits(openblas_present, mkl_present, prefix):
 
     try:
         new_limits = _set_threadpool_limits(limits={prefix: 1})
-        new_limits = {clib['prefix']: clib['n_thread'] for clib in new_limits}
+        new_limits = {dynlib['prefix']: dynlib['n_thread']
+                      for dynlib in new_limits}
         assert new_limits[prefix] == 1
 
         threadpool_limits(limits={prefix: 3})
         new_limits = get_threadpool_limits()
-        new_limits = {clib['prefix']: clib['n_thread'] for clib in new_limits}
+        new_limits = {dynlib['prefix']: dynlib['n_thread']
+                      for dynlib in new_limits}
         assert new_limits[prefix] in (3, old_limits[prefix])
     finally:
         # Avoid having side effects in case of failures
         threadpool_limits(limits=old_limits)
 
     new_limits = get_threadpool_limits()
-    new_limits = {clib['prefix']: clib['n_thread'] for clib in new_limits}
+    new_limits = {dynlib['prefix']: dynlib['n_thread']
+                  for dynlib in new_limits}
     assert new_limits[prefix] == old_limits[prefix]
 
 
 @pytest.mark.parametrize("user_api", (None, "blas", "openmp"))
 def test_set_threadpool_limits_apis(user_api):
-    # Check that the number of threads used by the multithreaded C-libs can be
-    # modified dynamically.
-
+    # Check that the number of threads used by the multithreaded libraries can
+    # be modified dynamically.
     if user_api is None:
         api_modules = ('blas', 'openmp')
     else:
         api_modules = (user_api,)
 
     old_limits = get_threadpool_limits()
-    old_limits = {clib['prefix']: clib['n_thread'] for clib in old_limits}
+    old_limits = {dynlib['prefix']: dynlib['n_thread']
+                  for dynlib in old_limits}
 
     try:
         new_limits = _set_threadpool_limits(limits=1, user_api=user_api)
@@ -91,7 +94,6 @@ def test_set_threadpool_limits_apis(user_api):
 
 def test_set_threadpool_limits_bad_input():
     # Check that appropriate errors are raised for invalid arguments
-
     match = re.escape("user_api must be either in {} or None."
                       .format(ALL_USER_APIS))
     with pytest.raises(ValueError, match=match):
@@ -105,18 +107,19 @@ def test_set_threadpool_limits_bad_input():
 @pytest.mark.parametrize("user_api", (None, "blas", "openmp"))
 def test_thread_limit_context(user_api):
     # Tests the thread limits context manager
-
     if user_api is None:
         apis = ('blas', 'openmp')
     else:
         apis = (user_api,)
 
     old_limits = get_threadpool_limits()
-    old_limits = {clib['prefix']: clib['n_thread'] for clib in old_limits}
+    old_limits = {dynlib['prefix']: dynlib['n_thread']
+                  for dynlib in old_limits}
 
     with threadpool_limits(limits=None, user_api=user_api):
         limits = get_threadpool_limits()
-        limits = {clib['prefix']: clib['n_thread'] for clib in limits}
+        limits = {dynlib['prefix']: dynlib['n_thread']
+                  for dynlib in limits}
         assert limits == old_limits
 
     with threadpool_limits(limits=1, user_api=user_api):
@@ -131,7 +134,7 @@ def test_thread_limit_context(user_api):
                 assert module['n_thread'] == old_limits[module['prefix']]
 
     limits = get_threadpool_limits()
-    limits = {clib['prefix']: clib['n_thread'] for clib in limits}
+    limits = {dynlib['prefix']: dynlib['n_thread'] for dynlib in limits}
     assert limits == old_limits
 
 
@@ -140,7 +143,6 @@ def test_thread_limit_context(user_api):
 def test_openmp_limit_num_threads(n_threads):
     # checks that OpenMP effectively uses the number of threads requested by
     # the context manager
-
     from ._openmp_test_helper import check_openmp_n_threads
 
     old_num_threads = check_openmp_n_threads(100)
@@ -151,7 +153,6 @@ def test_openmp_limit_num_threads(n_threads):
 
 
 def test_shipped_openblas():
-
     libopenblas = [ctypes.CDLL(path) for path in libopenblas_paths]
 
     old_limits = [blas.openblas_get_num_threads() for blas in libopenblas]
@@ -167,7 +168,6 @@ def test_shipped_openblas():
 @pytest.mark.skipif(len(libopenblas_paths) < 2,
                     reason="need at least 2 shipped openblas library")
 def test_multiple_shipped_openblas():
-
     libopenblas = [ctypes.CDLL(path) for path in libopenblas_paths]
 
     old_limits = [blas.openblas_get_num_threads() for blas in libopenblas]

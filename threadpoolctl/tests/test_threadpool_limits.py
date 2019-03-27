@@ -3,7 +3,6 @@ import ctypes
 import pytest
 
 
-from loky import cpu_count
 from threadpoolctl import threadpool_limits
 from threadpoolctl import get_threadpool_limits
 from threadpoolctl._threadpool_limiters import _set_threadpool_limits
@@ -42,7 +41,7 @@ def test_threadpool_limits(openblas_present, mkl_present, prefix):
     threadpool_limits(limits={prefix: 3})
     new_limits = get_threadpool_limits()
     new_limits = {clib['prefix']: clib['n_thread'] for clib in new_limits}
-    assert new_limits[prefix] in (3, cpu_count(), cpu_count() // 2)
+    assert new_limits[prefix] in (3, old_limits[prefix])
 
     threadpool_limits(limits=old_limits)
     new_limits = get_threadpool_limits()
@@ -76,7 +75,7 @@ def test_set_threadpool_limits_apis(user_api):
         if should_skip_module(module):
             continue
         if module['user_api'] in api_modules:
-            assert module['n_thread'] in (3, cpu_count(), cpu_count() // 2)
+            assert module['n_thread'] in (3, old_limits[module['prefix']])
 
     threadpool_limits(limits=old_limits)
     new_limits = get_threadpool_limits()
@@ -141,8 +140,7 @@ def test_openmp_limit_num_threads(n_threads):
     old_num_threads = check_openmp_n_threads(100)
 
     with threadpool_limits(limits=n_threads):
-        assert check_openmp_n_threads(100) in (n_threads, cpu_count(),
-                                               cpu_count() // 2)
+        assert check_openmp_n_threads(100) in (n_threads, old_num_threads)
     assert check_openmp_n_threads(100) == old_num_threads
 
 

@@ -22,7 +22,7 @@ if "%PACKAGER%" == "conda" (%CONDA_INSTALL% numpy=1.15 pytest cython)
 if "%PACKAGER%" == "pip" (%PIP_INSTALL% numpy scipy pytest cython)
 
 @rem Install extra dependency
-pip install -q coverage
+pip install -q coverage pytest-cov
 
 @rem Install package
 pip install -e .

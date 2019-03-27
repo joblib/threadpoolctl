@@ -1,4 +1,4 @@
-set DEFAULT_PYTEST_ARGS=-vlx
+set DEFAULT_PYTEST_ARGS=-vlx --cov=threadpoolctl
 
 call activate %VIRTUALENV%
 

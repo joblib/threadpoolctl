@@ -11,9 +11,6 @@ jobs:
     TEST_DIR: '$(Agent.WorkFolder)/tmp_folder'
     VIRTUALENV: 'testvenv'
     JUNITXML: 'test-data.xml'
-    OMP_NUM_THREADS: '4'
-    OPENBLAS_NUM_THREADS: '4'
-    SKLEARN_SKIP_NETWORK_TESTS: '1'
   strategy:
     matrix:
       ${{ insert }}: ${{ parameters.matrix }}
@@ -23,27 +20,18 @@ jobs:
       displayName: Add conda to PATH
       condition: eq(variables['DISTRIB'], 'conda')
     - script: |
-        build_tools/azure/install.sh
+        build_tools/install.sh
       displayName: 'Install'
     - script: |
-        build_tools/azure/test_script.sh
+        build_tools/test_script.sh
       displayName: 'Test Library'
-    - script: |
-        build_tools/azure/test_docs.sh
-      displayName: 'Test Docs'
-    - script: |
-        build_tools/azure/test_pytest_soft_dependency.sh
-      displayName: 'Test Soft Dependency'
-      condition: and(eq(variables['CHECK_PYTEST_SOFT_DEPENDENCY'], 'true'), eq(variables['DISTRIB'], 'conda'))
     - task: PublishTestResults@2
       inputs:
-        testResultsFiles: '$(TEST_DIR)/$(JUNITXML)'
+        testResultsFiles: '$(JUNITXML)'
         testRunTitle: ${{ format('{0}-$(Agent.JobName)', parameters.name) }}
       displayName: 'Publish Test Results'
       condition: succeededOrFailed()
     - script: |
-        build_tools/azure/upload_codecov.sh
-      condition: and(succeeded(), eq(variables['COVERAGE'], 'true'), eq(variables['DISTRIB'], 'conda'))
-      displayName: 'Upload To Codecov'
-      env:
-        CODECOV_TOKEN: $(CODECOV_TOKEN)
+        bash continuous_integration\\upload_codecov.sh
+      displayName: 'Upload to codecov'
+      condition: succeeded()

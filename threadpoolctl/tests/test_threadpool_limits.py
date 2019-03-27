@@ -34,16 +34,19 @@ def test_threadpool_limits(openblas_present, mkl_present, prefix):
         else:
             pytest.skip("Need {} support".format(prefix))
 
-    new_limits = _set_threadpool_limits(limits={prefix: 1})
-    new_limits = {clib['prefix']: clib['n_thread'] for clib in new_limits}
-    assert new_limits[prefix] == 1
+    try:
+        new_limits = _set_threadpool_limits(limits={prefix: 1})
+        new_limits = {clib['prefix']: clib['n_thread'] for clib in new_limits}
+        assert new_limits[prefix] == 1
 
-    threadpool_limits(limits={prefix: 3})
-    new_limits = get_threadpool_limits()
-    new_limits = {clib['prefix']: clib['n_thread'] for clib in new_limits}
-    assert new_limits[prefix] in (3, old_limits[prefix])
+        threadpool_limits(limits={prefix: 3})
+        new_limits = get_threadpool_limits()
+        new_limits = {clib['prefix']: clib['n_thread'] for clib in new_limits}
+        assert new_limits[prefix] in (3, old_limits[prefix])
+    finally:
+        # Avoid having side effects in case of failures
+        threadpool_limits(limits=old_limits)
 
-    threadpool_limits(limits=old_limits)
     new_limits = get_threadpool_limits()
     new_limits = {clib['prefix']: clib['n_thread'] for clib in new_limits}
     assert new_limits[prefix] == old_limits[prefix]
@@ -62,22 +65,25 @@ def test_set_threadpool_limits_apis(user_api):
     old_limits = get_threadpool_limits()
     old_limits = {clib['prefix']: clib['n_thread'] for clib in old_limits}
 
-    new_limits = _set_threadpool_limits(limits=1, user_api=user_api)
-    for module in new_limits:
-        if should_skip_module(module):
-            continue
-        if module['user_api'] in api_modules:
-            assert module['n_thread'] == 1
+    try:
+        new_limits = _set_threadpool_limits(limits=1, user_api=user_api)
+        for module in new_limits:
+            if should_skip_module(module):
+                continue
+            if module['user_api'] in api_modules:
+                assert module['n_thread'] == 1
 
-    threadpool_limits(limits=3, user_api=user_api)
-    new_limits = get_threadpool_limits()
-    for module in new_limits:
-        if should_skip_module(module):
-            continue
-        if module['user_api'] in api_modules:
-            assert module['n_thread'] in (3, old_limits[module['prefix']])
+        threadpool_limits(limits=3, user_api=user_api)
+        new_limits = get_threadpool_limits()
+        for module in new_limits:
+            if should_skip_module(module):
+                continue
+            if module['user_api'] in api_modules:
+                assert module['n_thread'] in (3, old_limits[module['prefix']])
+    finally:
+        # Avoid having side effects on other tests in case of failure
+        threadpool_limits(limits=old_limits)
 
-    threadpool_limits(limits=old_limits)
     new_limits = get_threadpool_limits()
     for module in new_limits:
         assert module['n_thread'] == old_limits[module['prefix']]

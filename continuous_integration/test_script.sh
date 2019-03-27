@@ -2,14 +2,12 @@
 
 set -e
 
-if [[ "$DISTRIB" == "conda" ]]; then
+if [[ "$PACKAGER" == "conda" ]]; then
     conda activate $VIRTUALENV
-elif [[ "$DISTRIB" == "ubuntu" ]]; then
+elif [[ "$PACKAGER" == "ubuntu" ]]; then
     source $VIRTUALENV/bin/activate
 fi
 
-TEST_CMD="python -m pytest -vl --junitxml=$JUNITXML --cov=threadpoolctl"
-
 set -x
-$TEST_CMD
+pytest -vl --junitxml=$JUNITXML --cov=threadpoolctl
 set +x

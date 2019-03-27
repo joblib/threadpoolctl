@@ -1,4 +1,4 @@
-set DEFAULT_PYTEST_ARGS=-vlx --skip-high-memory
+set DEFAULT_PYTEST_ARGS=-vlx
 
 call activate %VIRTUALENV%
 

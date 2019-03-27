@@ -14,7 +14,6 @@ from .utils import _format_docstring
 
 
 if sys.platform == "darwin":
-
     # On OSX, we can get a runtime error due to multiple OpenMP libraries
     # loaded simultaneously. This can happen for instance when calling BLAS
     # inside a prange. Setting the following environment variable allows
@@ -188,30 +187,30 @@ def get_threadpool_limits():
         module['n_thread'] = module['get_num_threads']()
         # Remove the wrapper for the module and its function
         del module['set_num_threads'], module['get_num_threads']
-        del module['clib']
+        del module['dynlib']
         report_threadpool_size.append(module)
 
     return report_threadpool_size
 
 
-def get_version(clib, internal_api):
+def get_version(dynlib, internal_api):
     if internal_api == "mkl":
-        return _get_mkl_version(clib)
+        return _get_mkl_version(dynlib)
     elif internal_api == "openmp":
         # There is no way to get the version number programmatically in
         # OpenMP.
         return None
     elif internal_api == "openblas":
-        return _get_openblas_version(clib)
+        return _get_openblas_version(dynlib)
     else:
         raise NotImplementedError("Unsupported API {}".format(internal_api))
 
 
-def _get_mkl_version(mkl_clib):
+def _get_mkl_version(mkl_dynlib):
     """Return the MKL version
     """
     res = ctypes.create_string_buffer(200)
-    mkl_clib.mkl_get_version_string(res, 200)
+    mkl_dynlib.mkl_get_version_string(res, 200)
 
     version = res.value.decode('utf-8')
     group = re.search(r"Version ([^ ]+) ", version)
@@ -220,13 +219,13 @@ def _get_mkl_version(mkl_clib):
     return version.strip()
 
 
-def _get_openblas_version(openblas_clib):
+def _get_openblas_version(openblas_dynlib):
     """Return the OpenBLAS version
 
     None means OpenBLAS is not loaded or version < 0.3.4, since OpenBLAS
     did not expose its version before that.
     """
-    get_config = getattr(openblas_clib, "openblas_get_config")
+    get_config = getattr(openblas_dynlib, "openblas_get_config")
     get_config.restype = ctypes.c_char_p
     config = get_config().split()
     if config[0] == b"OpenBLAS":
@@ -244,13 +243,13 @@ def _load_modules(prefixes=None, user_api=None):
     if user_api is None:
         user_api = []
     if sys.platform == "darwin":
-        return _find_modules_with_clibs_dyld(
+        return _find_modules_with_dyld(
             prefixes=prefixes, user_api=user_api)
     elif sys.platform == "win32":
         return _find_modules_with_enum_process_module_ex(
             prefixes=prefixes, user_api=user_api)
     else:
-        return _find_modules_with_clibs_dl_iterate_phdr(
+        return _find_modules_with_dl_iterate_phdr(
             prefixes=prefixes, user_api=user_api)
 
 
@@ -272,16 +271,18 @@ def _match_module(module_info, prefix, prefixes, user_api):
 def _make_module_info(module_path, module_info, prefix):
     """Make a dict with the information from the module."""
     module_path = os.path.normpath(module_path)
-    clib = ctypes.CDLL(module_path)
+    dynlib = ctypes.CDLL(module_path)
     internal_api = module_info['internal_api']
-    set_func = getattr(clib, MAP_API_TO_FUNC[internal_api]['set_num_threads'],
+    set_func = getattr(dynlib,
+                       MAP_API_TO_FUNC[internal_api]['set_num_threads'],
                        lambda n_thread: None)
-    get_func = getattr(clib, MAP_API_TO_FUNC[internal_api]['get_num_threads'],
+    get_func = getattr(dynlib,
+                       MAP_API_TO_FUNC[internal_api]['get_num_threads'],
                        lambda: None)
     module_info = module_info.copy()
-    module_info.update(clib=clib, module_path=module_path, prefix=prefix,
+    module_info.update(dynlib=dynlib, module_path=module_path, prefix=prefix,
                        set_num_threads=set_func, get_num_threads=get_func,
-                       version=get_version(clib, internal_api))
+                       version=get_version(dynlib, internal_api))
     return module_info
 
 
@@ -293,7 +294,7 @@ def _get_module_info_from_path(module_path, prefixes, user_api, modules):
             modules.append(_make_module_info(module_path, info, prefix))
 
 
-def _find_modules_with_clibs_dl_iterate_phdr(prefixes, user_api):
+def _find_modules_with_dl_iterate_phdr(prefixes, user_api):
     """Loop through loaded libraries and return binders on supported ones
 
     This function is expected to work on POSIX system only.
@@ -303,7 +304,6 @@ def _find_modules_with_clibs_dl_iterate_phdr(prefixes, user_api):
     Copyright (c) 2017, Intel Corporation published under the BSD 3-Clause
     license
     """
-
     libc = _get_libc()
     if not hasattr(libc, "dl_iterate_phdr"):  # pragma: no cover
         return []
@@ -313,7 +313,6 @@ def _find_modules_with_clibs_dl_iterate_phdr(prefixes, user_api):
     # Callback function for `dl_iterate_phdr` which is called for every
     # module loaded in the current process until it returns 1.
     def match_module_callback(info, size, data):
-
         # Get the path of the current module
         module_path = info.contents.dlpi_name
         if module_path:
@@ -336,7 +335,7 @@ def _find_modules_with_clibs_dl_iterate_phdr(prefixes, user_api):
     return _modules
 
 
-def _find_modules_with_clibs_dyld(prefixes, user_api):
+def _find_modules_with_dyld(prefixes, user_api):
     """Loop through loaded libraries and return binders on supported ones
 
     This function is expected to work on OSX system only

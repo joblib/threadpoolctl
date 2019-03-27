@@ -5,7 +5,7 @@ from statistics import mean, stdev
 from threadpoolctl import get_threadpool_limits, threadpool_limits
 
 parser = ArgumentParser(description='Measure threadpool_limits call overhead.')
-parser.add_argument('--import', dest="packages", nargs='+',
+parser.add_argument('--import', dest="packages", default=[], nargs='+',
                     help='Python packages to import to load threadpool enabled'
                          ' libraries.')
 parser.add_argument("--n-calls", type=int, default=100,

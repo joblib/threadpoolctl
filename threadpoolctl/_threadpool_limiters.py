@@ -123,7 +123,12 @@ def _set_threadpool_limits(limits=None, user_api=None,
       - 'internal_api': internal API.s Possible values are {INTERNAL_APIS}.
       - 'module_path': path to the loaded module.
       - 'version': version of the library implemented (if available).
-      - 'n_thread': current thread limit.
+      - 'n_thread': current thread limit if return_original_limits is False or
+        the original limit if return_original_limits is True.
+      - 'set_num_threads': callable to set the maximum number of threads
+      - 'get_num_threads': callable to get the current number of threads
+      - 'dynlib': the instance of ctypes.CDLL use to access the dynamic
+        library.
     """
     if isinstance(limits, int) or limits is None:
         if user_api is None:
@@ -157,6 +162,7 @@ def _set_threadpool_limits(limits=None, user_api=None,
         n_thread = _get_limit(module['prefix'], module['user_api'], limits)
         if return_original_limits:
             module['n_thread'] = module['get_num_threads']()
+
         if n_thread is not None:
             set_func = module['set_num_threads']
             set_func(n_thread)

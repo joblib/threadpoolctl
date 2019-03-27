@@ -475,6 +475,8 @@ class threadpool_limits:
         if limits is not None:
             self.original_limits = _set_threadpool_limits(
                 limits=limits, user_api=user_api, return_original_limits=True)
+        else:
+            self.original_limits = None
 
     def __enter__(self):
         pass
@@ -483,6 +485,6 @@ class threadpool_limits:
         self.unregister()
 
     def unregister(self):
-        if hasattr(self, "original_limits"):
+        if self.original_limits is not None:
             for module in self.original_limits:
                 module['set_num_threads'](module['n_thread'])

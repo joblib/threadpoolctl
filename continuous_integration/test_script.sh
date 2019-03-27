@@ -3,38 +3,13 @@
 set -e
 
 if [[ "$DISTRIB" == "conda" ]]; then
-    source activate $VIRTUALENV
+    conda activate $VIRTUALENV
 elif [[ "$DISTRIB" == "ubuntu" ]]; then
     source $VIRTUALENV/bin/activate
 fi
 
-python --version
-python -c "import numpy; print('numpy %s' % numpy.__version__)"
-python -c "import scipy; print('scipy %s' % scipy.__version__)"
-python -c "\
-try:
-    import pandas
-    print('pandas %s' % pandas.__version__)
-except ImportError:
-    print('pandas not installed')
-"
-python -c "import multiprocessing as mp; print('%d CPUs' % mp.cpu_count())"
-pip list
-
-TEST_CMD="python -m pytest --showlocals --durations=20 --junitxml=$JUNITXML --pyargs"
-
-if [[ "$COVERAGE" == "true" ]]; then
-    TEST_CMD="$TEST_CMD --cov sklearn"
-fi
-
-if [[ -n "$CHECK_WARNINGS" ]]; then
-    TEST_CMD="$TEST_CMD -Werror::DeprecationWarning -Werror::FutureWarning"
-fi
-
-mkdir -p $TEST_DIR
-cp setup.cfg $TEST_DIR
-cd $TEST_DIR
+TEST_CMD="python -m pytest -vl --junitxml=$JUNITXML --cov=threadpoolctl"
 
 set -x
-$TEST_CMD sklearn
+$TEST_CMD
 set +x

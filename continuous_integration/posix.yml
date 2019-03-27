@@ -18,7 +18,7 @@ jobs:
   steps:
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
-      condition: eq(variables['DISTRIB'], 'conda')
+      condition: eq(variables['PACKAGER'], 'conda')
     - script: |
         build_tools/install.sh
       displayName: 'Install'

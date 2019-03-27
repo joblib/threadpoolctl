@@ -3,7 +3,7 @@
 set -e
 
 if [[ "$PACKAGER" == "conda" ]]; then
-    conda activate $VIRTUALENV
+    source activate $VIRTUALENV
 elif [[ "$PACKAGER" == "ubuntu" ]]; then
     source $VIRTUALENV/bin/activate
 fi

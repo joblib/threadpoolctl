@@ -21,7 +21,7 @@ fi
 make_conda() {
     TO_INSTALL="$@"
     conda create -n $VIRTUALENV -q --yes $TO_INSTALL
-    conda activate $VIRTUALENV
+    source activate $VIRTUALENV
 }
 
 if [[ "$PACKAGER" == "conda" ]]; then
@@ -31,7 +31,7 @@ if [[ "$PACKAGER" == "conda" ]]; then
 	make_conda $TO_INSTALL
 
 elif [[ "$PACKAGER" == "ubuntu" ]]; then
-    sudo apt-get install python3-scipy libatlas3-base libatlas-base-dev libatlas-dev python3-virtualenv
+    sudo apt-get install python3-scipy libatlas3-base libatlas-base-dev libatlas-dev libopenblas-base python3-virtualenv
     python3 -m virtualenv --system-site-packages --python=python3 $VIRTUALENV
     source $VIRTUALENV/bin/activate
     python -m pip install pytest pytest-cov cython

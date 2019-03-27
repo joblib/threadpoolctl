@@ -1,4 +1,4 @@
-# Thread-pool Controls
+# Thread-pool Controls [![Build Status](https://dev.azure.com/karementmoi/loky/_apis/build/status/joblib.threadpoolctl?branchName=master)](https://dev.azure.com/karementmoi/loky/_build/latest?definitionId=2&branchName=master)
 
 Python helpers to limit the number of threads used in threadpool-backed parallelism for C-libraries.
 

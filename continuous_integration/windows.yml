@@ -11,6 +11,7 @@ jobs:
   variables:
     VIRTUALENV: 'testvenv'
     JUNITXML: 'test-data.xml'
+    CODECOV_TOKEN: 'cee0e505-c12e-4139-aa43-621fb16a2347'
   strategy:
     matrix:
       ${{ insert }}: ${{ parameters.matrix }}

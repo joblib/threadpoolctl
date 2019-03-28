@@ -1,4 +1,12 @@
 # Adapted from https://github.com/pandas-dev/pandas/blob/master/azure-pipelines.yml
+
+# Global variables for all jobs
+variables:
+  VIRTUALENV: 'testvenv'
+  JUNITXML: 'test-data.xml'
+  CODECOV_TOKEN: 'cee0e505-c12e-4139-aa43-621fb16a2347'
+
+
 jobs:
 
 - template: continuous_integration/windows.yml
@@ -34,6 +42,11 @@ jobs:
       # Linux environment to test the latest available dependencies and MKL.
       pylatest_conda:
         PACKAGER: 'conda'
+        VERSION_PYTHON: '*'
+      # Linux environment with no numpy.
+      pylatest_conda_nonumpy:
+        PACKAGER: 'conda'
+        NO_NUMPY: 'true'
         VERSION_PYTHON: '*'
 
 - template: continuous_integration/posix.yml

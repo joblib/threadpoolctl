@@ -19,17 +19,11 @@ try:
     import numpy as np
     np.dot(np.ones(1000), np.ones(1000))
 
-    def with_numpy(func):
-        """A decorator to skip tests requiring numpy."""
-        return func
-
     libopenblas_patterns.append(os.path.join(np.__path__[0], ".libs",
                                              "libopenblas*"))
 
 except ImportError:
-    def with_numpy(func):
-        """A decorator to skip tests requiring numpy."""
-        return skip_func('Test require numpy')
+    pass
 
 
 try:
@@ -47,20 +41,15 @@ libopenblas_paths = set(path for pattern in libopenblas_patterns
 
 # A decorator to run tests only when check_openmp_n_threads is available
 try:
-    from ._openmp_test_helper import check_openmp_n_threads
+    from ._openmp_test_helper import check_openmp_n_threads  # noqa: F401
 
     def with_check_openmp_n_threads(func):
         """A decorator to skip tests if check_openmp_n_threads is not compiled.
         """
         return func
 
-    def _run_check_openmp_n_threads(*args):
-        return check_openmp_n_threads(*args)
-
 except ImportError:
     def with_check_openmp_n_threads(func):
         """A decorator to skip tests if check_openmp_n_threads is not compiled.
         """
         return skip_func('Test requires check_openmp_n_threads to be compiled')
-
-    _run_check_openmp_n_threads = None

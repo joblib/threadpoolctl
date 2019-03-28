@@ -1,3 +1,10 @@
+# Python cache files
 *.pyc
+__pycache__
 
-threadpoolctl.egg-info/
+# Python install files
+*.egg-info/
+
+# Coverage data
+.coverage
+/htmlcov

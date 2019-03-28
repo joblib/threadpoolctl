@@ -26,7 +26,7 @@ make_conda() {
 
 if [[ "$PACKAGER" == "conda" ]]; then
     TO_INSTALL="python=$VERSION_PYTHON pip pytest pytest-cov cython"
-    if [[ "$NO_NUMPY" != "true" ]] then
+    if [[ "$NO_NUMPY" != "true" ]]; then
          TO_INSTALL="$TO_INSTALL numpy"
     fi
 

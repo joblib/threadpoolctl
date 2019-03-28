@@ -12,6 +12,9 @@ from ctypes.util import find_library
 
 from .utils import _format_docstring
 
+# Cache for libc under POSIX and a few system libraries under Windows
+_system_libraries = {}
+
 
 if sys.platform == "darwin":
     # On OSX, we can get a runtime error due to multiple OpenMP libraries
@@ -434,15 +437,23 @@ def _find_modules_with_enum_process_module_ex(prefixes, user_api):
 
 def _get_libc():
     """Load the lib-C for unix systems."""
-    libc_name = find_library("c")
-    if libc_name is None:  # pragma: no cover
-        return None
-    return ctypes.CDLL(libc_name)
+    libc = _system_libraries.get("libc")
+    if libc is None:
+        libc_name = find_library("c")
+        if libc_name is None:  # pragma: no cover
+            return None
+        libc = ctypes.CDLL(libc_name)
+        _system_libraries["libc"] = libc
+    return libc
 
 
 def _get_windll(dll_name):
     """Load a windows DLL"""
-    return ctypes.WinDLL("{}.dll".format(dll_name))
+    dll = _system_libraries.get(dll_name)
+    if dll is None:
+        dll = ctypes.WinDLL("{}.dll".format(dll_name))
+        _system_libraries[dll_name] = dll
+    return dll
 
 
 class threadpool_limits:

@@ -9,6 +9,5 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
 fi
 
 set -x
-pytest -vlx --junitxml=$JUNITXML \
-    --cov=threadpoolctl --cov-config=$COVERAGE_DATA
+pytest -vlx --junitxml=$JUNITXML --cov=threadpoolctl
 set +x

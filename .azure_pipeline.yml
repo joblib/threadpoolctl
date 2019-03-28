@@ -43,6 +43,11 @@ jobs:
       pylatest_conda:
         PACKAGER: 'conda'
         VERSION_PYTHON: '*'
+      # Linux environment with no numpy.
+      pylatest_conda:
+        PACKAGER: 'conda'
+        NO_NUMPY: 'true'
+        VERSION_PYTHON: '*'
 
 - template: continuous_integration/posix.yml
   parameters:

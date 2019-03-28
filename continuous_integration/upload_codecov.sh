@@ -2,6 +2,12 @@
 
 set -e
 
-python -m pip install --user codecov
+if [[ "$PACKAGER" == "conda" ]]; then
+    source activate $VIRTUALENV
+elif [[ "$PACKAGER" == "ubuntu" ]]; then
+    source $VIRTUALENV/bin/activate
+fi
 
-python -m codecov || echo "codecov upload failed"
+pip install codecov
+
+codecov || echo "codecov upload failed"

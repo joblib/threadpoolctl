@@ -1,4 +1,13 @@
 # Adapted from https://github.com/pandas-dev/pandas/blob/master/azure-pipelines.yml
+
+# Global variables for all jobs
+variables:
+  VIRTUALENV: 'testvenv'
+  JUNITXML: 'test-data.xml'
+  COVERAGE_DATA: '.coverage'
+  CODECOV_TOKEN: 'cee0e505-c12e-4139-aa43-621fb16a2347'
+
+
 jobs:
 
 - template: continuous_integration/windows.yml

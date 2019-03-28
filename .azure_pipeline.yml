@@ -44,7 +44,7 @@ jobs:
         PACKAGER: 'conda'
         VERSION_PYTHON: '*'
       # Linux environment with no numpy.
-      pylatest_conda:
+      pylatest_conda_nonumpy:
         PACKAGER: 'conda'
         NO_NUMPY: 'true'
         VERSION_PYTHON: '*'

@@ -6,10 +6,10 @@ maximal number of threads they can use.
 """
 # License: BSD 3-Clause
 
-# The code to introspect dynamically loaded libraries on POSIX system is
+# The code to introspect dynamically loaded libraries on POSIX systems is
 # adapted from code by Intel developper @anton-malakhov available at
-# https://github.com/IntelPython/smp Copyright (c) 2017, Intel Corporation
-# also published under the BSD 3-Clause license
+# https://github.com/IntelPython/smp (Copyright (c) 2017, Intel Corporation)
+# and also published under the BSD 3-Clause license
 import os
 import re
 import sys
@@ -146,8 +146,8 @@ def _set_threadpool_limits(limits=None, user_api=None,
       - 'internal_api': internal API.s Possible values are {INTERNAL_APIS}.
       - 'module_path': path to the loaded module.
       - 'version': version of the library implemented (if available).
-      - 'n_thread': current thread limit if return_original_limits is False or
-        the original limit if return_original_limits is True.
+      - 'num_threads': current thread limit if return_original_limits is False
+        or the original limit if return_original_limits is True.
       - 'set_num_threads': callable to set the maximum number of threads
       - 'get_num_threads': callable to get the current number of threads
       - 'dynlib': the instance of ctypes.CDLL use to access the dynamic
@@ -167,7 +167,7 @@ def _set_threadpool_limits(limits=None, user_api=None,
         if isinstance(limits, list):
             # This should be a list of module, for compatibility with
             # the result from get_threadpool_limits.
-            limits = {module['prefix']: module['n_thread']
+            limits = {module['prefix']: module['num_threads']
                       for module in limits}
 
         if not isinstance(limits, dict):
@@ -182,16 +182,16 @@ def _set_threadpool_limits(limits=None, user_api=None,
     report_threadpool_size = []
     modules = _load_modules(prefixes=prefixes, user_api=user_api)
     for module in modules:
-        n_thread = _get_limit(module['prefix'], module['user_api'], limits)
+        num_threads = _get_limit(module['prefix'], module['user_api'], limits)
         if return_original_limits:
-            module['n_thread'] = module['get_num_threads']()
+            module['num_threads'] = module['get_num_threads']()
 
-        if n_thread is not None:
+        if num_threads is not None:
             set_func = module['set_num_threads']
-            set_func(n_thread)
+            set_func(num_threads)
 
         if not return_original_limits:
-            module['n_thread'] = module['get_num_threads']()
+            module['num_threads'] = module['get_num_threads']()
         report_threadpool_size.append(module)
 
     return report_threadpool_size
@@ -210,12 +210,12 @@ def get_threadpool_limits():
       - 'internal_api': internal API. Possible values are {INTERNAL_APIS}.
       - 'module_path': path to the loaded module.
       - 'version': version of the library implemented (if available).
-      - 'n_thread': current thread limit.
+      - 'num_threads': current thread limit.
     """
     report_threadpool_size = []
     modules = _load_modules(user_api=_ALL_USER_APIS)
     for module in modules:
-        module['n_thread'] = module['get_num_threads']()
+        module['num_threads'] = module['get_num_threads']()
         # Remove the wrapper for the module and its function
         del module['set_num_threads'], module['get_num_threads']
         del module['dynlib']
@@ -304,7 +304,7 @@ def _make_module_info(module_path, module_info, prefix):
     internal_api = module_info['internal_api']
     set_func = getattr(dynlib,
                        _MAP_API_TO_FUNC[internal_api]['set_num_threads'],
-                       lambda n_thread: None)
+                       lambda num_threads: None)
     get_func = getattr(dynlib,
                        _MAP_API_TO_FUNC[internal_api]['get_num_threads'],
                        lambda: None)
@@ -518,4 +518,4 @@ class threadpool_limits:
     def unregister(self):
         if self.original_limits is not None:
             for module in self.original_limits:
-                module['set_num_threads'](module['n_thread'])
+                module['set_num_threads'](module['num_threads'])

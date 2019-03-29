@@ -1,4 +1,0 @@
-include *.md *.py *.cfg *.ini
-include LICENSE
-recursive-include tests *.py *.pyx
-global-exclude *~ *.swp

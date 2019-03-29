@@ -40,12 +40,11 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
 fi
 
 
-python -m pip install coverage
-
 bash ./continuous_integration/build_test_ext.sh
 
 python --version
 python -c "import numpy; print('numpy %s' % numpy.__version__)" || echo "no numpy"
 python -c "import scipy; print('scipy %s' % scipy.__version__)" || echo "no scipy"
 
-pip install -e .
+python -m pip install -r dev-requirements.txt
+python -m flit install --symlink

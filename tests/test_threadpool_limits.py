@@ -5,8 +5,8 @@ import pytest
 
 from threadpoolctl import threadpool_limits
 from threadpoolctl import get_threadpool_limits
-from threadpoolctl._threadpool_limiters import _set_threadpool_limits
-from threadpoolctl._threadpool_limiters import ALL_PREFIXES, ALL_USER_APIS
+from threadpoolctl import _set_threadpool_limits
+from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 
 from .utils import with_check_openmp_n_threads, libopenblas_paths
 
@@ -17,13 +17,14 @@ def should_skip_module(module):
     return module['internal_api'] == "openblas" and module['version'] is None
 
 
-@pytest.mark.parametrize("prefix", ALL_PREFIXES)
+@pytest.mark.parametrize("prefix", _ALL_PREFIXES)
 def test_threadpool_limits(openblas_present, mkl_present, prefix):
     old_limits = get_threadpool_limits()
 
     prefix_found = len([1 for module in old_limits
                         if prefix == module['prefix']])
-    old_limits = {dynlib['prefix']: dynlib['n_thread'] for dynlib in old_limits}
+    old_limits = {dynlib['prefix']: dynlib['n_thread']
+                  for dynlib in old_limits}
 
     if not prefix_found:
         have_mkl = len({'mkl_rt', 'libmkl_rt'}.intersection(old_limits)) > 0
@@ -95,7 +96,7 @@ def test_set_threadpool_limits_apis(user_api):
 def test_set_threadpool_limits_bad_input():
     # Check that appropriate errors are raised for invalid arguments
     match = re.escape("user_api must be either in {} or None."
-                      .format(ALL_USER_APIS))
+                      .format(_ALL_USER_APIS))
     with pytest.raises(ValueError, match=match):
         threadpool_limits(limits=1, user_api="wrong")
 

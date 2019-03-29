@@ -2,9 +2,14 @@
 *.pyc
 __pycache__
 
-# Python install files
+# Python install files, build and release artifacts
 *.egg-info/
+build
+dist
 
 # Coverage data
 .coverage
 /htmlcov
+
+# Developer tools
+.vscode

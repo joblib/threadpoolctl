@@ -1,0 +1,9 @@
+[build-system]
+requires = ["flit"]
+build-backend = "flit.buildapi"
+
+[tool.flit.metadata]
+module = "threadpoolctl"
+author = "Thomas Moreau"
+author-email = "thomas.moreau.2010@gmail.com"
+home-page = "https://github.com/joblib/threadpoolctl"

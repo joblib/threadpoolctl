@@ -7,8 +7,17 @@ Python helpers to limit the number of threads used in threadpool-backed parallel
 
 # Installation
 
+To install the last published version from PyPI:
+
 ```
 pip install threadpoolctl
+```
+
+or to install from the source repository in developer mode:
+
+```
+pip install flit
+flit install --symlink
 ```
 
 # Usage
@@ -22,4 +31,22 @@ with threadpool_limits(limits=1, user_api='blas'):
     # will be limited to use only one thread. They can thus be used jointly
     # with thread-parallelism or openmp calls.
     ...
+```
+
+# Maintainers
+
+To make a release:
+
+```
+pip install flit
+flit build
+```
+
+Check the contents of `dist/`.
+
+If everything is fine, make a commit for the release, tag it, push the
+tag to github and then:
+
+```
+flit publish
 ```

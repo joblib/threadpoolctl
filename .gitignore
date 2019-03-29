@@ -1,6 +1,9 @@
-# Python cache files
+# Python and Cython generated files
 *.pyc
 __pycache__
+*.so
+*.dylib
+*.c
 
 # Python install files, build and release artifacts
 *.egg-info/

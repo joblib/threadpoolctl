@@ -41,15 +41,15 @@ libopenblas_paths = set(path for pattern in libopenblas_patterns
 
 # A decorator to run tests only when check_openmp_n_threads is available
 try:
-    from ._openmp_test_helper import check_openmp_n_threads  # noqa: F401
+    from ._openmp_test_helper import check_openmp_num_threads   # noqa: F401
 
-    def with_check_openmp_n_threads(func):
+    def with_check_openmp_num_threads(func):
         """A decorator to skip tests if check_openmp_n_threads is not compiled.
         """
         return func
 
 except ImportError:
-    def with_check_openmp_n_threads(func):
+    def with_check_openmp_num_threads(func):
         """A decorator to skip tests if check_openmp_n_threads is not compiled.
         """
         return skip_func('Test requires check_openmp_n_threads to be compiled')

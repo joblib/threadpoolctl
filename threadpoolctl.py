@@ -1,16 +1,23 @@
+"""threadpoolctl
 
-#############################################################################
-# The following provides utilities to load C-libraries that relies on thread
-# pools and limit the maximal number of thread that can be used.
-#
-#
+This module provides utilities to introspect native libraries that relies on
+thread pools (notably BLAS and OpenMP implementations) and dynamically set the
+maximal number of threads they can use.
+"""
+# License: BSD 3-Clause
+
+# The code to introspect dynamically loaded libraries on POSIX systems is
+# adapted from code by Intel developper @anton-malakhov available at
+# https://github.com/IntelPython/smp (Copyright (c) 2017, Intel Corporation)
+# and also published under the BSD 3-Clause license
 import os
 import re
 import sys
 import ctypes
 from ctypes.util import find_library
 
-from .utils import _format_docstring
+__version__ = '1.0.0.dev0'
+__all__ = ["threadpool_limits", "get_threadpool_limits"]
 
 # Cache for libc under POSIX and a few system libraries under Windows
 _system_libraries = {}
@@ -31,23 +38,25 @@ if sys.platform == "darwin":
 
 # Structure to cast the info on dynamically loaded library. See
 # https://linux.die.net/man/3/dl_iterate_phdr for more details.
-UINT_SYSTEM = ctypes.c_uint64 if sys.maxsize > 2**32 else ctypes.c_uint32
-UINT_HALF_SYSTEM = ctypes.c_uint32 if sys.maxsize > 2**32 else ctypes.c_uint16
+
+_SYSTEM_UINT = ctypes.c_uint64 if sys.maxsize > 2**32 else ctypes.c_uint32
+_SYSTEM_UINT_HALF = ctypes.c_uint32 if sys.maxsize > 2**32 else ctypes.c_uint16
 
 
-class dl_phdr_info(ctypes.Structure):
+class _dl_phdr_info(ctypes.Structure):
     _fields_ = [
-        ("dlpi_addr",  UINT_SYSTEM),       # Base address of object
+        ("dlpi_addr",  _SYSTEM_UINT),       # Base address of object
         ("dlpi_name",  ctypes.c_char_p),   # path to the library
         ("dlpi_phdr",  ctypes.c_void_p),   # pointer on dlpi_headers
-        ("dlpi_phnum",  UINT_HALF_SYSTEM)  # number of element in dlpi_phdr
+        ("dlpi_phnum",  _SYSTEM_UINT_HALF)  # number of element in dlpi_phdr
     ]
 
 
 # List of the supported implementations. The items hold the prefix of loaded
 # shared objects, the name of the internal_api to call, matching the
 # MAP_API_TO_FUNC keys and the name of the user_api, in {"blas", "openmp"}.
-SUPPORTED_IMPLEMENTATIONS = [
+
+_SUPPORTED_IMPLEMENTATIONS = [
     {
         "user_api": "openmp",
         "internal_api": "openmp",
@@ -66,7 +75,8 @@ SUPPORTED_IMPLEMENTATIONS = [
 ]
 
 # map a internal_api (openmp, openblas, mkl) to set and get functions
-MAP_API_TO_FUNC = {
+
+_MAP_API_TO_FUNC = {
     "openmp": {
         "set_num_threads": "omp_set_num_threads",
         "get_num_threads": "omp_get_max_threads"},
@@ -79,10 +89,19 @@ MAP_API_TO_FUNC = {
 }
 
 # Helpers for the doc and test names
-ALL_USER_APIS = set(impl['user_api'] for impl in SUPPORTED_IMPLEMENTATIONS)
-ALL_PREFIXES = [prefix for impl in SUPPORTED_IMPLEMENTATIONS
-                for prefix in impl['filename_prefixes']]
-ALL_INTERNAL_APIS = list(MAP_API_TO_FUNC.keys())
+
+_ALL_USER_APIS = set(impl['user_api'] for impl in _SUPPORTED_IMPLEMENTATIONS)
+_ALL_PREFIXES = [prefix for impl in _SUPPORTED_IMPLEMENTATIONS
+                 for prefix in impl['filename_prefixes']]
+_ALL_INTERNAL_APIS = list(_MAP_API_TO_FUNC.keys())
+
+
+def _format_docstring(*args, **kwargs):
+    def decorator(o):
+        o.__doc__ = o.__doc__.format(*args, **kwargs)
+        return o
+
+    return decorator
 
 
 def _get_limit(prefix, user_api, limits):
@@ -93,7 +112,8 @@ def _get_limit(prefix, user_api, limits):
     return None
 
 
-@_format_docstring(ALL_PREFIXES=ALL_PREFIXES, INTERNAL_APIS=ALL_INTERNAL_APIS)
+@_format_docstring(ALL_PREFIXES=_ALL_PREFIXES,
+                   INTERNAL_APIS=_ALL_INTERNAL_APIS)
 def _set_threadpool_limits(limits=None, user_api=None,
                            return_original_limits=False):
     """Limit the maximal number of threads for threadpools in supported libs
@@ -126,8 +146,8 @@ def _set_threadpool_limits(limits=None, user_api=None,
       - 'internal_api': internal API.s Possible values are {INTERNAL_APIS}.
       - 'module_path': path to the loaded module.
       - 'version': version of the library implemented (if available).
-      - 'n_thread': current thread limit if return_original_limits is False or
-        the original limit if return_original_limits is True.
+      - 'num_threads': current thread limit if return_original_limits is False
+        or the original limit if return_original_limits is True.
       - 'set_num_threads': callable to set the maximum number of threads
       - 'get_num_threads': callable to get the current number of threads
       - 'dynlib': the instance of ctypes.CDLL use to access the dynamic
@@ -135,19 +155,19 @@ def _set_threadpool_limits(limits=None, user_api=None,
     """
     if isinstance(limits, int) or limits is None:
         if user_api is None:
-            user_api = ALL_USER_APIS
-        elif user_api in ALL_USER_APIS:
+            user_api = _ALL_USER_APIS
+        elif user_api in _ALL_USER_APIS:
             user_api = (user_api,)
         else:
             raise ValueError("user_api must be either in {} or None. Got {} "
-                             "instead.".format(ALL_USER_APIS, user_api))
+                             "instead.".format(_ALL_USER_APIS, user_api))
         limits = {api: limits for api in user_api}
         prefixes = []
     else:
         if isinstance(limits, list):
             # This should be a list of module, for compatibility with
             # the result from get_threadpool_limits.
-            limits = {module['prefix']: module['n_thread']
+            limits = {module['prefix']: module['num_threads']
                       for module in limits}
 
         if not isinstance(limits, dict):
@@ -156,28 +176,29 @@ def _set_threadpool_limits(limits=None, user_api=None,
 
         # With a dictionary, can set both specific limit for given modules
         # and global limit for user_api. Fetch each separately.
-        prefixes = [module for module in limits if module in ALL_PREFIXES]
-        user_api = [module for module in limits if module in ALL_USER_APIS]
+        prefixes = [module for module in limits if module in _ALL_PREFIXES]
+        user_api = [module for module in limits if module in _ALL_USER_APIS]
 
     report_threadpool_size = []
     modules = _load_modules(prefixes=prefixes, user_api=user_api)
     for module in modules:
-        n_thread = _get_limit(module['prefix'], module['user_api'], limits)
+        num_threads = _get_limit(module['prefix'], module['user_api'], limits)
         if return_original_limits:
-            module['n_thread'] = module['get_num_threads']()
+            module['num_threads'] = module['get_num_threads']()
 
-        if n_thread is not None:
+        if num_threads is not None:
             set_func = module['set_num_threads']
-            set_func(n_thread)
+            set_func(num_threads)
 
         if not return_original_limits:
-            module['n_thread'] = module['get_num_threads']()
+            module['num_threads'] = module['get_num_threads']()
         report_threadpool_size.append(module)
 
     return report_threadpool_size
 
 
-@_format_docstring(ALL_PREFIXES=ALL_PREFIXES, INTERNAL_APIS=ALL_INTERNAL_APIS)
+@_format_docstring(ALL_PREFIXES=_ALL_PREFIXES,
+                   INTERNAL_APIS=_ALL_INTERNAL_APIS)
 def get_threadpool_limits():
     """Return the maximal number of threads for threadpools in supported C-lib.
 
@@ -189,12 +210,12 @@ def get_threadpool_limits():
       - 'internal_api': internal API. Possible values are {INTERNAL_APIS}.
       - 'module_path': path to the loaded module.
       - 'version': version of the library implemented (if available).
-      - 'n_thread': current thread limit.
+      - 'num_threads': current thread limit.
     """
     report_threadpool_size = []
-    modules = _load_modules(user_api=ALL_USER_APIS)
+    modules = _load_modules(user_api=_ALL_USER_APIS)
     for module in modules:
-        module['n_thread'] = module['get_num_threads']()
+        module['num_threads'] = module['get_num_threads']()
         # Remove the wrapper for the module and its function
         del module['set_num_threads'], module['get_num_threads']
         del module['dynlib']
@@ -203,7 +224,7 @@ def get_threadpool_limits():
     return report_threadpool_size
 
 
-def get_version(dynlib, internal_api):
+def _get_version(dynlib, internal_api):
     if internal_api == "mkl":
         return _get_mkl_version(dynlib)
     elif internal_api == "openmp":
@@ -242,7 +263,6 @@ def _get_openblas_version(openblas_dynlib):
     return None
 
 
-#################################################################
 # Loading utilities for dynamically linked shared objects
 
 def _load_modules(prefixes=None, user_api=None):
@@ -283,21 +303,21 @@ def _make_module_info(module_path, module_info, prefix):
     dynlib = ctypes.CDLL(module_path)
     internal_api = module_info['internal_api']
     set_func = getattr(dynlib,
-                       MAP_API_TO_FUNC[internal_api]['set_num_threads'],
-                       lambda n_thread: None)
+                       _MAP_API_TO_FUNC[internal_api]['set_num_threads'],
+                       lambda num_threads: None)
     get_func = getattr(dynlib,
-                       MAP_API_TO_FUNC[internal_api]['get_num_threads'],
+                       _MAP_API_TO_FUNC[internal_api]['get_num_threads'],
                        lambda: None)
     module_info = module_info.copy()
     module_info.update(dynlib=dynlib, module_path=module_path, prefix=prefix,
                        set_num_threads=set_func, get_num_threads=get_func,
-                       version=get_version(dynlib, internal_api))
+                       version=_get_version(dynlib, internal_api))
     return module_info
 
 
 def _get_module_info_from_path(module_path, prefixes, user_api, modules):
     module_name = os.path.basename(module_path).lower()
-    for info in SUPPORTED_IMPLEMENTATIONS:
+    for info in _SUPPORTED_IMPLEMENTATIONS:
         prefix = _check_prefix(module_name, info['filename_prefixes'])
         if _match_module(info, prefix, prefixes, user_api):
             modules.append(_make_module_info(module_path, info, prefix))
@@ -335,10 +355,10 @@ def _find_modules_with_dl_iterate_phdr(prefixes, user_api):
 
     c_func_signature = ctypes.CFUNCTYPE(
         ctypes.c_int,  # Return type
-        ctypes.POINTER(dl_phdr_info), ctypes.c_size_t, ctypes.c_char_p)
+        ctypes.POINTER(_dl_phdr_info), ctypes.c_size_t, ctypes.c_char_p)
     c_match_module_callback = c_func_signature(match_module_callback)
 
-    data = ctypes.c_char_p(''.encode('utf-8'))
+    data = ctypes.c_char_p(b'')
     libc.dl_iterate_phdr(c_match_module_callback, data)
 
     return _modules
@@ -498,4 +518,4 @@ class threadpool_limits:
     def unregister(self):
         if self.original_limits is not None:
             for module in self.original_limits:
-                module['set_num_threads'](module['n_thread'])
+                module['set_num_threads'](module['num_threads'])

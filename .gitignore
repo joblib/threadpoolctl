@@ -1,10 +1,18 @@
-# Python cache files
+# Python and Cython generated files
 *.pyc
 __pycache__
+*.so
+*.dylib
+*.c
 
-# Python install files
+# Python install files, build and release artifacts
 *.egg-info/
+build
+dist
 
 # Coverage data
 .coverage
 /htmlcov
+
+# Developer tools
+.vscode

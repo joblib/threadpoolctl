@@ -4,9 +4,12 @@ from cython.parallel import prange
 from libc.stdlib cimport malloc, free
 
 
-def check_openmp_n_threads(int n):
-    """Run a short parallel section, and return the number of threads that
-    where effectively used by openmp."""
+def check_openmp_num_threads(int n):
+    """Run a short parallel section with OpenMP
+
+    Return the number of threads that where effectively used by the
+    OpenMP runtime.
+    """
     cdef long n_sum = 0
     cdef int i, num_threads
 

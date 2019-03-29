@@ -11,7 +11,7 @@ packages = find_packages(
 # Function to parse __version__ in `threadpoolctl`
 def find_version():
     here = os.path.abspath(os.path.dirname(__file__))
-    with open(os.path.join(here, 'threadpoolctl', '__init__.py'), 'r') as fp:
+    with open(os.path.join(here, 'threadpoolctl.py'), 'r') as fp:
         version_file = fp.read()
     version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
                               version_file, re.M)
@@ -54,14 +54,15 @@ cmdclass = {'clean': CleanCommand}
 setup(
     name='threadpoolctl',
     version=find_version(),
-    description=("Python helpers to limit the number of thread used in "
-                 "thread-pool backed parallelism for C-libraries"),
+    description=("Python helpers to limit the number of threads used in "
+                 "native libraries with thread-pools."),
     long_description=open('README.md', 'rb').read().decode('utf-8'),
     long_description_content_type='text/markdown',
     url='https://github.com/joblib/threadpoolctl/',
     author='Thomas Moreau',
     author_email='thomas.moreau.2010@gmail.com',
     packages=packages,
+    py_modules=["threadpoolctl"],
     zip_safe=False,
     license='BSD',
     classifiers=[

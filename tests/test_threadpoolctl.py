@@ -47,8 +47,8 @@ def test_threadpool_limits_by_prefix(openblas_present, mkl_present, prefix):
                 continue
             num_threads, filepath = module["num_threads"], module["filepath"]
             if module["prefix"] == prefix:
-                expected_num_threads = min(3, original_num_threads[filepath])
-                assert num_threads == expected_num_threads
+                expected_num_threads = (3, original_num_threads[filepath])
+                assert num_threads in expected_num_threads
             else:
                 assert num_threads == original_num_threads[filepath]
 
@@ -84,8 +84,8 @@ def test_set_threadpool_limits_by_api(user_api):
                 continue
             num_threads, filepath = module["num_threads"], module["filepath"]
             if module["user_api"] in user_apis:
-                expected_num_threads = min(3, original_num_threads[filepath])
-                assert num_threads == expected_num_threads
+                expected_num_threads = (3, original_num_threads[filepath])
+                assert num_threads in expected_num_threads
             else:
                 assert num_threads == original_num_threads[filepath]
 

@@ -1,4 +1,5 @@
 flit
 coverage
 pytest
+pytest-cov
 cython

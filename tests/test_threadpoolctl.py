@@ -101,6 +101,26 @@ def test_set_threadpool_limits_by_api(user_api):
     assert threadpool_info() == original_infos
 
 
+def test_threadpool_limits_function_with_side_effect():
+    # Check that threadpool_limits can be used as a function with
+    # side effects instead of a context manager.
+    original_infos = threadpool_info()
+
+    threadpool_limits(limits=1)
+    try:
+        for module in threadpool_info():
+            if should_skip_module(module):
+                continue
+            assert module["num_threads"] == 1
+    finally:
+        # Restore the original limits so that this test does not have any
+        # side-effect.
+        threadpool_limits(limits={info["prefix"]: info["num_threads"]
+                                  for info in original_infos})
+
+    assert threadpool_info() == original_infos
+
+
 def test_threadpool_limits_bad_input():
     # Check that appropriate errors are raised for invalid arguments
     match = re.escape("user_api must be either in {} or None."

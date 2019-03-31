@@ -20,11 +20,11 @@ def test_threadpool_limits_by_prefix(openblas_present, mkl_present, prefix):
     original_infos = threadpool_info()
     original_num_threads = {info["filepath"]: info['num_threads']
                             for info in original_infos}
-    found_mkl = any([True for info in original_infos
+    mkl_found = any([True for info in original_infos
                      if info["prefix"] in ('mkl_rt', 'libmkl_rt')])
     prefix_found = len([info["prefix"] for info in original_infos])
     if not prefix_found:
-        if "mkl_rt" in prefix and mkl_present and not found_mkl:
+        if "mkl_rt" in prefix and mkl_present and not mkl_found:
             raise RuntimeError("Could not load the MKL prefix")
         elif prefix == "libopenblas" and openblas_present:
             raise RuntimeError("Could not load the OpenBLAS prefix")
@@ -38,6 +38,10 @@ def test_threadpool_limits_by_prefix(openblas_present, mkl_present, prefix):
             num_threads, filepath = module["num_threads"], module["filepath"]
             if module["prefix"] == prefix:
                 assert num_threads == 1
+            elif "mkl_rt" in module["prefix"] and prefix == "libiomp":
+                # MKL is impacted by a change in the thread pool of Intel
+                # implementation of the OpenMP runtime:
+                assert num_threads == 1
             else:
                 assert num_threads == original_num_threads[filepath]
 
@@ -46,8 +50,12 @@ def test_threadpool_limits_by_prefix(openblas_present, mkl_present, prefix):
             if should_skip_module(module):
                 continue
             num_threads, filepath = module["num_threads"], module["filepath"]
+            expected_num_threads = (3, original_num_threads[filepath])
             if module["prefix"] == prefix:
-                expected_num_threads = (3, original_num_threads[filepath])
+                assert num_threads in expected_num_threads
+            elif "mkl_rt" in module["prefix"] and prefix == "libiomp":
+                # MKL is impacted by a change in the thread pool of Intel
+                # implementation of the OpenMP runtime:
                 assert num_threads in expected_num_threads
             else:
                 assert num_threads == original_num_threads[filepath]
@@ -83,8 +91,8 @@ def test_set_threadpool_limits_by_api(user_api):
             if should_skip_module(module):
                 continue
             num_threads, filepath = module["num_threads"], module["filepath"]
+            expected_num_threads = (3, original_num_threads[filepath])
             if module["user_api"] in user_apis:
-                expected_num_threads = (3, original_num_threads[filepath])
                 assert num_threads in expected_num_threads
             else:
                 assert num_threads == original_num_threads[filepath]

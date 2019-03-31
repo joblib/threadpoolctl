@@ -10,30 +10,32 @@ oversubscription issues.
 
 ## Installation
 
-- For users, you can install the last published version from PyPI:
+- For users, install the last published version from PyPI:
 
-```bash
-pip install threadpoolctl
-```
+  ```bash
+  pip install threadpoolctl
+  ```
 
-- For contributors, you can install from the source repository in
-  developer mode:
+- For contributors, install from the source repository in developer
+  mode:
 
-```bash
-pip install -r dev-requirements.txt
-flit install --symlink
-```
+  ```bash
+  pip install -r dev-requirements.txt
+  flit install --symlink
+  ```
 
-then you can run the tests with pytest:
+  then you run the tests with pytest:
 
-```bash
-pytest
-```
+  ```bash
+  pytest
+  ```
 
 ## Usage
 
-- Introspect the current state of the threadpool-enabled runtime
-  libraries that are loaded when importing Python packages:
+### Runtime Introspection
+
+Introspect the current state of the threadpool-enabled runtime libraries
+that are loaded when importing Python packages:
 
 ```python
 >>> from threadpoolctl import threadpool_info
@@ -72,8 +74,10 @@ pytest
   'version': None}]
 ```
 
-- Control the number of threads used by the underlying runtime libraries
-  in specific sections of your Python program:
+### Set the maximum size of thread-pools
+
+Control the number of threads used by the underlying runtime libraries
+in specific sections of your Python program:
 
 ```python
 from threadpoolctl import threadpool_limits
@@ -92,7 +96,7 @@ with threadpool_limits(limits=1, user_api='blas'):
 
 To make a release:
 
-```
+```bash
 pip install flit
 flit build
 ```
@@ -102,6 +106,6 @@ Check the contents of `dist/`.
 If everything is fine, make a commit for the release, tag it, push the
 tag to github and then:
 
-```
+```bash
 flit publish
 ```

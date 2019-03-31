@@ -120,6 +120,26 @@ def test_threadpool_limits_function_with_side_effect():
     assert threadpool_info() == original_infos
 
 
+def test_threadpool_limits_manual_unregister():
+    # Check that threadpool_limits can be used as an object with that hold
+    # the original state of the threadpools that can be restored thanks to the
+    # dedicated unregister method
+    original_infos = threadpool_info()
+
+    limits = threadpool_limits(limits=1)
+    try:
+        for module in threadpool_info():
+            if should_skip_module(module):
+                continue
+            assert module["num_threads"] == 1
+    finally:
+        # Restore the original limits so that this test does not have any
+        # side-effect.
+        limits.unregister()
+
+    assert threadpool_info() == original_infos
+
+
 def test_threadpool_limits_bad_input():
     # Check that appropriate errors are raised for invalid arguments
     match = re.escape("user_api must be either in {} or None."

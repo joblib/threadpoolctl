@@ -36,15 +36,14 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
     sudo apt-get install python3-scipy libatlas3-base libatlas-base-dev libatlas-dev libopenblas-base python3-virtualenv
     python3 -m virtualenv --system-site-packages --python=python3 $VIRTUALENV
     source $VIRTUALENV/bin/activate
-    python -m pip install pytest pytest-cov cython
 fi
 
 
+python -m pip install -q -r dev-requirements.txt
 bash ./continuous_integration/build_test_ext.sh
 
 python --version
 python -c "import numpy; print('numpy %s' % numpy.__version__)" || echo "no numpy"
 python -c "import scipy; print('scipy %s' % scipy.__version__)" || echo "no scipy"
 
-python -m pip install -r dev-requirements.txt
 python -m flit install --symlink

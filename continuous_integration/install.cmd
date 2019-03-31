@@ -22,8 +22,7 @@ if "%PACKAGER%" == "conda" (%CONDA_INSTALL% numpy=1.15 pytest cython)
 if "%PACKAGER%" == "pip" (%PIP_INSTALL% numpy scipy pytest cython)
 
 @rem Install extra developer dependencies
-pip install -r dev-requirements.txt
-pip install -q coverage pytest-cov
+pip install -q -r dev-requirements.txt
 
 @rem Install package
 flit install --symlink

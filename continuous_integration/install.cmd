@@ -21,11 +21,12 @@ pip --version
 if "%PACKAGER%" == "conda" (%CONDA_INSTALL% numpy=1.15 pytest cython)
 if "%PACKAGER%" == "pip" (%PIP_INSTALL% numpy scipy pytest cython)
 
-@rem Install extra dependency
+@rem Install extra developer dependencies
+pip install -r dev-requirements.txt
 pip install -q coverage pytest-cov
 
 @rem Install package
-pip install -e .
+flit install --symlink
 
 @rem Build the cython test helper for openmp
 bash ./continuous_integration/build_test_ext.sh

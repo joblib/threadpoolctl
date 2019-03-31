@@ -115,8 +115,7 @@ def test_threadpool_limits_function_with_side_effect():
     finally:
         # Restore the original limits so that this test does not have any
         # side-effect.
-        threadpool_limits(limits={info["prefix"]: info["num_threads"]
-                                  for info in original_infos})
+        threadpool_limits(limits=original_infos)
 
     assert threadpool_info() == original_infos
 
@@ -129,7 +128,7 @@ def test_threadpool_limits_bad_input():
         threadpool_limits(limits=1, user_api="wrong")
 
     with pytest.raises(TypeError,
-                       match="limits must either be an int, a dict or None"):
+                       match="limits must either be an int, a list or a dict"):
         threadpool_limits(limits=(1, 2, 3))
 
 

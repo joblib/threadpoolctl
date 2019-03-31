@@ -115,7 +115,7 @@ def _get_limit(prefix, user_api, limits):
 
 @_format_docstring(ALL_PREFIXES=_ALL_PREFIXES,
                    INTERNAL_APIS=_ALL_INTERNAL_APIS)
-def _set_threadpool_limits(limits=None, user_api=None,
+def _set_threadpool_limits(limits, user_api=None,
                            return_original_limits=False):
     """Limit the maximal number of threads for threadpools in supported libs
 
@@ -129,8 +129,7 @@ def _set_threadpool_limits(limits=None, user_api=None,
     integer, sets the maximum number of thread to `limits` for each library
     selected by `user_api`. If it is a dictionary `{{key: max_threads}}`, this
     function sets a custom maximum number of thread for each `key` which can be
-    either a `user_api` or a `prefix` for a specific library. If None, this
-    function does not do anything.
+    either a `user_api` or a `prefix` for a specific library.
 
     The `user_api` parameter selects particular APIs of libraries to limit.
     Used only if `limits` is an int. If it is None, this function will apply to
@@ -141,7 +140,7 @@ def _set_threadpool_limits(limits=None, user_api=None,
 
     Return a list with all the supported modules that have been found. Each
     module is represented by a dict with the following information:
-      - 'filename-prefixes' : possible prefixes for the given internal_api.
+      - 'filename_prefixes' : possible prefixes for the given internal_api.
             Possible values are {ALL_PREFIXES}.
       - 'prefix' : prefix of the specific implementation of this module.
       - 'internal_api': internal API.s Possible values are {INTERNAL_APIS}.
@@ -154,7 +153,7 @@ def _set_threadpool_limits(limits=None, user_api=None,
       - 'dynlib': the instance of ctypes.CDLL use to access the dynamic
         library.
     """
-    if isinstance(limits, int) or limits is None:
+    if isinstance(limits, int):
         if user_api is None:
             user_api = _ALL_USER_APIS
         elif user_api in _ALL_USER_APIS:
@@ -167,12 +166,12 @@ def _set_threadpool_limits(limits=None, user_api=None,
     else:
         if isinstance(limits, list):
             # This should be a list of module, for compatibility with
-            # the result from get_threadpool_limits.
+            # the result from threadpool_info.
             limits = {module['prefix']: module['num_threads']
                       for module in limits}
 
         if not isinstance(limits, dict):
-            raise TypeError("limits must either be an int, a dict or None."
+            raise TypeError("limits must either be an int, a list or a dict."
                             " Got {} instead".format(type(limits)))
 
         # With a dictionary, can set both specific limit for given modules
@@ -497,10 +496,10 @@ class threadpool_limits:
     """
     def __init__(self, limits=None, user_api=None):
         if limits is not None:
-            self.original_limits = _set_threadpool_limits(
+            self._original_limits = _set_threadpool_limits(
                 limits=limits, user_api=user_api, return_original_limits=True)
         else:
-            self.original_limits = None
+            self._original_limits = None
 
     def __enter__(self):
         pass
@@ -509,6 +508,6 @@ class threadpool_limits:
         self.unregister()
 
     def unregister(self):
-        if self.original_limits is not None:
-            for module in self.original_limits:
+        if self._original_limits is not None:
+            for module in self._original_limits:
                 module['set_num_threads'](module['num_threads'])

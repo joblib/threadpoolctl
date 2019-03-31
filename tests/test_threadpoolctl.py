@@ -22,7 +22,8 @@ def test_threadpool_limits_by_prefix(openblas_present, mkl_present, prefix):
                             for info in original_infos}
     mkl_found = any([True for info in original_infos
                      if info["prefix"] in ('mkl_rt', 'libmkl_rt')])
-    prefix_found = len([info["prefix"] for info in original_infos])
+    prefix_found = len([info["prefix"] for info in original_infos
+                        if info["prefix"] == prefix])
     if not prefix_found:
         if "mkl_rt" in prefix and mkl_present and not mkl_found:
             raise RuntimeError("Could not load the MKL prefix")

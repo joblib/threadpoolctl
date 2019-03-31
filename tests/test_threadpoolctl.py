@@ -120,6 +120,15 @@ def test_threadpool_limits_function_with_side_effect():
     assert threadpool_info() == original_infos
 
 
+def test_set_threadpool_limits_no_limit():
+    # Check that limits=None does nothing.
+    original_infos = threadpool_info()
+    with threadpool_limits(limits=None):
+        assert threadpool_info() == original_infos
+
+    assert threadpool_info() == original_infos
+
+
 def test_threadpool_limits_manual_unregister():
     # Check that threadpool_limits can be used as an object with that hold
     # the original state of the threadpools that can be restored thanks to the

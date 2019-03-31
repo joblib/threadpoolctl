@@ -115,8 +115,7 @@ def _get_limit(prefix, user_api, limits):
 
 @_format_docstring(ALL_PREFIXES=_ALL_PREFIXES,
                    INTERNAL_APIS=_ALL_INTERNAL_APIS)
-def _set_threadpool_limits(limits, user_api=None,
-                           return_original_limits=False):
+def _set_threadpool_limits(limits, user_api=None):
     """Limit the maximal number of threads for threadpools in supported libs
 
     Set the maximal number of threads that can be used in thread pools used in
@@ -146,8 +145,7 @@ def _set_threadpool_limits(limits, user_api=None,
       - 'internal_api': internal API.s Possible values are {INTERNAL_APIS}.
       - 'filepath': path to the loaded module.
       - 'version': version of the library implemented (if available).
-      - 'num_threads': current thread limit if return_original_limits is False
-        or the original limit if return_original_limits is True.
+      - 'num_threads': the theadpool size limit before changing it.
       - 'set_num_threads': callable to set the maximum number of threads
       - 'get_num_threads': callable to get the current number of threads
       - 'dynlib': the instance of ctypes.CDLL use to access the dynamic
@@ -182,15 +180,12 @@ def _set_threadpool_limits(limits, user_api=None,
     modules = _load_modules(prefixes=prefixes, user_api=user_api)
     for module in modules:
         num_threads = _get_limit(module['prefix'], module['user_api'], limits)
-        if return_original_limits:
-            module['num_threads'] = module['get_num_threads']()
+        module['num_threads'] = module['get_num_threads']()
 
         if num_threads is not None:
             set_func = module['set_num_threads']
             set_func(num_threads)
 
-        if not return_original_limits:
-            module['num_threads'] = module['get_num_threads']()
     return modules
 
 
@@ -497,7 +492,7 @@ class threadpool_limits:
     def __init__(self, limits=None, user_api=None):
         if limits is not None:
             self._original_limits = _set_threadpool_limits(
-                limits=limits, user_api=user_api, return_original_limits=True)
+                limits=limits, user_api=user_api)
         else:
             self._original_limits = None
 

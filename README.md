@@ -12,25 +12,68 @@ oversubscription issues.
 
 - For users, you can install the last published version from PyPI:
 
-```
+```bash
 pip install threadpoolctl
 ```
 
 - For contributors, you can install from the source repository in
   developer mode:
 
-```
+```bash
 pip install -r dev-requirements.txt
 flit install --symlink
 ```
 
 then you can run the tests with pytest:
 
-```
+```bash
 pytest
 ```
 
 ## Usage
+
+- Introspect the current state of the threadpool-enabled runtime
+  libraries that are loaded when importing Python packages:
+
+```python
+>>> from threadpoolctl import threadpool_info
+>>> from pprint import pprint
+>>> pprint(threadpool_info())
+[]
+
+>>> import numpy
+>>> pprint(threadpool_info())
+[{'filepath': '/opt/venvs/py37/lib/python3.7/site-packages/numpy/.libs/libopenblasp-r0-382c8f3a.3.5.dev.so',
+  'internal_api': 'openblas',
+  'num_threads': 4,
+  'prefix': 'libopenblas',
+  'user_api': 'blas',
+  'version': '0.3.5.dev'}]
+
+>>> import xgboost
+>>> pprint(threadpool_info())
+[{'filepath': '/opt/venvs/py37/lib/python3.7/site-packages/numpy/.libs/libopenblasp-r0-382c8f3a.3.5.dev.so',
+  'internal_api': 'openblas',
+  'num_threads': 4,
+  'prefix': 'libopenblas',
+  'user_api': 'blas',
+  'version': '0.3.5.dev'},
+ {'filepath': '/opt/venvs/py37/lib/python3.7/site-packages/scipy/.libs/libopenblasp-r0-8dca6697.3.0.dev.so',
+  'internal_api': 'openblas',
+  'num_threads': 4,
+  'prefix': 'libopenblas',
+  'user_api': 'blas',
+  'version': None},
+ {'filepath': '/usr/lib/x86_64-linux-gnu/libgomp.so.1',
+  'internal_api': 'openmp',
+  'num_threads': 4,
+  'prefix': 'libgomp',
+  'user_api': 'openmp',
+  'version': None}]
+```
+
+- Control the number of threads used by the underlying runtime libraries
+  in specific sections of your Python program:
 
 ```python
 from threadpoolctl import threadpool_limits

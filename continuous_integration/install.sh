@@ -16,6 +16,9 @@ if [[ "$UNAMESTR" == "Darwin" ]]; then
     export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
     export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
     export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
+else
+    # Assume Ubuntu
+     sudo apt-get install clang libomp-dev
 fi
 
 make_conda() {

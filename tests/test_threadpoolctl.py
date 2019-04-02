@@ -1,4 +1,5 @@
 import re
+import os
 import ctypes
 import pytest
 
@@ -173,6 +174,37 @@ def test_openmp_limit_num_threads(num_threads):
     with threadpool_limits(limits=num_threads):
         assert check_openmp_num_threads(100) in (num_threads, old_num_threads)
     assert check_openmp_num_threads(100) == old_num_threads
+
+
+@with_check_openmp_num_threads
+def test_openmp_nesting():
+    # checks that OpenMP effectively uses the number of threads requested by
+    # the context manager
+    from ._openmp_test_helper_outer import check_nested_openmp_loops
+
+    # Here we assume that the environment variables that were defined when
+    # building the Cython extensions are still defined the same way when
+    # executing this test.
+    inner_cc = os.environ.get("CC_INNER_LOOP")
+    outer_cc = os.environ.get("CC_OUTER_LOOP")
+    outer_num_threads, inner_num_threads = check_nested_openmp_loops(10)
+    openmp_infos = [info for info in threadpool_info()
+                    if info["user_api"] == "openmp"]
+
+    if "gcc" in (inner_cc, outer_cc):
+        assert "libgomp" in [info["prefix"] for info in openmp_infos]
+
+    if "clang" in (inner_cc, outer_cc):
+        assert "libomp" in [info["prefix"] for info in openmp_infos]
+
+    if inner_cc == outer_cc:
+        # The openmp runtime should be shared by default, meaning that
+        # the inner loop should automatically be run serially by the OpenMP
+        # runtime.
+        assert inner_num_threads == 1
+    else:
+        # There should be at least 2 OpenMP runtime detected.
+        assert len(openmp_infos) >= 2
 
 
 def test_shipped_openblas():

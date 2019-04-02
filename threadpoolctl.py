@@ -23,17 +23,18 @@ __all__ = ["threadpool_limits", "threadpool_info"]
 _system_libraries = {}
 
 
-if sys.platform == "darwin":
-    # On OSX, we can get a runtime error due to multiple OpenMP libraries
-    # loaded simultaneously. This can happen for instance when calling BLAS
-    # inside a prange. Setting the following environment variable allows
-    # multiple OpenMP libraries to be loaded. It should not degrade
-    # performances since we manually take care of potential over-subscription
-    # performance issues, in sections of the code where nested OpenMP loops can
-    # happen, by dynamically reconfiguring the inner OpenMP runtime to
-    # temporarily disable it while under the scope of the outer OpenMP parallel
-    # section.
-    os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "True")
+# One can get runtime errors or even segfaults due to multiple OpenMP libraries
+# loaded simultaneously which can happen easily in Python when importing and
+# using compiled extensions built with different compilers and therefore
+# different OpenMP runtimes in the same program. In particular libiomp (used by
+# Intel ICC) and libomp used by clang/llvm tend to crash. This can happen for
+# instance when calling BLAS inside a prange. Setting the following environment
+# variable allows multiple OpenMP libraries to be loaded. It should not degrade
+# performances since we manually take care of potential over-subscription
+# performance issues, in sections of the code where nested OpenMP loops can
+# happen, by dynamically reconfiguring the inner OpenMP runtime to temporarily
+# disable it while under the scope of the outer OpenMP parallel section.
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "True")
 
 
 # Structure to cast the info on dynamically loaded library. See

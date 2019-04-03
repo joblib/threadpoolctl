@@ -180,9 +180,12 @@ def _set_threadpool_limits(limits, user_api=None):
 
     modules = _load_modules(prefixes=prefixes, user_api=user_api)
     for module in modules:
-        num_threads = _get_limit(module['prefix'], module['user_api'], limits)
-        module['num_threads'] = module['get_num_threads']()
+        # Workaround clang bug (TODO: report it)
+        module['get_num_threads']()
 
+    for module in modules:
+        module['num_threads'] = module['get_num_threads']()
+        num_threads = _get_limit(module['prefix'], module['user_api'], limits)
         if num_threads is not None:
             set_func = module['set_num_threads']
             set_func(num_threads)

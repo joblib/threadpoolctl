@@ -19,11 +19,11 @@ if [[ "$UNAMESTR" == "Darwin" ]]; then
 else
     # Assume Ubuntu: install a recent version of clang and libomp to avoid a
     # deadlock when used in conjunction with Intel libiomp.
-    echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
-    echo "deb-src http://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
+    echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
+    echo "deb-src http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
     sudo apt update
-    sudo apt install clang-7 libomp-7-dev
+    sudo apt install clang-8 libomp-8-dev
 fi
 
 make_conda() {

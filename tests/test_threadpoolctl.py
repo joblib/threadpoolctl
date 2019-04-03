@@ -1,5 +1,4 @@
 import re
-import os
 import ctypes
 import pytest
 
@@ -40,27 +39,15 @@ def test_threadpool_limits_by_prefix(openblas_present, mkl_present, prefix):
             num_threads, filepath = module["num_threads"], module["filepath"]
             if module["prefix"] == prefix:
                 assert num_threads == 1
-            elif "mkl_rt" in module["prefix"] and prefix == "libiomp":
-                # MKL is impacted by a change in the thread pool of Intel
-                # implementation of the OpenMP runtime:
-                assert num_threads == 1
-            else:
-                assert num_threads == original_num_threads[filepath]
 
     with threadpool_limits(limits={prefix: 3}):
         for module in threadpool_info():
             if should_skip_module(module):
                 continue
             num_threads, filepath = module["num_threads"], module["filepath"]
-            expected_num_threads = (3, original_num_threads[filepath])
+            expected_num_threads = min(3, original_num_threads[filepath])
             if module["prefix"] == prefix:
-                assert num_threads in expected_num_threads
-            elif "mkl_rt" in module["prefix"] and prefix == "libiomp":
-                # MKL is impacted by a change in the thread pool of Intel
-                # implementation of the OpenMP runtime:
-                assert num_threads in expected_num_threads
-            else:
-                assert num_threads == original_num_threads[filepath]
+                assert num_threads == expected_num_threads
 
     assert threadpool_info() == original_infos
 
@@ -85,19 +72,15 @@ def test_set_threadpool_limits_by_api(user_api):
             num_threads, filepath = module["num_threads"], module["filepath"]
             if module["user_api"] in user_apis:
                 assert num_threads == 1
-            else:
-                assert num_threads == original_num_threads[filepath]
 
     with threadpool_limits(limits=3, user_api=user_api):
         for module in threadpool_info():
             if should_skip_module(module):
                 continue
             num_threads, filepath = module["num_threads"], module["filepath"]
-            expected_num_threads = (3, original_num_threads[filepath])
+            expected_num_threads = min(3, original_num_threads[filepath])
             if module["user_api"] in user_apis:
-                assert num_threads in expected_num_threads
-            else:
-                assert num_threads == original_num_threads[filepath]
+                assert num_threads == expected_num_threads
 
     assert threadpool_info() == original_infos
 

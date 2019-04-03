@@ -7,11 +7,6 @@ from distutils.extension import Extension
 
 original_environ = os.environ.copy()
 try:
-    # The default compiler on macOS is named gcc but is an alias to a clang
-    # compiler that does not have an openmp runtime installed by default.
-    if sys.platform == "darwin":
-        os.environ["CC"] = "gcc-4.9"
-
     # Make it possible to compile the 2 OpenMP enabled Cython extensions
     # with different compilers and therefore different OpenMP runtimes.
     outer_loop_cc_var = os.environ.get("CC_OUTER_LOOP")

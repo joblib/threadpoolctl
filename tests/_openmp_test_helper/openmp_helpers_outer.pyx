@@ -1,8 +1,6 @@
-import cython
 cimport openmp
 from cython.parallel import prange
-from libc.stdlib cimport malloc, free
-from tests._openmp_test_helper.openmp_helpers cimport inner_openmp_loop
+from openmp_helpers_inner cimport inner_openmp_loop
 
 
 def check_nested_openmp_loops(int n):
@@ -19,3 +17,6 @@ def check_nested_openmp_loops(int n):
         
     return outer_num_threads, inner_num_threads
 
+
+def get_compiler():
+    return CC_OUTER_LOOP

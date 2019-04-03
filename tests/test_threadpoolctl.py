@@ -180,14 +180,15 @@ def test_openmp_limit_num_threads(num_threads):
 def test_openmp_nesting():
     # checks that OpenMP effectively uses the number of threads requested by
     # the context manager
-    from ._openmp_test_helper_outer import check_nested_openmp_loops
+    from ._openmp_test_helper import check_nested_openmp_loops
+    from ._openmp_test_helper import get_inner_compiler
+    from ._openmp_test_helper import get_outer_compiler
 
-    # Here we assume that the environment variables that were defined when
-    # building the Cython extensions are still defined the same way when
-    # executing this test.
-    inner_cc = os.environ.get("CC_INNER_LOOP")
-    outer_cc = os.environ.get("CC_OUTER_LOOP")
+    inner_cc = get_inner_compiler()
+    outer_cc = get_outer_compiler()
+
     outer_num_threads, inner_num_threads = check_nested_openmp_loops(10)
+
     openmp_infos = [info for info in threadpool_info()
                     if info["user_api"] == "openmp"]
 

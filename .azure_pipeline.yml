@@ -67,8 +67,5 @@ jobs:
       pylatest_conda:
         PACKAGER: 'conda'
         VERSION_PYTHON: '*'
-        CC: '/usr/bin/clang'
-        CPPFLAGS: "-Xpreprocessor -fopenmp"
-        CFLAGS: "-I/usr/local/opt/libomp/include"
-        LDFLAGS: "-L/usr/local/opt/libomp/lib -lomp"
-        DYLD_LIBRARY_PATH: /usr/local/opt/libomp/lib
+        CC_OUTER_LOOP: 'gcc-8'
+        CC_INNER_LOOP: 'gcc-8'

@@ -17,8 +17,13 @@ if [[ "$UNAMESTR" == "Darwin" ]]; then
     export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
     export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
 else
-    # Assume Ubuntu
-     sudo apt-get install clang libomp-dev
+    # Assume Ubuntu: install a recent version of clang and libomp to avoid a
+    # deadlock when used in conjunction with Intel libiomp.
+    echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
+    echo "deb-src http://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+    sudo apt update
+    sudo apt install clang-7 libomp-7-dev
 fi
 
 make_conda() {

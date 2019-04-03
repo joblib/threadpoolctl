@@ -18,8 +18,6 @@ def should_skip_module(module):
 @pytest.mark.parametrize("prefix", _ALL_PREFIXES)
 def test_threadpool_limits_by_prefix(openblas_present, mkl_present, prefix):
     original_infos = threadpool_info()
-    original_num_threads = {info["filepath"]: info['num_threads']
-                            for info in original_infos}
     mkl_found = any([True for info in original_infos
                      if info["prefix"] in ('mkl_rt', 'libmkl_rt')])
     prefix_found = len([info["prefix"] for info in original_infos

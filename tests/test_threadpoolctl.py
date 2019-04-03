@@ -36,18 +36,15 @@ def test_threadpool_limits_by_prefix(openblas_present, mkl_present, prefix):
         for module in threadpool_info():
             if should_skip_module(module):
                 continue
-            num_threads, filepath = module["num_threads"], module["filepath"]
             if module["prefix"] == prefix:
-                assert num_threads == 1
+                assert module["num_threads"] == 1
 
     with threadpool_limits(limits={prefix: 3}):
         for module in threadpool_info():
             if should_skip_module(module):
                 continue
-            num_threads, filepath = module["num_threads"], module["filepath"]
-            expected_num_threads = min(3, original_num_threads[filepath])
             if module["prefix"] == prefix:
-                assert num_threads == expected_num_threads
+                assert module["num_threads"] <= 3
 
     assert threadpool_info() == original_infos
 
@@ -62,25 +59,20 @@ def test_set_threadpool_limits_by_api(user_api):
         user_apis = (user_api,)
 
     original_infos = threadpool_info()
-    original_num_threads = {info["filepath"]: info['num_threads']
-                            for info in original_infos}
 
     with threadpool_limits(limits=1, user_api=user_api):
         for module in threadpool_info():
             if should_skip_module(module):
                 continue
-            num_threads, filepath = module["num_threads"], module["filepath"]
             if module["user_api"] in user_apis:
-                assert num_threads == 1
+                assert module["num_threads"] == 1
 
     with threadpool_limits(limits=3, user_api=user_api):
         for module in threadpool_info():
             if should_skip_module(module):
                 continue
-            num_threads, filepath = module["num_threads"], module["filepath"]
-            expected_num_threads = min(3, original_num_threads[filepath])
             if module["user_api"] in user_apis:
-                assert num_threads == expected_num_threads
+                assert module["num_threads"] <= 3
 
     assert threadpool_info() == original_infos
 

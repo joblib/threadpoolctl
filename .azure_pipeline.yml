@@ -41,14 +41,14 @@ jobs:
       py36_conda_openblas:
         PACKAGER: 'conda'
         VERSION_PYTHON: '3.6'
-        CC_OUTER_LOOP: 'clang-6.0'
-        CC_INNER_LOOP: 'clang-6.0'
+        CC_OUTER_LOOP: 'clang-8'
+        CC_INNER_LOOP: 'clang-8'
       # Linux environment to test the latest available dependencies and MKL.
       # and heterogeneous OpenMP runtime nesting.
       pylatest_conda:
         PACKAGER: 'conda'
         VERSION_PYTHON: '*'
-        CC_OUTER_LOOP: 'clang-6.0'
+        CC_OUTER_LOOP: 'clang-8'
         CC_INNER_LOOP: 'gcc'
       # Linux environment with no numpy and heterogeneous OpenMP runtime
       # nesting.
@@ -57,7 +57,7 @@ jobs:
         NO_NUMPY: 'true'
         VERSION_PYTHON: '*'
         CC_OUTER_LOOP: 'gcc'
-        CC_INNER_LOOP: 'clang-6.0'
+        CC_INNER_LOOP: 'clang-8'
 
 - template: continuous_integration/posix.yml
   parameters:

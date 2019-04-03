@@ -7,15 +7,6 @@ UNAMESTR=`uname`
 if [[ "$UNAMESTR" == "Darwin" ]]; then
     # Install gcc on macOS to get a compiler with a working openmp
     HOMEBREW_NO_AUTO_UPDATE=1 brew install gcc@8
-
-    # enable OpenMP support for Apple-clang
-    export CC=/usr/bin/clang
-    export CXX=/usr/bin/clang++
-    export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
-    export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
-    export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
-    export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
-    export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
 else
     # Assume Ubuntu: install a recent version of clang and libomp
     echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list

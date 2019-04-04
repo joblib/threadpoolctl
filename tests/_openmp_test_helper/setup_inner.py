@@ -16,7 +16,7 @@ try:
 
     if sys.platform == "win32":
         extra_compile_args = ["/openmp"]
-        extra_link_args = None
+        extra_link_args = []
     else:
         extra_compile_args = ["-fopenmp"]
         extra_link_args = ["-fopenmp"]

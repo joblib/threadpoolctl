@@ -4,6 +4,7 @@ import pytest
 
 
 from threadpoolctl import threadpool_limits, threadpool_info
+from threadpoolctl import safe_nested_parallelism
 from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 
 from .utils import with_check_openmp_num_threads, libopenblas_paths
@@ -156,13 +157,16 @@ def test_openmp_nesting():
     from ._openmp_test_helper import check_nested_openmp_loops
     from ._openmp_test_helper import get_inner_compiler
     from ._openmp_test_helper import get_outer_compiler
+    from ._openmp_test_helper import openmp_helpers_inner
+    from ._openmp_test_helper import openmp_helpers_outer
 
     inner_cc = get_inner_compiler()
     outer_cc = get_outer_compiler()
 
     outer_num_threads, inner_num_threads = check_nested_openmp_loops(10)
 
-    openmp_infos = [info for info in threadpool_info()
+    original_infos = threadpool_info()
+    openmp_infos = [info for info in original_infos
                     if info["user_api"] == "openmp"]
 
     if "gcc" in (inner_cc, outer_cc):
@@ -179,6 +183,25 @@ def test_openmp_nesting():
     else:
         # There should be at least 2 OpenMP runtime detected.
         assert len(openmp_infos) >= 2
+
+    with safe_nested_parallelism(outer_module=openmp_helpers_outer,
+                                 outer_api="openmp",
+                                 inner_module=openmp_helpers_inner,
+                                 inner_api="openmp"):
+        safe_outer_num_threads, safe_inner_num_threads = \
+            check_nested_openmp_loops(10)
+
+    # The number of threads available of the outer loop should not have been
+    # decreased:
+    assert safe_outer_num_threads == outer_num_threads
+
+    # The number of threads available for the inner loop should have been set
+    # to 1 so avoid oversubscription and preserve performance:
+    assert safe_inner_num_threads == 1
+
+    # The state of the original state of all threadpools should have been
+    # restored.
+    assert threadpool_info() == original_infos
 
 
 def test_shipped_openblas():

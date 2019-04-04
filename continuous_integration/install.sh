@@ -5,9 +5,8 @@ set -e
 UNAMESTR=`uname`
 
 if [[ "$UNAMESTR" == "Darwin" ]]; then
-    echo "macOS detected"
     # Install a compiler with a working openmp
-    # HOMEBREW_NO_AUTO_UPDATE=1 brew install llvm libomp
+    HOMEBREW_NO_AUTO_UPDATE=1 brew install llvm libomp
 else
     # Assume Ubuntu: install a recent version of clang and libomp
     echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
@@ -27,9 +26,6 @@ if [[ "$PACKAGER" == "conda" ]]; then
     TO_INSTALL="python=$VERSION_PYTHON pip pytest pytest-cov cython"
     if [[ "$NO_NUMPY" != "true" ]]; then
          TO_INSTALL="$TO_INSTALL numpy"
-    fi
-    if [[ "$UNAMESTR" == "Darwin" ]]; then
-         TO_INSTALL="$TO_INSTALL llvm-openmp clang"
     fi
 	make_conda $TO_INSTALL
 

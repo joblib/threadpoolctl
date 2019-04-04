@@ -7,6 +7,10 @@ UNAMESTR=`uname`
 if [[ "$UNAMESTR" == "Darwin" ]]; then
     # Install a compiler with a working openmp
     HOMEBREW_NO_AUTO_UPDATE=1 brew install llvm libomp
+    export PATH="/usr/local/opt/llvm/bin:$PATH"
+    export LDFLAGS="-L/usr/local/opt/llvm/lib -Wl,-rpath,/usr/local/opt/llvm/lib"
+    export CPPFLAGS="-I/usr/local/opt/llvm/include"
+
 else
     # Assume Ubuntu: install a recent version of clang and libomp
     echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list

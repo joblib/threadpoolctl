@@ -5,8 +5,10 @@ set -e
 UNAMESTR=`uname`
 
 if [[ "$UNAMESTR" == "Darwin" ]]; then
-    # Install gcc on macOS to get a compiler with a working openmp
-    HOMEBREW_NO_AUTO_UPDATE=1 brew install gcc@8
+    # Install a compiler with a working openmp
+    HOMEBREW_NO_AUTO_UPDATE=1 brew install llvm libomp
+    export CC="$(brew --prefix llvm)/bin/clang"
+    export LDSHARED="$(brew --prefix llvm)/bin/clang -shared"
 else
     # Assume Ubuntu: install a recent version of clang and libomp
     echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list

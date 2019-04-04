@@ -4,6 +4,7 @@ from distutils.core import setup
 from Cython.Build import cythonize
 from distutils.extension import Extension
 
+
 original_environ = os.environ.copy()
 try:
     # Make it possible to compile the 2 OpenMP enabled Cython extensions

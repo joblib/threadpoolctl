@@ -67,5 +67,3 @@ jobs:
       pylatest_conda:
         PACKAGER: 'conda'
         VERSION_PYTHON: '*'
-        CC_OUTER_LOOP: 'gcc-8'
-        CC_INNER_LOOP: 'gcc-8'

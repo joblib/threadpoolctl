@@ -539,6 +539,8 @@ class safe_nested_parallelism:
         if inner_num_threads >= 1:
             # Switch to serial mode
             self._inner_set_num_threads(1)
+            assert inner_get_num_threads() == 1
+
             if outer_get_num_threads() < outer_num_threads:
                 # The two thread pools are tied (or the same). We do not need
                 # any oversubscription protection. Let's restore the previous

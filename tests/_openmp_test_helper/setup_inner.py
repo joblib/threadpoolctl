@@ -35,7 +35,10 @@ try:
         ext_modules=cythonize(
             ext_modules,
             language_level=3,
-            compile_time_env={"CC_INNER_LOOP": inner_loop_cc_var or "unknown"}),
+            compiler_directives={'language_level': 3,
+                                 'boundscheck': False,
+                                 'wraparound': False},
+            compile_time_env={"CC_INNER_LOOP": inner_loop_cc_var or "unknown"})
     )
 
 finally:

@@ -43,9 +43,6 @@ def check_nested_prange_blas(double[:, ::1] A, double[:, ::1] B, int nthreads):
         int prange_num_threads
     
     blas_num_threads = []
-    
-    if A.shape[0] != chunk_size * n_chunks:
-        raise ValueError("number of chunks should divide number of rows of A.")
 
     for i in prange(n_chunks, num_threads=nthreads, nogil=True):
         dgemm(trans, no_trans, &n, &chunk_size, &k,

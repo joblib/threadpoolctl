@@ -224,3 +224,20 @@ def test_multiple_shipped_openblas():
     # has 2 or more active openblas runtimes available just be reading the
     # pytest report (whether or not this test has been skipped).
     test_shipped_openblas()
+
+
+@pytest.mark.parametrize('nthreads_outer', [1, 2, 4])
+def test_nested_prange_blas(nthreads_outer):
+    import numpy as np
+    from ._openmp_test_helper import check_nested_prange_blas
+
+    A = np.ones((1000, 10))
+    B = np.ones((100, 10))
+
+    with threadpool_limits(limits=1):
+        result = check_nested_prange_blas(A, B, nthreads_outer)
+        C, prange_num_threads, blas_num_threads = result
+
+    assert prange_num_threads == nthreads_outer
+    assert all(b_n_t == 1 for b_n_t in blas_num_threads)
+    assert np.allclose(C, np.dot(A, B.T))

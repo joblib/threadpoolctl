@@ -34,8 +34,10 @@ try:
         name="_openmp_test_helper_outer",
         ext_modules=cythonize(
             ext_modules,
-            language_level=3,
-            compile_time_env={"CC_OUTER_LOOP": outer_loop_cc_var or "unknown"}),
+            compiler_directives={'language_level': 3,
+                                 'boundscheck': False,
+                                 'wraparound': False},
+            compile_time_env={"CC_OUTER_LOOP": outer_loop_cc_var or "unknown"})
     )
 
 finally:

@@ -4,7 +4,6 @@ import pytest
 
 
 from threadpoolctl import threadpool_limits, threadpool_info
-from threadpoolctl import safe_nested_parallelism
 from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 
 from .utils import with_check_openmp_num_threads
@@ -153,14 +152,13 @@ def test_openmp_limit_num_threads(num_threads):
 
 
 @with_check_openmp_num_threads
-def test_openmp_nesting():
+@pytest.mark.parametrize('nthreads_outer', [1, 2, 4])
+def test_openmp_nesting(nthreads_outer):
     # checks that OpenMP effectively uses the number of threads requested by
     # the context manager
     from ._openmp_test_helper import check_nested_openmp_loops
     from ._openmp_test_helper import get_inner_compiler
     from ._openmp_test_helper import get_outer_compiler
-    from ._openmp_test_helper import openmp_helpers_inner
-    from ._openmp_test_helper import openmp_helpers_outer
 
     inner_cc = get_inner_compiler()
     outer_cc = get_outer_compiler()
@@ -186,20 +184,17 @@ def test_openmp_nesting():
         # There should be at least 2 OpenMP runtime detected.
         assert len(openmp_infos) >= 2
 
-    with safe_nested_parallelism(outer_module=openmp_helpers_outer,
-                                 outer_api="openmp",
-                                 inner_module=openmp_helpers_inner,
-                                 inner_api="openmp"):
-        safe_outer_num_threads, safe_inner_num_threads = \
-            check_nested_openmp_loops(10)
+    with threadpool_limits(limits=1):
+        outer_num_threads, inner_num_threads = \
+            check_nested_openmp_loops(10, nthreads_outer)
 
-    # The number of threads available of the outer loop should not have been
+    # The number of threads available in the outer loop should not have been
     # decreased:
-    assert safe_outer_num_threads == outer_num_threads
+    assert outer_num_threads == nthreads_outer
 
-    # The number of threads available for the inner loop should have been set
+    # The number of threads available in the inner loop should have been set
     # to 1 so avoid oversubscription and preserve performance:
-    assert safe_inner_num_threads == 1
+    assert inner_num_threads == 1
 
     # The state of the original state of all threadpools should have been
     # restored.

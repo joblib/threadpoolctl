@@ -501,7 +501,7 @@ class threadpool_limits:
             self._original_limits = None
 
     def __enter__(self):
-        pass
+        return self
 
     def __exit__(self, type, value, traceback):
         self.unregister()
@@ -510,3 +510,19 @@ class threadpool_limits:
         if self._original_limits is not None:
             for module in self._original_limits:
                 module['set_num_threads'](module['num_threads'])
+
+    def get_original_max_threads(self, user_api=None):
+        if user_api is None:
+            user_api = _ALL_USER_APIS
+        elif user_api in _ALL_USER_APIS:
+            user_api = (user_api,)
+        else:
+            raise ValueError("user_api must be either in {} or None. Got {} "
+                             "instead.".format(_ALL_USER_APIS, user_api))
+
+        max_threads = -1
+        for module in self._original_limits:
+            for api in user_api:
+                if api == module['user_api']:
+                    max_threads = max(max_threads, module['num_threads'])
+        return max_threads

@@ -240,8 +240,11 @@ def test_nested_prange_blas(nthreads_outer):
 
     with threadpool_limits(limits=1):
         result = check_nested_prange_blas(A, B, nthreads_outer)
-        C, prange_num_threads, blas_num_threads = result
+        C, prange_num_threads, threadpool_infos = result
 
-    assert prange_num_threads == nthreads_outer
-    assert all(b_n_t == 1 for b_n_t in blas_num_threads)
     assert np.allclose(C, np.dot(A, B.T))
+    assert prange_num_threads == nthreads_outer
+
+    for module in threadpool_infos:
+        if not should_skip_module(module):
+            assert module['num_threads'] == 1

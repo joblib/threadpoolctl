@@ -17,7 +17,7 @@ def should_skip_module(module):
     return module['internal_api'] == "openblas" and module['version'] is None
 
 
-def effective_openmp_num_threads(nthreads, max_threads):
+def effective_num_threads(nthreads, max_threads):
         if nthreads is None or nthreads > max_threads:
             return max_threads
         return nthreads
@@ -192,7 +192,7 @@ def test_openmp_nesting(nthreads_outer):
 
     with threadpool_limits(limits=1) as threadpoolctx:
         max_threads = threadpoolctx.get_original_max_threads('openmp')
-        nthreads = effective_openmp_num_threads(nthreads_outer, max_threads)
+        nthreads = effective_num_threads(nthreads_outer, max_threads)
 
         outer_num_threads, inner_num_threads = \
             check_nested_openmp_loops(10, nthreads)
@@ -244,7 +244,7 @@ def test_nested_prange_blas(nthreads_outer):
 
     with threadpool_limits(limits=1) as threadpoolctx:
         max_threads = threadpoolctx.get_original_max_threads('openmp')
-        nthreads = effective_openmp_num_threads(nthreads_outer, max_threads)
+        nthreads = effective_num_threads(nthreads_outer, max_threads)
 
         result = check_nested_prange_blas(A, B, nthreads)
         C, prange_num_threads, threadpool_infos = result

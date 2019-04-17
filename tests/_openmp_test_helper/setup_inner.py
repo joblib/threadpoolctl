@@ -12,21 +12,25 @@ try:
     inner_loop_cc_var = os.environ.get("CC_INNER_LOOP")
     if inner_loop_cc_var is not None:
         os.environ["CC"] = inner_loop_cc_var
-        os.environ["LDSHARED"] = inner_loop_cc_var + " -shared"
+        if sys.platform == "darwin":
+            os.environ["LDSHARED"] = (
+                inner_loop_cc_var + " -bundle -undefined dynamic_lookup")
+        else:
+            os.environ["LDSHARED"] = inner_loop_cc_var + " -shared"
 
     if sys.platform == "win32":
-        extra_compile_args = ["/openmp"]
-        extra_link_args = []
+        openmp_flag = ["/openmp"]
+    elif sys.platform == "darwin" and 'openmp' in os.getenv('CPPFLAGS', ''):
+        openmp_flag = []
     else:
-        extra_compile_args = ["-fopenmp"]
-        extra_link_args = ["-fopenmp"]
+        openmp_flag = ["-fopenmp"]
 
     ext_modules = [
         Extension(
             "openmp_helpers_inner",
             ["openmp_helpers_inner.pyx"],
-            extra_compile_args=extra_compile_args,
-            extra_link_args=extra_link_args
+            extra_compile_args=openmp_flag,
+            extra_link_args=openmp_flag
             )
     ]
 

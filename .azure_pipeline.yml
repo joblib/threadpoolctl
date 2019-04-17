@@ -67,5 +67,5 @@ jobs:
       pylatest_conda:
         PACKAGER: 'conda'
         VERSION_PYTHON: '*'
-        CC_OUTER_LOOP: 'clang'
         CC_INNER_LOOP: 'clang'
+        CC_OUTER_LOOP: 'clang'

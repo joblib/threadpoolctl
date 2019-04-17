@@ -53,3 +53,12 @@ except ImportError:
         """A decorator to skip tests if check_openmp_n_threads is not compiled.
         """
         return skip_func('Test requires check_openmp_n_threads to be compiled')
+
+
+# helper to skip test is scipy not installed
+def scipy_available():
+    try:
+        import scipy  # noqa
+        return True
+    except ImportError:
+        return False

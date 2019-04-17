@@ -18,9 +18,9 @@ def should_skip_module(module):
 
 
 def effective_num_threads(nthreads, max_threads):
-        if nthreads is None or nthreads > max_threads:
-            return max_threads
-        return nthreads
+    if nthreads is None or nthreads > max_threads:
+        return max_threads
+    return nthreads
 
 
 @pytest.mark.parametrize("prefix", _ALL_PREFIXES)

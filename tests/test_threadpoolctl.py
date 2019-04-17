@@ -232,8 +232,7 @@ def test_multiple_shipped_openblas():
     test_shipped_openblas()
 
 
-@pytest.mark.skipif(not scipy_available(),
-                    reason="requires scipy")
+@pytest.mark.skipif(not scipy_available(), reason="requires scipy")
 @pytest.mark.parametrize('nthreads_outer', [None, 1, 2, 4])
 def test_nested_prange_blas(nthreads_outer):
     import numpy as np

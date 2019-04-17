@@ -17,7 +17,7 @@ import ctypes
 from ctypes.util import find_library
 
 __version__ = '1.0.0.dev0'
-__all__ = ["threadpool_limits", "threadpool_info", "safe_nested_parallelism"]
+__all__ = ["threadpool_limits", "threadpool_info"]
 
 # Cache for libc under POSIX and a few system libraries under Windows
 _system_libraries = {}
@@ -501,7 +501,7 @@ class threadpool_limits:
             self._original_limits = None
 
     def __enter__(self):
-        pass
+        return self
 
     def __exit__(self, type, value, traceback):
         self.unregister()
@@ -511,53 +511,18 @@ class threadpool_limits:
             for module in self._original_limits:
                 module['set_num_threads'](module['num_threads'])
 
+    def get_original_max_threads(self, user_api=None):
+        if user_api is None:
+            user_api = _ALL_USER_APIS
+        elif user_api in _ALL_USER_APIS:
+            user_api = (user_api,)
+        else:
+            raise ValueError("user_api must be either in {} or None. Got {} "
+                             "instead.".format(_ALL_USER_APIS, user_api))
 
-class safe_nested_parallelism:
-    """Context manager to ensure that the inner parallel loop run serially
-
-    This makes it possible to nest calls with libraries built with independent
-    threadpool runtimes without causing oversubscription.
-    """
-
-    def __init__(self, outer_module, outer_api, inner_module, inner_api):
-        if hasattr(outer_module, "__file__"):
-            outer_module = outer_module.__file__
-        outer_lib = ctypes.cdll[outer_module]
-        outer_api = _MAP_API_TO_FUNC[outer_api]
-        if hasattr(inner_module, "__file__"):
-            inner_module = inner_module.__file__
-        inner_lib = ctypes.cdll[inner_module]
-        inner_api = _MAP_API_TO_FUNC[inner_api]
-
-        outer_get_num_threads = outer_lib[outer_api["get_num_threads"]]
-        inner_get_num_threads = inner_lib[inner_api["get_num_threads"]]
-        self._inner_set_num_threads = inner_lib[inner_api["set_num_threads"]]
-
-        outer_num_threads = outer_get_num_threads()
-        inner_num_threads = inner_get_num_threads()
-        self._original_inner_num_threads = None
-        if inner_num_threads >= 1:
-            # Switch to serial mode
-            self._inner_set_num_threads(1)
-            assert inner_get_num_threads() == 1
-
-            if outer_get_num_threads() < outer_num_threads:
-                # The two thread pools are tied (or the same). We do not need
-                # any oversubscription protection. Let's restore the previous
-                # state of the threadpool right away:
-                self._inner_set_num_threads(inner_num_threads)
-            else:
-                # The protection is now in-place. Record the original number
-                # of threads of the inner thread pool to be able to restore it
-                # in the unregister method.
-                self._original_inner_num_threads = inner_num_threads
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, type, value, traceback):
-        self.unregister()
-
-    def unregister(self):
-        if self._original_inner_num_threads is not None:
-            self._inner_set_num_threads(self._original_inner_num_threads)
+        max_threads = -1
+        for module in self._original_limits:
+            for api in user_api:
+                if api == module['user_api']:
+                    max_threads = max(max_threads, module['num_threads'])
+        return max_threads

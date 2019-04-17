@@ -4,7 +4,6 @@ import pytest
 
 
 from threadpoolctl import threadpool_limits, threadpool_info
-from threadpoolctl import safe_nested_parallelism
 from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 
 from .utils import with_check_openmp_num_threads
@@ -16,6 +15,12 @@ def should_skip_module(module):
     # Possible bug in getting maximum number of threads with OpenBLAS < 0.2.16
     # and OpenBLAS does not expose its version before 0.3.4.
     return module['internal_api'] == "openblas" and module['version'] is None
+
+
+def effective_num_threads(nthreads, max_threads):
+    if nthreads is None or nthreads > max_threads:
+        return max_threads
+    return nthreads
 
 
 @pytest.mark.parametrize("prefix", _ALL_PREFIXES)
@@ -153,14 +158,13 @@ def test_openmp_limit_num_threads(num_threads):
 
 
 @with_check_openmp_num_threads
-def test_openmp_nesting():
+@pytest.mark.parametrize('nthreads_outer', [None, 1, 2, 4])
+def test_openmp_nesting(nthreads_outer):
     # checks that OpenMP effectively uses the number of threads requested by
     # the context manager
     from ._openmp_test_helper import check_nested_openmp_loops
     from ._openmp_test_helper import get_inner_compiler
     from ._openmp_test_helper import get_outer_compiler
-    from ._openmp_test_helper import openmp_helpers_inner
-    from ._openmp_test_helper import openmp_helpers_outer
 
     inner_cc = get_inner_compiler()
     outer_cc = get_outer_compiler()
@@ -186,20 +190,20 @@ def test_openmp_nesting():
         # There should be at least 2 OpenMP runtime detected.
         assert len(openmp_infos) >= 2
 
-    with safe_nested_parallelism(outer_module=openmp_helpers_outer,
-                                 outer_api="openmp",
-                                 inner_module=openmp_helpers_inner,
-                                 inner_api="openmp"):
-        safe_outer_num_threads, safe_inner_num_threads = \
-            check_nested_openmp_loops(10)
+    with threadpool_limits(limits=1) as threadpoolctx:
+        max_threads = threadpoolctx.get_original_max_threads('openmp')
+        nthreads = effective_num_threads(nthreads_outer, max_threads)
 
-    # The number of threads available of the outer loop should not have been
+        outer_num_threads, inner_num_threads = \
+            check_nested_openmp_loops(10, nthreads)
+
+    # The number of threads available in the outer loop should not have been
     # decreased:
-    assert safe_outer_num_threads == outer_num_threads
+    assert outer_num_threads == nthreads
 
-    # The number of threads available for the inner loop should have been set
+    # The number of threads available in the inner loop should have been set
     # to 1 so avoid oversubscription and preserve performance:
-    assert safe_inner_num_threads == 1
+    assert inner_num_threads == 1
 
     # The state of the original state of all threadpools should have been
     # restored.
@@ -228,9 +232,8 @@ def test_multiple_shipped_openblas():
     test_shipped_openblas()
 
 
-@pytest.mark.skipif(not scipy_available(),
-                    reason="requires scipy")
-@pytest.mark.parametrize('nthreads_outer', [1, 2, 4])
+@pytest.mark.skipif(not scipy_available(), reason="requires scipy")
+@pytest.mark.parametrize('nthreads_outer', [None, 1, 2, 4])
 def test_nested_prange_blas(nthreads_outer):
     import numpy as np
     from ._openmp_test_helper import check_nested_prange_blas
@@ -238,12 +241,15 @@ def test_nested_prange_blas(nthreads_outer):
     A = np.ones((1000, 10))
     B = np.ones((100, 10))
 
-    with threadpool_limits(limits=1):
-        result = check_nested_prange_blas(A, B, nthreads_outer)
+    with threadpool_limits(limits=1) as threadpoolctx:
+        max_threads = threadpoolctx.get_original_max_threads('openmp')
+        nthreads = effective_num_threads(nthreads_outer, max_threads)
+
+        result = check_nested_prange_blas(A, B, nthreads)
         C, prange_num_threads, threadpool_infos = result
 
     assert np.allclose(C, np.dot(A, B.T))
-    assert prange_num_threads == nthreads_outer
+    assert prange_num_threads == nthreads
 
     for module in threadpool_infos:
         if not should_skip_module(module):

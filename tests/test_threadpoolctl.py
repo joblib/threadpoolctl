@@ -7,7 +7,9 @@ from threadpoolctl import threadpool_limits, threadpool_info
 from threadpoolctl import safe_nested_parallelism
 from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 
-from .utils import with_check_openmp_num_threads, libopenblas_paths
+from .utils import with_check_openmp_num_threads
+from .utils import libopenblas_paths
+from .utils import scipy_available
 
 
 def should_skip_module(module):
@@ -226,6 +228,8 @@ def test_multiple_shipped_openblas():
     test_shipped_openblas()
 
 
+@pytest.mark.skipif(not scipy_available(),
+                    reason="requires scipy")
 @pytest.mark.parametrize('nthreads_outer', [1, 2, 4])
 def test_nested_prange_blas(nthreads_outer):
     import numpy as np
@@ -236,8 +240,11 @@ def test_nested_prange_blas(nthreads_outer):
 
     with threadpool_limits(limits=1):
         result = check_nested_prange_blas(A, B, nthreads_outer)
-        C, prange_num_threads, blas_num_threads = result
+        C, prange_num_threads, threadpool_infos = result
 
-    assert prange_num_threads == nthreads_outer
-    assert all(b_n_t == 1 for b_n_t in blas_num_threads)
     assert np.allclose(C, np.dot(A, B.T))
+    assert prange_num_threads == nthreads_outer
+
+    for module in threadpool_infos:
+        if not should_skip_module(module):
+            assert module['num_threads'] == 1

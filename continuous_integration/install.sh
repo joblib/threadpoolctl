@@ -6,10 +6,16 @@ UNAMESTR=`uname`
 
 if [[ "$UNAMESTR" == "Darwin" ]]; then
     # Install a compiler with a working openmp
-    HOMEBREW_NO_AUTO_UPDATE=1 brew install llvm libomp
-    export PATH="/usr/local/opt/llvm/bin:$PATH"
-    export LDFLAGS="-L/usr/local/opt/llvm/lib -Wl,-rpath,/usr/local/opt/llvm/lib"
-    export CPPFLAGS="-I/usr/local/opt/llvm/include"
+    HOMEBREW_NO_AUTO_UPDATE=1 brew install libomp
+    
+    # enable OpenMP support for Apple-clang
+    export CC=/usr/bin/clang
+    export CXX=/usr/bin/clang++
+    export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
+    export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
+    export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
+    export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
+    export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
 
 else
     # Assume Ubuntu: install a recent version of clang and libomp
@@ -29,7 +35,7 @@ make_conda() {
 if [[ "$PACKAGER" == "conda" ]]; then
     TO_INSTALL="python=$VERSION_PYTHON pip pytest pytest-cov cython"
     if [[ "$NO_NUMPY" != "true" ]]; then
-         TO_INSTALL="$TO_INSTALL numpy"
+         TO_INSTALL="$TO_INSTALL numpy scipy"
     fi
 	make_conda $TO_INSTALL
 

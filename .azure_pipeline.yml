@@ -41,6 +41,7 @@ jobs:
       py36_conda_openblas:
         PACKAGER: 'conda'
         VERSION_PYTHON: '3.6'
+        NO_MKL: 'true'
         CC_OUTER_LOOP: 'clang-8'
         CC_INNER_LOOP: 'clang-8'
       # Linux environment to test the latest available dependencies and MKL.

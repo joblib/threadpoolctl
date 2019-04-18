@@ -50,6 +50,7 @@ fi
 
 
 python -m pip install -q -r dev-requirements.txt
+gcc --version
 bash ./continuous_integration/build_test_ext.sh
 
 python --version

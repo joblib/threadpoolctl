@@ -232,25 +232,25 @@ def test_multiple_shipped_openblas():
     test_shipped_openblas()
 
 
-# @pytest.mark.skipif(not scipy_available(), reason="requires scipy")
-# @pytest.mark.parametrize('nthreads_outer', [None, 1, 2, 4])
-# def test_nested_prange_blas(nthreads_outer):
-#     import numpy as np
-#     from ._openmp_test_helper import check_nested_prange_blas
+@pytest.mark.skipif(not scipy_available(), reason="requires scipy")
+@pytest.mark.parametrize('nthreads_outer', [None, 1, 2, 4])
+def test_nested_prange_blas(nthreads_outer):
+    import numpy as np
+    from ._openmp_test_helper import check_nested_prange_blas
 
-#     A = np.ones((1000, 10))
-#     B = np.ones((100, 10))
+    A = np.ones((1000, 10))
+    B = np.ones((100, 10))
 
-#     with threadpool_limits(limits=1) as threadpoolctx:
-#         max_threads = threadpoolctx.get_original_max_threads('openmp')
-#         nthreads = effective_num_threads(nthreads_outer, max_threads)
+    with threadpool_limits(limits=1) as threadpoolctx:
+        max_threads = threadpoolctx.get_original_max_threads('openmp')
+        nthreads = effective_num_threads(nthreads_outer, max_threads)
 
-#         result = check_nested_prange_blas(A, B, nthreads)
-#         C, prange_num_threads, threadpool_infos = result
+        result = check_nested_prange_blas(A, B, nthreads)
+        C, prange_num_threads, threadpool_infos = result
 
-#     assert np.allclose(C, np.dot(A, B.T))
-#     assert prange_num_threads == nthreads
+    assert np.allclose(C, np.dot(A, B.T))
+    assert prange_num_threads == nthreads
 
-#     for module in threadpool_infos:
-#         if not should_skip_module(module):
-#             assert module['num_threads'] == 1
+    for module in threadpool_infos:
+        if not should_skip_module(module):
+            assert module['num_threads'] == 1

@@ -36,7 +36,6 @@ if [[ "$PACKAGER" == "conda" ]]; then
     TO_INSTALL="python=$VERSION_PYTHON pip pytest pytest-cov cython"
     if [[ "$NO_NUMPY" != "true" ]]; then
         TO_INSTALL="$TO_INSTALL numpy scipy"
-    fi
         if [[ "$NO_MKL" != "true" ]]; then
             TO_INSTALL="$TO_INSTALL nomkl"
         fi

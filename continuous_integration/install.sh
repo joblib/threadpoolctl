@@ -17,7 +17,7 @@ if [[ "$UNAMESTR" == "Darwin" ]]; then
     export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
     export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
 
-elif [[ "$CC_OUTER_LOOP" == "clang-8" || "$CC_INNER_LOOP" == "clang-8" ]]
+elif [[ "$CC_OUTER_LOOP" == "clang-8" || "$CC_INNER_LOOP" == "clang-8" ]]; then
     # Assume Ubuntu: install a recent version of clang and libomp
     echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
     echo "deb-src http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
@@ -35,7 +35,10 @@ make_conda() {
 if [[ "$PACKAGER" == "conda" ]]; then
     TO_INSTALL="python=$VERSION_PYTHON pip pytest pytest-cov cython"
     if [[ "$NO_NUMPY" != "true" ]]; then
-         TO_INSTALL="$TO_INSTALL numpy scipy"
+        TO_INSTALL="$TO_INSTALL numpy scipy"
+        if [[ "$NO_MKL" == "true" ]]; then
+            TO_INSTALL="$TO_INSTALL nomkl"
+        fi
     fi
 	make_conda $TO_INSTALL
 

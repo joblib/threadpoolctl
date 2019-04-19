@@ -143,18 +143,18 @@ def test_threadpool_limits_bad_input():
         threadpool_limits(limits=(1, 2, 3))
 
 
-# @with_check_openmp_num_threads
-# @pytest.mark.parametrize('num_threads', [1, 2, 4])
-# def test_openmp_limit_num_threads(num_threads):
-#     # checks that OpenMP effectively uses the number of threads requested by
-#     # the context manager
-#     from ._openmp_test_helper import check_openmp_num_threads
+@with_check_openmp_num_threads
+@pytest.mark.parametrize('num_threads', [1, 2, 4])
+def test_openmp_limit_num_threads(num_threads):
+    # checks that OpenMP effectively uses the number of threads requested by
+    # the context manager
+    from ._openmp_test_helper import check_openmp_num_threads
 
-#     old_num_threads = check_openmp_num_threads(100)
+    old_num_threads = check_openmp_num_threads(100)
 
-#     with threadpool_limits(limits=num_threads):
-#         assert check_openmp_num_threads(100) in (num_threads, old_num_threads)
-#     assert check_openmp_num_threads(100) == old_num_threads
+    with threadpool_limits(limits=num_threads):
+        assert check_openmp_num_threads(100) in (num_threads, old_num_threads)
+    assert check_openmp_num_threads(100) == old_num_threads
 
 
 @with_check_openmp_num_threads
@@ -190,8 +190,7 @@ def test_openmp_nesting(nthreads_outer):
         # There should be at least 2 OpenMP runtime detected.
         assert len(openmp_infos) >= 2
 
-    n_inner = 2
-    with threadpool_limits(limits=n_inner) as threadpoolctx:
+    with threadpool_limits(limits=1) as threadpoolctx:
         max_threads = threadpoolctx.get_original_num_threads('openmp')
         nthreads = effective_num_threads(nthreads_outer, max_threads)
 
@@ -204,7 +203,7 @@ def test_openmp_nesting(nthreads_outer):
 
     # The number of threads available in the inner loop should have been set
     # to 1 so avoid oversubscription and preserve performance:
-    assert inner_num_threads == n_inner
+    assert inner_num_threads == 1
 
     # The state of the original state of all threadpools should have been
     # restored.

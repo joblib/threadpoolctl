@@ -25,18 +25,18 @@ def check_nested_prange_blas(double[:, ::1] A, double[:, ::1] B, int nthreads):
 
         int i
         int prange_num_threads
-    
+
     threadpool_infos = None
 
     for i in prange(n_chunks, num_threads=nthreads, nogil=True):
         dgemm(trans, no_trans, &n, &chunk_size, &k,
               &alpha, &B[0, 0], &k, &A[i * chunk_size, 0], &k,
               &beta, &C[i * chunk_size, 0], &n)
-    
+
         prange_num_threads = openmp.omp_get_num_threads()
 
-        if i == 0:
-            with gil:
-                threadpool_infos = threadpool_info()
+        # if i == 0:
+        #     with gil:
+        #         threadpool_infos = threadpool_info()
 
-    return np.asarray(C), prange_num_threads, threadpool_infos
+    return np.asarray(C), prange_num_threads, [] # threadpool_infos

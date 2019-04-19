@@ -35,8 +35,8 @@ def check_nested_prange_blas(double[:, ::1] A, double[:, ::1] B, int nthreads):
 
         prange_num_threads = openmp.omp_get_num_threads()
 
-        # if i == 0:
-        #     with gil:
-        #         threadpool_infos = threadpool_info()
+        if i == 0:
+            with gil:
+                threadpool_infos = threadpool_info()
 
     return np.asarray(C), prange_num_threads, [] # threadpool_infos

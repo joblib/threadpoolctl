@@ -28,11 +28,11 @@ cdef int inner_openmp_loop(int n) nogil:
 
     for i in prange(n):
         num_threads = openmp.omp_get_num_threads()
-        # n_sum += i
+        n_sum += i
 
-    # if n_sum != (n - 1) * n / 2:
-    #     # error
-    #     return -1
+    if n_sum != (n - 1) * n / 2:
+        # error
+        return -1
 
     return num_threads
 

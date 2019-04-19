@@ -9,5 +9,11 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
 fi
 
 set -x
+
+python -c "from tests.test_threadpoolctl import test_nested_prange_blas; test_nested_prange_blas(1)"
+python -c "from tests.test_threadpoolctl import test_nested_prange_blas; test_nested_prange_blas(2)"
+python -c "from tests.test_threadpoolctl import test_nested_prange_blas; test_nested_prange_blas(4)"
+python -c "from tests.test_threadpoolctl import test_nested_prange_blas; test_nested_prange_blas(None)"
+
 pytest -vl --junitxml=$JUNITXML --cov=threadpoolctl
 set +x

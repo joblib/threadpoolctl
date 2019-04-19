@@ -10,8 +10,6 @@ from .utils import with_check_openmp_num_threads
 from .utils import libopenblas_paths
 from .utils import scipy_available
 
-scipy_available()
-
 
 def should_skip_module(module):
     # Possible bug in getting maximum number of threads with OpenBLAS < 0.2.16

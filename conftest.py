@@ -25,6 +25,9 @@ def mkl_present(request):
 
 def pytest_configure(config):
     """Verify the environment for testing threadpoolctl"""
+    from faulthandler import dump_traceback_later
+    dump_traceback_later(timeout=40, exit=True)
+
     warnings.simplefilter('always')
 
     # When using this option, make sure numpy is accessible

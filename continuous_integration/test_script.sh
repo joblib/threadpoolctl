@@ -9,24 +9,5 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
 fi
 
 set -x
-
-tests=(
-    limits_by_prefix
-    limits_by_api
-    limits_function_with_side_effect
-    limits_no_limit
-    limits_manual_unregister
-    limits_bad_input
-    limit_num_threads
-    openmp_nesting
-    shipped_openblas
-)
-for tst in "${tests[@]}"; do
-    pytest -vl --junitxml=$JUNITXML -k "$tst or prange_blas"
-done
-
-for tst in "${tests[@]}"; do
-    pytest -vl --junitxml=$JUNITXML --cov=threadpoolctl -k "$tst or prange_blas"
-done
-
+pytest -vl --junitxml=$JUNITXML --cov=threadpoolctl -k "limit_num_threads or prange_blas"
 set +x

@@ -191,7 +191,7 @@ def test_openmp_nesting(nthreads_outer):
         assert len(openmp_infos) >= 2
 
     with threadpool_limits(limits=1) as threadpoolctx:
-        max_threads = threadpoolctx.get_original_max_threads('openmp')
+        max_threads = threadpoolctx.get_original_num_threads('openmp')
         nthreads = effective_num_threads(nthreads_outer, max_threads)
 
         outer_num_threads, inner_num_threads = \
@@ -242,7 +242,7 @@ def test_nested_prange_blas(nthreads_outer):
     B = np.ones((100, 10))
 
     with threadpool_limits(limits=1) as threadpoolctx:
-        max_threads = threadpoolctx.get_original_max_threads('openmp')
+        max_threads = threadpoolctx.get_original_num_threads('openmp')
         nthreads = effective_num_threads(nthreads_outer, max_threads)
 
         result = check_nested_prange_blas(A, B, nthreads)

@@ -4,19 +4,14 @@ from distutils.core import setup
 from Cython.Build import cythonize
 from distutils.extension import Extension
 
+from build_utils import set_cc_variables
+
 
 original_environ = os.environ.copy()
 try:
     # Make it possible to compile the 2 OpenMP enabled Cython extensions
     # with different compilers and therefore different OpenMP runtimes.
-    inner_loop_cc_var = os.environ.get("CC_INNER_LOOP")
-    if inner_loop_cc_var is not None:
-        os.environ["CC"] = inner_loop_cc_var
-        if sys.platform == "darwin":
-            os.environ["LDSHARED"] = (
-                inner_loop_cc_var + " -bundle -undefined dynamic_lookup")
-        else:
-            os.environ["LDSHARED"] = inner_loop_cc_var + " -shared"
+    inner_loop_cc_var = set_cc_variables("CC_INNER_LOOP")
 
     if sys.platform == "win32":
         openmp_flag = ["/openmp"]

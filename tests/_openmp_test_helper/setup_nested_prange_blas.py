@@ -4,6 +4,10 @@ from distutils.core import setup
 from Cython.Build import cythonize
 from distutils.extension import Extension
 
+from build_utils import set_cc_variables
+
+
+set_cc_variables("CC_OUTER_LOOP")
 
 if sys.platform == "win32":
     openmp_flag = ["/openmp"]

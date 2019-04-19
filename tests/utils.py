@@ -58,7 +58,8 @@ except ImportError:
 # helper to skip test is scipy not installed
 def scipy_available():
     try:
-        import scipy  # noqa
+        import scipy
+        scipy.linalg.svd(np.eye(1000))
         return True
     except ImportError:
         return False

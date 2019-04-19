@@ -522,7 +522,7 @@ class threadpool_limits:
         n_limits = len(limits)
 
         if n_limits == 1:
-            return limits[0]
+            return limits.pop()
         elif n_limits == 0:
             return None
         else:

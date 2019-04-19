@@ -144,20 +144,6 @@ def test_threadpool_limits_bad_input():
 
 
 @with_check_openmp_num_threads
-@pytest.mark.parametrize('num_threads', [1, 2, 4])
-def test_openmp_limit_num_threads(num_threads):
-    # checks that OpenMP effectively uses the number of threads requested by
-    # the context manager
-    from ._openmp_test_helper import check_openmp_num_threads
-
-    old_num_threads = check_openmp_num_threads(100)
-
-    with threadpool_limits(limits=num_threads):
-        assert check_openmp_num_threads(100) in (num_threads, old_num_threads)
-    assert check_openmp_num_threads(100) == old_num_threads
-
-
-@with_check_openmp_num_threads
 @pytest.mark.parametrize('nthreads_outer', [None, 1, 2, 4])
 def test_openmp_nesting(nthreads_outer):
     # checks that OpenMP effectively uses the number of threads requested by
@@ -254,3 +240,17 @@ def test_nested_prange_blas(nthreads_outer):
     for module in threadpool_infos:
         if not should_skip_module(module):
             assert module['num_threads'] == 1
+
+
+@with_check_openmp_num_threads
+@pytest.mark.parametrize('num_threads', [1, 2, 4])
+def test_openmp_limit_num_threads(num_threads):
+    # checks that OpenMP effectively uses the number of threads requested by
+    # the context manager
+    from ._openmp_test_helper import check_openmp_num_threads
+
+    old_num_threads = check_openmp_num_threads(100)
+
+    with threadpool_limits(limits=num_threads):
+        assert check_openmp_num_threads(100) in (num_threads, old_num_threads)
+    assert check_openmp_num_threads(100) == old_num_threads

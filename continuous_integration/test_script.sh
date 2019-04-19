@@ -9,5 +9,9 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
 fi
 
 set -x
-pytest -vl --junitxml=$JUNITXML --cov=threadpoolctl
+pytest -vl --junitxml=$JUNITXML --cov=threadpoolctl &
+sleep 5
+sudo gdb -p $! -ex "set confirm off" -ex "thread apply all bt" -ex q
+fg
+
 set +x

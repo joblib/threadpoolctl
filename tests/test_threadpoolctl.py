@@ -238,6 +238,9 @@ def test_nested_prange_blas(nthreads_outer):
     import numpy as np
     from ._openmp_test_helper import check_nested_prange_blas
 
+    from ._openmp_test_helper import check_openmp_num_threads
+    old_num_threads = check_openmp_num_threads(100)
+
     A = np.ones((1000, 10))
     B = np.ones((100, 10))
 

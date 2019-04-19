@@ -29,11 +29,12 @@ except ImportError:
 try:
     import scipy
     import scipy.linalg  # noqa: F401
+    scipy.linalg.svd([[1, 2], [3, 4]])
 
     libopenblas_patterns.append(os.path.join(scipy.__path__[0], ".libs",
                                              "libopenblas*"))
 except ImportError:
-    pass
+    scipy = None
 
 libopenblas_paths = set(path for pattern in libopenblas_patterns
                         for path in glob(pattern))
@@ -53,12 +54,3 @@ except ImportError:
         """A decorator to skip tests if check_openmp_n_threads is not compiled.
         """
         return skip_func('Test requires check_openmp_n_threads to be compiled')
-
-
-# helper to skip test is scipy not installed
-def scipy_available():
-    try:
-        import scipy  # noqa
-        return True
-    except ImportError:
-        return False

@@ -8,7 +8,12 @@ from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 
 from .utils import with_check_openmp_num_threads
 from .utils import libopenblas_paths
-from .utils import scipy_available
+from .utils import scipy
+
+
+from threading import Timer
+import faulthandler
+Timer(1, faulthandler.dump_traceback).start()
 
 
 def should_skip_module(module):
@@ -232,7 +237,7 @@ def test_multiple_shipped_openblas():
     test_shipped_openblas()
 
 
-@pytest.mark.skipif(not scipy_available(), reason="requires scipy")
+@pytest.mark.skipif(scipy is None, reason="requires scipy")
 @pytest.mark.parametrize('nthreads_outer', [None, 1, 2, 4])
 def test_nested_prange_blas(nthreads_outer):
     import numpy as np

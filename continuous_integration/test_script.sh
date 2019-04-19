@@ -9,5 +9,6 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
 fi
 
 set -x
+
 pytest -vl --junitxml=$JUNITXML --cov=threadpoolctl -k "prange_blas"
 set +x

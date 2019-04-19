@@ -26,5 +26,5 @@ set -x
 
 
 
-pytest -vl --junitxml=$JUNITXML --cov=threadpoolctl -k "limit_num_threads or prange_blas"
+pytest -vl --junitxml=$JUNITXML --cov=threadpoolctl
 set +x

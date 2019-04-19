@@ -1,10 +1,10 @@
 import os
-import sys
 from distutils.core import setup
 from Cython.Build import cythonize
 from distutils.extension import Extension
 
 from build_utils import set_cc_variables
+from build_utils import get_openmp_flag
 
 
 original_environ = os.environ.copy()
@@ -12,13 +12,7 @@ try:
     # Make it possible to compile the 2 OpenMP enabled Cython extensions
     # with different compilers and therefore different OpenMP runtimes.
     outer_loop_cc_var = set_cc_variables("CC_OUTER_LOOP")
-
-    if sys.platform == "win32":
-        openmp_flag = ["/openmp"]
-    elif sys.platform == "darwin" and 'openmp' in os.getenv('CPPFLAGS', ''):
-        openmp_flag = []
-    else:
-        openmp_flag = ["-fopenmp"]
+    openmp_flag = get_openmp_flag()
 
     ext_modules = [
         Extension(

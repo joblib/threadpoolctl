@@ -9,6 +9,22 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
 fi
 
 set -x
+# python -c "from tests.test_threadpoolctl import test_openmp_limit_num_threads, test_nested_prange_blas; test_openmp_limit_num_threads(1); test_nested_prange_blas(1)"
+# python -c "from tests.test_threadpoolctl import test_openmp_limit_num_threads, test_nested_prange_blas; test_openmp_limit_num_threads(1); test_nested_prange_blas(2)"
+# python -c "from tests.test_threadpoolctl import test_openmp_limit_num_threads, test_nested_prange_blas; test_openmp_limit_num_threads(1); test_nested_prange_blas(4)"
+# python -c "from tests.test_threadpoolctl import test_openmp_limit_num_threads, test_nested_prange_blas; test_openmp_limit_num_threads(1); test_nested_prange_blas(None)"
 
-pytest -vl --junitxml=$JUNITXML --cov=threadpoolctl -k "prange_blas"
+# python -c "from tests.test_threadpoolctl import test_openmp_limit_num_threads, test_nested_prange_blas; test_openmp_limit_num_threads(2); test_nested_prange_blas(1)"
+# python -c "from tests.test_threadpoolctl import test_openmp_limit_num_threads, test_nested_prange_blas; test_openmp_limit_num_threads(2); test_nested_prange_blas(2)"
+# python -c "from tests.test_threadpoolctl import test_openmp_limit_num_threads, test_nested_prange_blas; test_openmp_limit_num_threads(2); test_nested_prange_blas(4)"
+# python -c "from tests.test_threadpoolctl import test_openmp_limit_num_threads, test_nested_prange_blas; test_openmp_limit_num_threads(2); test_nested_prange_blas(None)"
+
+# python -c "from tests.test_threadpoolctl import test_openmp_limit_num_threads, test_nested_prange_blas; test_openmp_limit_num_threads(4); test_nested_prange_blas(1)"
+# python -c "from tests.test_threadpoolctl import test_openmp_limit_num_threads, test_nested_prange_blas; test_openmp_limit_num_threads(4); test_nested_prange_blas(2)"
+# python -c "from tests.test_threadpoolctl import test_openmp_limit_num_threads, test_nested_prange_blas; test_openmp_limit_num_threads(4); test_nested_prange_blas(4)"
+# python -c "from tests.test_threadpoolctl import test_openmp_limit_num_threads, test_nested_prange_blas; test_openmp_limit_num_threads(4); test_nested_prange_blas(None)"
+
+
+
+pytest -vl --junitxml=$JUNITXML --cov=threadpoolctl -k "limit_num_threads or prange_blas"
 set +x

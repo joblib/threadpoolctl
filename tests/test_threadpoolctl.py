@@ -10,6 +10,8 @@ from .utils import with_check_openmp_num_threads
 from .utils import libopenblas_paths
 from .utils import scipy_available
 
+scipy_available()
+
 
 def should_skip_module(module):
     # Possible bug in getting maximum number of threads with OpenBLAS < 0.2.16
@@ -237,12 +239,6 @@ def test_multiple_shipped_openblas():
 def test_nested_prange_blas(nthreads_outer):
     import numpy as np
     from ._openmp_test_helper import check_nested_prange_blas
-
-    from ._openmp_test_helper import check_openmp_num_threads
-    old_num_threads = check_openmp_num_threads(100)
-    with threadpool_limits(limits=nthreads_outer):
-        assert check_openmp_num_threads(100) in (nthreads_outer, old_num_threads)
-    assert check_openmp_num_threads(100) == old_num_threads
 
     A = np.ones((1000, 10))
     B = np.ones((100, 10))

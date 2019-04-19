@@ -14,6 +14,7 @@ import os
 import re
 import sys
 import ctypes
+import warnings
 from ctypes.util import find_library
 
 __version__ = '1.0.0.dev0'
@@ -513,18 +514,18 @@ class threadpool_limits:
             for module in self._original_limits:
                 module['set_num_threads'](module['num_threads'])
 
-    def get_original_max_threads(self, user_api=None):
-        if user_api is None:
-            user_api = _ALL_USER_APIS
-        elif user_api in _ALL_USER_APIS:
-            user_api = (user_api,)
-        else:
-            raise ValueError("user_api must be either in {} or None. Got {} "
-                             "instead.".format(_ALL_USER_APIS, user_api))
+    def get_original_num_threads(self, user_api):
+        limits = [module['num_threads'] for module in self._original_limits
+                  if module['user_api'] == user_api]
 
-        max_threads = -1
-        for module in self._original_limits:
-            for api in user_api:
-                if api == module['user_api']:
-                    max_threads = max(max_threads, module['num_threads'])
-        return max_threads
+        limits = set(limits)
+        n_limits = len(limits)
+
+        if n_limits == 1:
+            return limits[0]
+        elif n_limits == 0:
+            return None
+        else:
+            warnings.warn("Multiple value possible for user_api='{}'. "
+                          "Returning the minimum.".format(user_api))
+            return min(limits)

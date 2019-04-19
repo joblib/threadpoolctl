@@ -24,5 +24,6 @@ python -c "from tests.test_threadpoolctl import test_openmp_limit_num_threads, t
 python -c "from tests.test_threadpoolctl import test_openmp_limit_num_threads, test_nested_prange_blas; test_openmp_limit_num_threads(4); test_nested_prange_blas(4)"
 python -c "from tests.test_threadpoolctl import test_openmp_limit_num_threads, test_nested_prange_blas; test_openmp_limit_num_threads(4); test_nested_prange_blas(None)"
 
+
 # pytest -vl --junitxml=$JUNITXML --cov=threadpoolctl
 set +x

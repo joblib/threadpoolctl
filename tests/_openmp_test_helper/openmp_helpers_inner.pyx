@@ -8,7 +8,8 @@ def check_openmp_num_threads(int n):
     Return the number of threads that where effectively used by the
     OpenMP runtime.
     """
-    cdef int num_threads
+    cdef int num_threads = -1
+
     with nogil:
         num_threads = inner_openmp_loop(n)
     return num_threads

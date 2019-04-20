@@ -13,3 +13,11 @@ def set_cc_variables(var_name="CC"):
             os.environ["LDSHARED"] = cc_var + " -shared"
 
     return cc_var
+
+
+def get_openmp_flag():
+    if sys.platform == "win32":
+        return ["/openmp"]
+    elif sys.platform == "darwin" and 'openmp' in os.getenv('CPPFLAGS', ''):
+        return []
+    return ["-fopenmp"]

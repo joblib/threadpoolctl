@@ -1,1 +1,1 @@
-cdef int inner_openmp_loop(int) nogil
+cdef int inner_openmp_loop(int, int) nogil

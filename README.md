@@ -1,4 +1,4 @@
-# Thread-pool Controls [![Build Status](https://dev.azure.com/karementmoi/loky/_apis/build/status/joblib.threadpoolctl?branchName=master)](https://dev.azure.com/karementmoi/loky/_build/latest?definitionId=2&branchName=master) [![codecov](https://codecov.io/gh/joblib/threadpoolctl/branch/master/graph/badge.svg)](https://codecov.io/gh/joblib/threadpoolctl)
+# Thread-pool Controls [![Build Status](https://dev.azure.com/joblib/threadpoolctl/_apis/build/status/joblib.threadpoolctl?branchName=master)](https://dev.azure.com/joblib/threadpoolctl/_build/latest?definitionId=1&branchName=master) [![codecov](https://codecov.io/gh/joblib/threadpoolctl/branch/master/graph/badge.svg)](https://codecov.io/gh/joblib/threadpoolctl)
 
 Python helpers to limit the number of threads used in the
 threadpool-backed of common native libraries used for scientific

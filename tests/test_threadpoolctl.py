@@ -236,8 +236,14 @@ def test_multiple_shipped_openblas():
 @pytest.mark.parametrize('nthreads_outer', [None, 1, 2, 4])
 def test_nested_prange_blas(nthreads_outer):
     import numpy as np
-    from ._openmp_test_helper import check_nested_prange_blas
 
+    for module in threadpool_info():
+        if should_skip_module(module):
+            # OpenBLAS 0.3.3 and older are known to cause an unrecoverable
+            # deadlock at process shutdown time (after pytest has exited).
+            pytest.skip("Old OpenBLAS: skipping test to avoid deadlock")
+
+    from ._openmp_test_helper import check_nested_prange_blas
     A = np.ones((1000, 10))
     B = np.ones((100, 10))
 
@@ -252,5 +258,4 @@ def test_nested_prange_blas(nthreads_outer):
     assert prange_num_threads == nthreads
 
     for module in threadpool_infos:
-        if not should_skip_module(module):
-            assert module['num_threads'] == 1
+        assert module['num_threads'] == 1

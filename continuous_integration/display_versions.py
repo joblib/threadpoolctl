@@ -1,4 +1,3 @@
-from tests._openmp_test_helper import *
 from threadpoolctl import threadpool_info
 from pprint import pprint
 
@@ -12,6 +11,11 @@ try:
     import scipy
     import scipy.linalg
     print("scipy", scipy.__version__)
+except ImportError:
+    pass
+
+try:
+    from tests._openmp_test_helper import *  # noqa
 except ImportError:
     pass
 

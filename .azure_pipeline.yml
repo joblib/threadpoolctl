@@ -32,13 +32,20 @@ jobs:
     matrix:
       # Linux environment to test that packages that comes with Ubuntu Xenial
       # 16.04 are correctly handled.
-      py35_np_atlas:
+      py35_ubuntu_atlas_gcc_gcc:
         PACKAGER: 'ubuntu'
+        APT_BLAS: 'libatlas3-base libatlas-base-dev libatlas-dev'
+        VERSION_PYTHON: '3.5'
+        CC_OUTER_LOOP: 'gcc'
+        CC_INNER_LOOP: 'gcc'
+      py35_ubuntu_openblas_gcc_gcc:
+        PACKAGER: 'ubuntu'
+        APT_BLAS: 'libopenblas-base libopenblas-dev'
         VERSION_PYTHON: '3.5'
         CC_OUTER_LOOP: 'gcc'
         CC_INNER_LOOP: 'gcc'
       # Linux + Python 3.6 and homogeneous runtime nesting.
-      py36_conda_openblas:
+      py36_conda_openblas_clang_clang:
         PACKAGER: 'conda'
         VERSION_PYTHON: '3.6'
         NO_MKL: 'true'
@@ -46,14 +53,21 @@ jobs:
         CC_INNER_LOOP: 'clang-8'
       # Linux environment to test the latest available dependencies and MKL.
       # and heterogeneous OpenMP runtime nesting.
-      pylatest_conda:
+      pylatest_conda_mkl_clang_gcc:
         PACKAGER: 'conda'
         VERSION_PYTHON: '*'
         CC_OUTER_LOOP: 'clang-8'
         CC_INNER_LOOP: 'gcc'
+      # Same but with numpy / scipy installed with pip from PyPI and switched
+      # compilers.
+      pylatest_pip_openblas_gcc_clang:
+        PACKAGER: 'pip'
+        VERSION_PYTHON: '*'
+        CC_OUTER_LOOP: 'gcc'
+        CC_INNER_LOOP: 'clang-8'
       # Linux environment with no numpy and heterogeneous OpenMP runtime
       # nesting.
-      pylatest_conda_nonumpy:
+      pylatest_conda_nonumpy_gcc_clang:
         PACKAGER: 'conda'
         NO_NUMPY: 'true'
         VERSION_PYTHON: '*'

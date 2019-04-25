@@ -35,7 +35,7 @@ make_conda() {
 }
 
 if [[ "$PACKAGER" == "conda" ]]; then
-    TO_INSTALL="python=$VERSION_PYTHON pip pytest pytest-cov cython"
+    TO_INSTALL="python=$VERSION_PYTHON pip"
     if [[ "$NO_NUMPY" != "true" ]]; then
         TO_INSTALL="$TO_INSTALL numpy scipy"
         if [[ "$NO_MKL" == "true" ]]; then
@@ -44,8 +44,17 @@ if [[ "$PACKAGER" == "conda" ]]; then
     fi
 	make_conda $TO_INSTALL
 
+elif [[ "$PACKAGER" == "pip" ]]; then
+    # Use conda to build an empty python env and then use pip to install
+    # numpy and scipy
+    TO_INSTALL="python=$VERSION_PYTHON pip"
+    make_conda $TO_INSTALL
+    if [[ "$NO_NUMPY" != "true" ]]; then
+        pip install numpy scipy
+    fi
+
 elif [[ "$PACKAGER" == "ubuntu" ]]; then
-    sudo apt-get install python3-scipy libatlas3-base libatlas-base-dev libatlas-dev libopenblas-base python3-virtualenv
+    sudo apt-get install python3-scipy python3-virtualenv $APT_BLAS
     python3 -m virtualenv --system-site-packages --python=python3 $VIRTUALENV
     source $VIRTUALENV/bin/activate
 fi

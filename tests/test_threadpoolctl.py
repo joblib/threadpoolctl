@@ -237,6 +237,8 @@ def test_multiple_shipped_openblas():
 def test_nested_prange_blas(nthreads_outer):
     import numpy as np
 
+    blas_info = [module for module in threadpool_info()
+                 if module["user_api"] == "blas"]
     for module in threadpool_info():
         if should_skip_module(module):
             # OpenBLAS 0.3.3 and older are known to cause an unrecoverable
@@ -260,6 +262,6 @@ def test_nested_prange_blas(nthreads_outer):
     nested_blas_info = [module for module in threadpool_infos
                         if module["user_api"] == "blas"]
 
-    assert len(nested_blas_info) >= 1
+    assert len(nested_blas_info) == len(blas_info)
     for module in nested_blas_info:
         assert module['num_threads'] == 1

@@ -30,9 +30,8 @@ sudo apt install gdb
 
 make_conda() {
     TO_INSTALL="$@"
-    source /usr/share/miniconda/etc/profile.d/conda.sh
     conda create -n $VIRTUALENV -q --yes $TO_INSTALL
-    conda activate $VIRTUALENV
+    source activate $VIRTUALENV
 }
 
 if [[ "$PACKAGER" == "conda" ]]; then

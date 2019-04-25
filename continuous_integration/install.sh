@@ -31,7 +31,7 @@ sudo apt install gdb
 make_conda() {
     TO_INSTALL="$@"
     conda create -n $VIRTUALENV -q --yes $TO_INSTALL
-    source activate $VIRTUALENV
+    conda activate $VIRTUALENV
 }
 
 if [[ "$PACKAGER" == "conda" ]]; then

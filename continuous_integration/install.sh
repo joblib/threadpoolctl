@@ -26,8 +26,6 @@ elif [[ "$CC_OUTER_LOOP" == "clang-8" || "$CC_INNER_LOOP" == "clang-8" ]]; then
     sudo apt install clang-8 libomp-8-dev
 fi
 
-sudo apt install gdb
-
 make_conda() {
     TO_INSTALL="$@"
     conda create -n $VIRTUALENV -q --yes $TO_INSTALL

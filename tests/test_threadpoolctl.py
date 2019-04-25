@@ -257,5 +257,9 @@ def test_nested_prange_blas(nthreads_outer):
     assert np.allclose(C, np.dot(A, B.T))
     assert prange_num_threads == nthreads
 
-    for module in threadpool_infos:
+    nested_blas_info = [module for module in threadpool_infos
+                        if module["user_api"] == "blas"]
+
+    assert len(nested_blas_info) >= 1
+    for module in nested_blas_info:
         assert module['num_threads'] == 1

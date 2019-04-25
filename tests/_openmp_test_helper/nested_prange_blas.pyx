@@ -39,4 +39,4 @@ def check_nested_prange_blas(double[:, ::1] A, double[:, ::1] B, int nthreads):
             with gil:
                 threadpool_infos = threadpool_info()
 
-    return np.asarray(C), prange_num_threads, [] # threadpool_infos
+    return np.asarray(C), prange_num_threads, threadpool_infos

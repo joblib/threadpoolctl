@@ -5,7 +5,7 @@ set -e
 UNAMESTR=`uname`
 
 if [[ "$UNAMESTR" == "Darwin" ]]; then
-    # install OpenMP not present by default on osx
+    # Install a compiler with a working openmp
     HOMEBREW_NO_AUTO_UPDATE=1 brew install libomp
 
     # enable OpenMP support for Apple-clang
@@ -16,6 +16,14 @@ if [[ "$UNAMESTR" == "Darwin" ]]; then
     export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
     export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
     export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
+
+elif [[ "$CC_OUTER_LOOP" == "clang-8" || "$CC_INNER_LOOP" == "clang-8" ]]; then
+    # Assume Ubuntu: install a recent version of clang and libomp
+    echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
+    echo "deb-src http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+    sudo apt update
+    sudo apt install clang-8 libomp-8-dev
 fi
 
 make_conda() {
@@ -25,15 +33,29 @@ make_conda() {
 }
 
 if [[ "$PACKAGER" == "conda" ]]; then
-    TO_INSTALL="python=$VERSION_PYTHON pip pytest pytest-cov cython"
+    TO_INSTALL="python=$VERSION_PYTHON pip"
     if [[ "$NO_NUMPY" != "true" ]]; then
-         TO_INSTALL="$TO_INSTALL numpy"
+        TO_INSTALL="$TO_INSTALL numpy scipy"
+        if [[ "$NO_MKL" == "true" ]]; then
+            TO_INSTALL="$TO_INSTALL nomkl"
+        fi
     fi
-
 	make_conda $TO_INSTALL
 
+elif [[ "$PACKAGER" == "pip" ]]; then
+    # Use conda to build an empty python env and then use pip to install
+    # numpy and scipy
+    TO_INSTALL="python=$VERSION_PYTHON pip"
+    make_conda $TO_INSTALL
+    if [[ "$NO_NUMPY" != "true" ]]; then
+        pip install numpy scipy
+    fi
+
 elif [[ "$PACKAGER" == "ubuntu" ]]; then
-    sudo apt-get install python3-scipy libatlas3-base libatlas-base-dev libatlas-dev libopenblas-base python3-virtualenv
+    # Remove the ubuntu toolchain PPA that seems to be invalid:
+    # https://github.com/scikit-learn/scikit-learn/pull/13934
+    sudo add-apt-repository --remove ppa:ubuntu-toolchain-r/test
+    sudo apt-get install python3-scipy python3-virtualenv $APT_BLAS
     python3 -m virtualenv --system-site-packages --python=python3 $VIRTUALENV
     source $VIRTUALENV/bin/activate
 fi

@@ -29,11 +29,12 @@ except ImportError:
 try:
     import scipy
     import scipy.linalg  # noqa: F401
+    scipy.linalg.svd([[1, 2], [3, 4]])
 
     libopenblas_patterns.append(os.path.join(scipy.__path__[0], ".libs",
                                              "libopenblas*"))
 except ImportError:
-    pass
+    scipy = None
 
 libopenblas_paths = set(path for pattern in libopenblas_patterns
                         for path in glob(pattern))

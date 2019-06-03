@@ -1,3 +1,3 @@
 call activate %VIRTUALENV%
 
-pytest -vlx --junitxml=%JUNITXML% --cov=threadpoolctl
+pytest -vlrxXs --junitxml=%JUNITXML% --cov=threadpoolctl

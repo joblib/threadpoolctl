@@ -14,7 +14,7 @@ jobs:
   steps:
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
-      condition: eq(variables['PACKAGER'], 'conda')
+      condition: or(eq(variables['PACKAGER'], 'conda'), eq(variables['PACKAGER'], 'pip'))
     - script: |
         continuous_integration/install.sh
       displayName: 'Install'

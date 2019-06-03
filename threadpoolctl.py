@@ -14,6 +14,7 @@ import os
 import re
 import sys
 import ctypes
+import warnings
 from ctypes.util import find_library
 
 __version__ = '1.0.0.dev0'
@@ -23,17 +24,18 @@ __all__ = ["threadpool_limits", "threadpool_info"]
 _system_libraries = {}
 
 
-if sys.platform == "darwin":
-    # On OSX, we can get a runtime error due to multiple OpenMP libraries
-    # loaded simultaneously. This can happen for instance when calling BLAS
-    # inside a prange. Setting the following environment variable allows
-    # multiple OpenMP libraries to be loaded. It should not degrade
-    # performances since we manually take care of potential over-subscription
-    # performance issues, in sections of the code where nested OpenMP loops can
-    # happen, by dynamically reconfiguring the inner OpenMP runtime to
-    # temporarily disable it while under the scope of the outer OpenMP parallel
-    # section.
-    os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "True")
+# One can get runtime errors or even segfaults due to multiple OpenMP libraries
+# loaded simultaneously which can happen easily in Python when importing and
+# using compiled extensions built with different compilers and therefore
+# different OpenMP runtimes in the same program. In particular libiomp (used by
+# Intel ICC) and libomp used by clang/llvm tend to crash. This can happen for
+# instance when calling BLAS inside a prange. Setting the following environment
+# variable allows multiple OpenMP libraries to be loaded. It should not degrade
+# performances since we manually take care of potential over-subscription
+# performance issues, in sections of the code where nested OpenMP loops can
+# happen, by dynamically reconfiguring the inner OpenMP runtime to temporarily
+# disable it while under the scope of the outer OpenMP parallel section.
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "True")
 
 
 # Structure to cast the info on dynamically loaded library. See
@@ -179,9 +181,12 @@ def _set_threadpool_limits(limits, user_api=None):
 
     modules = _load_modules(prefixes=prefixes, user_api=user_api)
     for module in modules:
-        num_threads = _get_limit(module['prefix'], module['user_api'], limits)
-        module['num_threads'] = module['get_num_threads']()
+        # Workaround clang bug (TODO: report it)
+        module['get_num_threads']()
 
+    for module in modules:
+        module['num_threads'] = module['get_num_threads']()
+        num_threads = _get_limit(module['prefix'], module['user_api'], limits)
         if num_threads is not None:
             set_func = module['set_num_threads']
             set_func(num_threads)
@@ -304,7 +309,9 @@ def _make_module_info(filepath, module_info, prefix):
 
 
 def _get_module_info_from_path(filepath, prefixes, user_api, modules):
-    filename = os.path.basename(filepath)
+    # `lower` required to take account of OpenMP dll case on Windows
+    # (vcomp, VCOMP, Vcomp, ...)
+    filename = os.path.basename(filepath).lower()
     for info in _SUPPORTED_IMPLEMENTATIONS:
         prefix = _check_prefix(filename, info['filename_prefixes'])
         if _match_module(info, prefix, prefixes, user_api):
@@ -497,7 +504,7 @@ class threadpool_limits:
             self._original_limits = None
 
     def __enter__(self):
-        pass
+        return self
 
     def __exit__(self, type, value, traceback):
         self.unregister()
@@ -506,3 +513,19 @@ class threadpool_limits:
         if self._original_limits is not None:
             for module in self._original_limits:
                 module['set_num_threads'](module['num_threads'])
+
+    def get_original_num_threads(self, user_api):
+        limits = [module['num_threads'] for module in self._original_limits
+                  if module['user_api'] == user_api]
+
+        limits = set(limits)
+        n_limits = len(limits)
+
+        if n_limits == 1:
+            return limits.pop()
+        elif n_limits == 0:
+            return None
+        else:
+            warnings.warn("Multiple value possible for user_api='{}'. "
+                          "Returning the minimum.".format(user_api))
+            return min(limits)

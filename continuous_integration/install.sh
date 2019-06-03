@@ -52,6 +52,9 @@ elif [[ "$PACKAGER" == "pip" ]]; then
     fi
 
 elif [[ "$PACKAGER" == "ubuntu" ]]; then
+    # Remove the ubuntu toolchain PPA that seems to be invalid:
+    # https://github.com/scikit-learn/scikit-learn/pull/13934
+    sudo add-apt-repository --remove ppa:ubuntu-toolchain-r/test
     sudo apt-get install python3-scipy python3-virtualenv $APT_BLAS
     python3 -m virtualenv --system-site-packages --python=python3 $VIRTUALENV
     source $VIRTUALENV/bin/activate

@@ -14,4 +14,4 @@ fi
 set -x
 PYTHONPATH="." python continuous_integration/display_versions.py
 
-pytest -vsxl --junitxml=$JUNITXML --cov=threadpoolctl
+pytest -vl --junitxml=$JUNITXML --cov=threadpoolctl

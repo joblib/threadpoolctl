@@ -169,8 +169,7 @@ def test_openmp_nesting(nthreads_outer):
     inner_cc = get_inner_compiler()
     outer_cc = get_outer_compiler()
 
-    print("# no limit")
-    outer_num_threads, inner_num_threads = check_nested_openmp_loops(4)
+    outer_num_threads, inner_num_threads = check_nested_openmp_loops(10)
 
     original_infos = threadpool_info()
     openmp_infos = [info for info in original_infos
@@ -191,13 +190,12 @@ def test_openmp_nesting(nthreads_outer):
         # There should be at least 2 OpenMP runtime detected.
         assert len(openmp_infos) >= 2
 
-    print("# inner openmp loop (%s) limited to 1" % inner_cc)
     with threadpool_limits(limits=1) as threadpoolctx:
         max_threads = threadpoolctx.get_original_num_threads('openmp')
         nthreads = effective_num_threads(nthreads_outer, max_threads)
 
         outer_num_threads, inner_num_threads = \
-            check_nested_openmp_loops(4, nthreads)
+            check_nested_openmp_loops(10, nthreads)
 
     # The number of threads available in the outer loop should not have been
     # decreased:

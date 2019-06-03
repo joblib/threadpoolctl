@@ -8,11 +8,10 @@ author = "Thomas Moreau"
 author-email = "thomas.moreau.2010@gmail.com"
 home-page = "https://github.com/joblib/threadpoolctl"
 description-file = "README.md"
+requires-python = ">=3.5"
 classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: BSD License",
-    "Programming Language :: Python :: 2",
-    "Programming Language :: Python :: 2.7",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.5",
     "Programming Language :: Python :: 3.6",

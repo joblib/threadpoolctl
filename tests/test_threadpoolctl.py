@@ -36,7 +36,7 @@ def test_threadpool_limits_by_prefix(openblas_present, mkl_present, prefix):
         elif prefix == "libopenblas" and openblas_present:
             raise RuntimeError("Could not load the OpenBLAS prefix")
         else:
-            pytest.skip("Need {} support".format(prefix))
+            pytest.skip("{} runtime missing".format(prefix))
 
     with threadpool_limits(limits={prefix: 1}):
         for module in threadpool_info():

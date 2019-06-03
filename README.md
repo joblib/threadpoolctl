@@ -92,6 +92,15 @@ with threadpool_limits(limits=1, user_api='blas'):
     a_squared = a @ a
 ```
 
+### Known limitation
+
+`threadpool_limits` does not act as expected in nested parallel loops
+managed by distinct OpenMP runtime implementations (for instance libgomp
+from GCC and libomp from clang/llvm or libiomp from ICC).
+
+See the `test_openmp_nesting()` function in `tests/test_threadpoolctl.py`
+for an example.
+
 ## Maintainers
 
 To make a release:

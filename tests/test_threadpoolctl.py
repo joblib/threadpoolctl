@@ -11,7 +11,7 @@ from .utils import libopenblas_paths
 from .utils import scipy
 
 
-def should_skip_module(module):
+def is_old_openblas(module):
     # Possible bug in getting maximum number of threads with OpenBLAS < 0.2.16
     # and OpenBLAS does not expose its version before 0.3.4.
     return module['internal_api'] == "openblas" and module['version'] is None
@@ -40,14 +40,14 @@ def test_threadpool_limits_by_prefix(openblas_present, mkl_present, prefix):
 
     with threadpool_limits(limits={prefix: 1}):
         for module in threadpool_info():
-            if should_skip_module(module):
+            if is_old_openblas(module):
                 continue
             if module["prefix"] == prefix:
                 assert module["num_threads"] == 1
 
     with threadpool_limits(limits={prefix: 3}):
         for module in threadpool_info():
-            if should_skip_module(module):
+            if is_old_openblas(module):
                 continue
             if module["prefix"] == prefix:
                 assert module["num_threads"] <= 3
@@ -68,14 +68,14 @@ def test_set_threadpool_limits_by_api(user_api):
 
     with threadpool_limits(limits=1, user_api=user_api):
         for module in threadpool_info():
-            if should_skip_module(module):
+            if is_old_openblas(module):
                 continue
             if module["user_api"] in user_apis:
                 assert module["num_threads"] == 1
 
     with threadpool_limits(limits=3, user_api=user_api):
         for module in threadpool_info():
-            if should_skip_module(module):
+            if is_old_openblas(module):
                 continue
             if module["user_api"] in user_apis:
                 assert module["num_threads"] <= 3
@@ -91,7 +91,7 @@ def test_threadpool_limits_function_with_side_effect():
     threadpool_limits(limits=1)
     try:
         for module in threadpool_info():
-            if should_skip_module(module):
+            if is_old_openblas(module):
                 continue
             assert module["num_threads"] == 1
     finally:
@@ -120,7 +120,7 @@ def test_threadpool_limits_manual_unregister():
     limits = threadpool_limits(limits=1)
     try:
         for module in threadpool_info():
-            if should_skip_module(module):
+            if is_old_openblas(module):
                 continue
             assert module["num_threads"] == 1
     finally:
@@ -197,6 +197,10 @@ def test_openmp_nesting(nthreads_outer):
         outer_num_threads, inner_num_threads = \
             check_nested_openmp_loops(10, nthreads)
 
+    # The state of the original state of all threadpools should have been
+    # restored.
+    assert threadpool_info() == original_infos
+
     # The number of threads available in the outer loop should not have been
     # decreased:
     assert outer_num_threads == nthreads
@@ -209,12 +213,7 @@ def test_openmp_nesting(nthreads_outer):
             # implementations. See: https://github.com/jeremiedbb/Nested_OpenMP
             pytest.xfail("Inner OpenMP num threads was %d instead of 1"
                          % inner_num_threads)
-    else:
-        assert inner_num_threads == 1
-
-    # The state of the original state of all threadpools should have been
-    # restored.
-    assert threadpool_info() == original_infos
+    assert inner_num_threads == 1
 
 
 def test_shipped_openblas():
@@ -247,7 +246,7 @@ def test_nested_prange_blas(nthreads_outer):
     blas_info = [module for module in threadpool_info()
                  if module["user_api"] == "blas"]
     for module in threadpool_info():
-        if should_skip_module(module):
+        if is_old_openblas(module):
             # OpenBLAS 0.3.3 and older are known to cause an unrecoverable
             # deadlock at process shutdown time (after pytest has exited).
             pytest.skip("Old OpenBLAS: skipping test to avoid deadlock")

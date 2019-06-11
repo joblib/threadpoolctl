@@ -63,16 +63,19 @@ _SUPPORTED_IMPLEMENTATIONS = [
         "user_api": "openmp",
         "internal_api": "openmp",
         "filename_prefixes": ("libiomp", "libgomp", "libomp", "vcomp",),
+        "environ_name": "OMP_NUM_THREADS"
     },
     {
         "user_api": "blas",
         "internal_api": "openblas",
         "filename_prefixes": ("libopenblas",),
+        "environ_name": "OPENBLAS_NUM_THREADS"
     },
     {
         "user_api": "blas",
         "internal_api": "mkl",
         "filename_prefixes": ("libmkl_rt", "mkl_rt",),
+        "environ_name": "MKL_NUM_THREADS"
     },
 ]
 
@@ -115,6 +118,13 @@ def _get_limit(prefix, user_api, limits):
     return None
 
 
+def _get_environ_vars(limits):
+    if isinstance(limits, list):
+        return {module['environ_name']: module['environ_value']
+                for module in limits}
+    return None
+
+
 @_format_docstring(ALL_PREFIXES=_ALL_PREFIXES,
                    INTERNAL_APIS=_ALL_INTERNAL_APIS)
 def _set_threadpool_limits(limits, user_api=None):
@@ -153,6 +163,8 @@ def _set_threadpool_limits(limits, user_api=None):
       - 'dynlib': the instance of ctypes.CDLL use to access the dynamic
         library.
     """
+    environ_vars = _get_environ_vars(limits)
+
     if isinstance(limits, int):
         if user_api is None:
             user_api = _ALL_USER_APIS
@@ -183,6 +195,7 @@ def _set_threadpool_limits(limits, user_api=None):
     for module in modules:
         # Workaround clang bug (TODO: report it)
         module['get_num_threads']()
+        module['environ_value'] = os.getenv(module['environ_name'])
 
     for module in modules:
         module['num_threads'] = module['get_num_threads']()
@@ -190,6 +203,15 @@ def _set_threadpool_limits(limits, user_api=None):
         if num_threads is not None:
             set_func = module['set_num_threads']
             set_func(num_threads)
+
+        module_var = module['environ_name']
+        if environ_vars is not None and module_var in environ_vars:
+            if environ_vars[module_var] is not None:
+                os.environ[module_var] = environ_vars[module_var]
+            elif os.getenv(module_var) is not None:
+                os.environ.pop(module_var, None)
+        else:
+            os.environ[module['environ_name']] = str(num_threads)
 
     return modules
 
@@ -210,6 +232,7 @@ def threadpool_info():
     modules = _load_modules(user_api=_ALL_USER_APIS)
     for module in modules:
         module['num_threads'] = module['get_num_threads']()
+        module['environ_value'] = os.getenv(module['environ_name'])
         # Remove the wrapper for the module and its function
         del module['set_num_threads'], module['get_num_threads']
         del module['dynlib']
@@ -512,6 +535,14 @@ class threadpool_limits:
     def unregister(self):
         if self._original_limits is not None:
             for module in self._original_limits:
+                # restore environment variables
+                module_var = module['environ_name']
+                if module['environ_value'] is not None:
+                    os.environ[module_var] = module['environ_value']
+                else:
+                    os.environ.pop(module_var, None)
+
+                # restore module thread limits
                 module['set_num_threads'](module['num_threads'])
 
     def get_original_num_threads(self, user_api):

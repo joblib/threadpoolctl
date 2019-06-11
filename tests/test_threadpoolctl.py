@@ -197,23 +197,26 @@ def test_openmp_nesting(nthreads_outer):
         outer_num_threads, inner_num_threads = \
             check_nested_openmp_loops(10, nthreads)
 
+        # The number of threads available in the outer loop should not have
+        # been decreased. Inner should have been set to 1.
+        assert outer_num_threads == nthreads
+        assert inner_num_threads == 1
+
+    with threadpool_limits(limits=2) as threadpoolctx:
+        max_threads = threadpoolctx.get_original_num_threads('openmp')
+        nthreads = effective_num_threads(nthreads_outer, max_threads)
+
+        outer_num_threads, inner_num_threads = \
+            check_nested_openmp_loops(10, nthreads)
+
+        # The number of threads available in the outer loop should not have
+        # been decreased. Inner should be at most 2.
+        assert outer_num_threads == nthreads
+        assert inner_num_threads == 2
+
     # The state of the original state of all threadpools should have been
     # restored.
     assert threadpool_info() == original_infos
-
-    # The number of threads available in the outer loop should not have been
-    # decreased:
-    assert outer_num_threads == nthreads
-
-    # The number of threads available in the inner loop should have been
-    # set to 1 so avoid oversubscription and preserve performance:
-    if inner_cc != outer_cc:
-        if inner_num_threads != 1:
-            # XXX: this does not always work when nesting independent openmp
-            # implementations. See: https://github.com/jeremiedbb/Nested_OpenMP
-            pytest.xfail("Inner OpenMP num threads was %d instead of 1"
-                         % inner_num_threads)
-    assert inner_num_threads == 1
 
 
 def test_shipped_openblas():

@@ -200,10 +200,8 @@ def _set_threadpool_limits(limits, user_api=None):
     for module in modules:
         module['num_threads'] = module['get_num_threads']()
         num_threads = _get_limit(module['prefix'], module['user_api'], limits)
-        if num_threads is not None:
-            set_func = module['set_num_threads']
-            set_func(num_threads)
 
+        # limit through environment variables
         module_var = module['environ_name']
         if environ_vars is not None and module_var in environ_vars:
             if environ_vars[module_var] is not None:
@@ -212,6 +210,11 @@ def _set_threadpool_limits(limits, user_api=None):
                 os.environ.pop(module_var, None)
         else:
             os.environ[module['environ_name']] = str(num_threads)
+
+        # limit through api
+        if num_threads is not None:
+            set_func = module['set_num_threads']
+            set_func(num_threads)
 
     return modules
 

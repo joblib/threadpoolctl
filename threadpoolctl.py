@@ -74,6 +74,11 @@ _SUPPORTED_IMPLEMENTATIONS = [
         "internal_api": "mkl",
         "filename_prefixes": ("libmkl_rt", "mkl_rt",),
     },
+    {
+        "user_api": "blas",
+        "internal_api": "blis",
+        "filename_prefixes": ("libblis",),
+    },
 ]
 
 # map a internal_api (openmp, openblas, mkl) to set and get functions
@@ -88,6 +93,9 @@ _MAP_API_TO_FUNC = {
     "mkl": {
         "set_num_threads": "MKL_Set_Num_Threads",
         "get_num_threads": "MKL_Get_Max_Threads"},
+    "blis": {
+        "set_num_threads": "bli_thread_set_num_threads",
+        "get_num_threads": "bli_thread_get_num_threads"}
 }
 
 # Helpers for the doc and test names
@@ -227,6 +235,8 @@ def _get_version(dynlib, internal_api):
         return None
     elif internal_api == "openblas":
         return _get_openblas_version(dynlib)
+    elif internal_api == "blis":
+        return _get_blis_version(dynlib)
     else:
         raise NotImplementedError("Unsupported API {}".format(internal_api))
 
@@ -255,6 +265,13 @@ def _get_openblas_version(openblas_dynlib):
     if config[0] == b"OpenBLAS":
         return config[1].decode('utf-8')
     return None
+
+
+def _get_blis_version(blis_dynlib):
+    """Return the BLIS version"""
+    get_version = getattr(blis_dynlib, "bli_info_get_version_str")
+    get_version.restype = ctypes.c_char_p
+    return get_version().decode('utf-8')
 
 
 # Loading utilities for dynamically linked shared objects

@@ -245,11 +245,17 @@ def test_nested_prange_blas(nthreads_outer):
 
     blas_info = [module for module in threadpool_info()
                  if module["user_api"] == "blas"]
-    for module in threadpool_info():
-        if is_old_openblas(module):
-            # OpenBLAS 0.3.3 and older are known to cause an unrecoverable
-            # deadlock at process shutdown time (after pytest has exited).
-            pytest.skip("Old OpenBLAS: skipping test to avoid deadlock")
+
+    blis_linked = any([module['internal_api'] == 'blis'
+                       for module in threadpool_info()])
+    if not blis_linked:
+        # numpy can be linked to BLIS for CBLAS and OpenBLAS for LAPACK. In that
+        # case this test will run BLIS gemm so no need to skip.
+        for module in threadpool_info():
+            if is_old_openblas(module):
+                # OpenBLAS 0.3.3 and older are known to cause an unrecoverable
+                # deadlock at process shutdown time (after pytest has exited).
+                pytest.skip("Old OpenBLAS: skipping test to avoid deadlock")
 
     from ._openmp_test_helper import check_nested_prange_blas
     A = np.ones((1000, 10))
@@ -265,9 +271,10 @@ def test_nested_prange_blas(nthreads_outer):
     assert np.allclose(C, np.dot(A, B.T))
     assert prange_num_threads == nthreads
 
-    nested_blas_info = [module for module in threadpool_infos
-                        if module["user_api"] == "blas"]
+    for thread_infos in threadpool_infos:
+        nested_blas_info = [module for module in thread_infos
+                            if module["user_api"] == "blas"]
 
-    assert len(nested_blas_info) == len(blas_info)
-    for module in nested_blas_info:
-        assert module['num_threads'] == 1
+        assert len(nested_blas_info) == len(blas_info)
+        for module in nested_blas_info:
+            assert module['num_threads'] == 1

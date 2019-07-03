@@ -18,6 +18,11 @@ jobs:
     - script: |
         continuous_integration/install.sh
       displayName: 'Install'
+      condition: ne(variables['INSTALL_BLIS'], 'true')
+    - script: |
+        continuous_integration/install_with_blis.sh
+      displayName: 'Install'
+      condition: eq(variables['INSTALL_BLIS'], 'true')
     - script: |
         continuous_integration/test_script.sh
       displayName: 'Test Library'

@@ -11,6 +11,11 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
     source $VIRTUALENV/bin/activate
 fi
 
+# by default BLIS is single-threaded. Enable multi-threading to run the tests
+if [[ "$INSTALL_BLIS" == "true" ]]; then
+    export BLIS_NUM_THREADS=4
+fi
+
 set -x
 PYTHONPATH="." python continuous_integration/display_versions.py
 

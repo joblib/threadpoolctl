@@ -218,6 +218,10 @@ def threadpool_info():
     modules = _load_modules(user_api=_ALL_USER_APIS)
     for module in modules:
         module['num_threads'] = module['get_num_threads']()
+        # by default BLIS is single-threaded and get_num_threads returns -1.
+        # we map it to 1 for consistency with other libraries.
+        if module['num_threads'] == -1 and module['internal_api'] == 'blis':
+            module['num_threads'] = 1
         # Remove the wrapper for the module and its function
         del module['set_num_threads'], module['get_num_threads']
         del module['dynlib']

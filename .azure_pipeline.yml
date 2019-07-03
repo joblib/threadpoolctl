@@ -73,6 +73,19 @@ jobs:
         VERSION_PYTHON: '*'
         CC_OUTER_LOOP: 'gcc'
         CC_INNER_LOOP: 'clang-8'
+      # Linux environment with numpy linked to BLIS
+      pylatest_blis_gcc_clang:
+        PACKAGER: 'conda'
+        VERSION_PYTHON: '*'
+        INSTALL_BLIS: 'true'
+        CC_OUTER_LOOP: 'gcc'
+        BLIS_CC: 'clang-8'
+      pylatest_blis_clang_gcc:
+        PACKAGER: 'conda'
+        VERSION_PYTHON: '*'
+        INSTALL_BLIS: 'true'
+        CC_OUTER_LOOP: 'clang-8'
+        BLIS_CC: 'gcc'
 
 - template: continuous_integration/posix.yml
   parameters:

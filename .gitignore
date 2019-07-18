@@ -16,3 +16,6 @@ dist
 
 # Developer tools
 .vscode
+
+# pytest
+.pytest_cache

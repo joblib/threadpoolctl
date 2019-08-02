@@ -21,7 +21,7 @@ jobs:
       condition: ne(variables['INSTALL_BLIS'], 'true')
     - script: |
         continuous_integration/install_with_blis.sh
-      displayName: 'Install'
+      displayName: 'Install with BLIS'
       condition: eq(variables['INSTALL_BLIS'], 'true')
     - script: |
         continuous_integration/test_script.sh

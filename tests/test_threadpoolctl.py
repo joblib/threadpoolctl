@@ -273,6 +273,7 @@ def test_nested_prange_blas(nthreads_outer):
 
     nested_blas_info = [module for module in threadpool_infos
                         if module["user_api"] == "blas"]
+
     assert len(nested_blas_info) == len(blas_info)
     for module in nested_blas_info:
         assert module['num_threads'] == 1

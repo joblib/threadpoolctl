@@ -41,12 +41,16 @@ def check_nested_prange_blas(double[:, ::1] A, double[:, ::1] B, int nthreads):
 
         int i
         int prange_num_threads
+        int *prange_num_threads_ptr = &prange_num_threads
 
-    threadpool_infos = []
+    threadpool_infos = [None]
 
     with nogil, parallel(num_threads=nthreads):
-        with gil:
-            threadpool_infos.append(threadpool_info())
+        if openmp.omp_get_thread_num() == 0:
+            with gil:
+                threadpool_infos[0] = threadpool_info()
+            
+            prange_num_threads_ptr[0] = openmp.omp_get_num_threads()
 
         for i in prange(n_chunks):
             IF USE_BLIS:
@@ -58,6 +62,4 @@ def check_nested_prange_blas(double[:, ::1] A, double[:, ::1] B, int nthreads):
                     &alpha, &B[0, 0], &k, &A[i * chunk_size, 0], &k,
                     &beta, &C[i * chunk_size, 0], &n)
 
-            prange_num_threads = openmp.omp_get_num_threads()
-
-    return np.asarray(C), prange_num_threads, threadpool_infos
+    return np.asarray(C), prange_num_threads, threadpool_infos[0]

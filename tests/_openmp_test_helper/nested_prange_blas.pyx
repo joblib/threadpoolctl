@@ -17,7 +17,7 @@ IF USE_BLIS:
             CBLAS_TRANSPOSE TransB, int M, int N,
             int K, double alpha, double *A, int lda,
             double *B, int ldb, double beta, double *C, int ldc)
-ELSE: 
+ELSE:
     from scipy.linalg.cython_blas cimport dgemm
 
 from threadpoolctl import threadpool_info
@@ -49,7 +49,7 @@ def check_nested_prange_blas(double[:, ::1] A, double[:, ::1] B, int nthreads):
         if openmp.omp_get_thread_num() == 0:
             with gil:
                 threadpool_infos[0] = threadpool_info()
-            
+
             prange_num_threads_ptr[0] = openmp.omp_get_num_threads()
 
         for i in prange(n_chunks):

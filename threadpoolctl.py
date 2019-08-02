@@ -287,13 +287,18 @@ def _load_modules(prefixes=None, user_api=None):
     if user_api is None:
         user_api = []
     if sys.platform == "darwin":
-        return _find_modules_with_dyld(prefixes=prefixes, user_api=user_api)
+        modules = _find_modules_with_dyld(prefixes=prefixes, user_api=user_api)
     elif sys.platform == "win32":
-        return _find_modules_with_enum_process_module_ex(
+        modules = _find_modules_with_enum_process_module_ex(
             prefixes=prefixes, user_api=user_api)
     else:
-        return _find_modules_with_dl_iterate_phdr(
+        modules = _find_modules_with_dl_iterate_phdr(
             prefixes=prefixes, user_api=user_api)
+    
+    def lib_order(module):
+        return 1 if module['internal_api'] == 'openmp' else 0
+
+    return sorted(modules, key=lib_order)
 
 
 def _check_prefix(library_basename, filename_prefixes):

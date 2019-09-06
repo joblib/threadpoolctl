@@ -17,12 +17,6 @@ if [[ "$UNAMESTR" == "Darwin" ]]; then
         export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
         export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
         export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
-    elif [[ "$INSTALL_LIBOMP" == "conda-forge" ]]; then
-        # Install an OpenMP-enabled clang/llvm from conda-forge
-        # Workaround: https://github.com/conda/conda/issues/7267
-        conda config --add channels conda-canary
-        conda update -n base conda
-        conda install -c conda-forge compilers
     fi
 
 elif [[ "$CC_OUTER_LOOP" == "clang-8" || "$CC_INNER_LOOP" == "clang-8" ]]; then
@@ -38,6 +32,11 @@ make_conda() {
     TO_INSTALL="$@"
     conda create -n $VIRTUALENV -q --yes $TO_INSTALL
     source activate $VIRTUALENV
+    if [[ "$INSTALL_LIBOMP" == "conda-forge" ]]; then
+        # Install an OpenMP-enabled clang/llvm from conda-forge
+        # Workaround: https://github.com/conda/conda/issues/7267
+        conda install -c conda-forge compilers
+    fi
 }
 
 if [[ "$PACKAGER" == "conda" ]]; then

@@ -19,7 +19,9 @@ if [[ "$UNAMESTR" == "Darwin" ]]; then
         export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
     elif [[ "$INSTALL_LIBOMP" == "conda-forge" ]]; then
         # Install an OpenMP-enabled clang/llvm from conda-forge
-        sudo chown -R `id -u`:`id -g` /Users/vsts/.conda
+        # Workaround: https://github.com/conda/conda/issues/7267
+        conda config --add channels conda-canary
+        conda update -n base conda
         conda install -c conda-forge compilers
     fi
 

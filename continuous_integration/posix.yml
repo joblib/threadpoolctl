@@ -17,7 +17,7 @@ jobs:
       condition: or(eq(variables['PACKAGER'], 'conda'), eq(variables['PACKAGER'], 'pip'))
     - script: |
         continuous_integration/install.sh
-      displayName: 'Install'
+      displayName: 'Install without BLIS'
       condition: ne(variables['INSTALL_BLIS'], 'true')
     - script: |
         continuous_integration/install_with_blis.sh

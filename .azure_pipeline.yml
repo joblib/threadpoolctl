@@ -78,13 +78,22 @@ jobs:
         PACKAGER: 'conda'
         VERSION_PYTHON: '*'
         INSTALL_BLIS: 'true'
+        BLIS_NUM_THREADS: '4'
         CC_OUTER_LOOP: 'gcc'
         BLIS_CC: 'clang-8'
       pylatest_blis_clang_gcc:
         PACKAGER: 'conda'
         VERSION_PYTHON: '*'
         INSTALL_BLIS: 'true'
+        BLIS_NUM_THREADS: '4'
         CC_OUTER_LOOP: 'clang-8'
+        BLIS_CC: 'gcc'
+      pylatest_blis_sinlge_threaded:
+        PACKAGER: 'conda'
+        VERSION_PYTHON: '*'
+        INSTALL_BLIS: 'true'
+        BLIS_NUM_THREADS: '1'
+        CC_OUTER_LOOP: 'gcc'
         BLIS_CC: 'gcc'
 
 - template: continuous_integration/posix.yml

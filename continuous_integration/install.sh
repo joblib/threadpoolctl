@@ -5,17 +5,19 @@ set -e
 UNAMESTR=`uname`
 
 if [[ "$UNAMESTR" == "Darwin" ]]; then
-    # Install a compiler with a working openmp
-    HOMEBREW_NO_AUTO_UPDATE=1 brew install libomp
+    if [[ "$INSTALL_LIBOMP" == "homebrew" ]]; then
+        # Install a compiler with a working openmp
+        HOMEBREW_NO_AUTO_UPDATE=1 brew install libomp
 
-    # enable OpenMP support for Apple-clang
-    export CC=/usr/bin/clang
-    export CXX=/usr/bin/clang++
-    export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
-    export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
-    export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
-    export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
-    export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
+        # enable OpenMP support for Apple-clang
+        export CC=/usr/bin/clang
+        export CXX=/usr/bin/clang++
+        export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
+        export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
+        export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
+        export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
+        export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
+    fi
 
 elif [[ "$CC_OUTER_LOOP" == "clang-8" || "$CC_INNER_LOOP" == "clang-8" ]]; then
     # Assume Ubuntu: install a recent version of clang and libomp
@@ -28,6 +30,12 @@ fi
 
 make_conda() {
     TO_INSTALL="$@"
+    if [[ "$INSTALL_LIBOMP" == "conda-forge" ]]; then
+        # Install an OpenMP-enabled clang/llvm from conda-forge
+        TO_INSTALL="$TO_INSTALL conda-forge::compilers conda-forge::llvm-openmp"
+        export LDFLAGS="$LDFLAGS -Wl,-rpath,$CONDA/envs/$VIRTUALENV/lib -L$CONDA/envs/$VIRTUALENV/lib"
+        export CFLAGS="$CFLAGS -I$CONDA/envs/$VIRTUALENV/include"
+    fi
     conda create -n $VIRTUALENV -q --yes $TO_INSTALL
     source activate $VIRTUALENV
 }

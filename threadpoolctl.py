@@ -118,9 +118,8 @@ def _format_docstring(*args, **kwargs):
 def _get_limit(prefix, user_api, limits):
     if prefix in limits:
         return limits[prefix]
-    if user_api in limits:
+    else:
         return limits[user_api]
-    return None
 
 
 @_format_docstring(ALL_PREFIXES=_ALL_PREFIXES,

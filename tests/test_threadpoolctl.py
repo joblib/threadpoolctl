@@ -245,11 +245,17 @@ def test_nested_prange_blas(nthreads_outer):
 
     blas_info = [module for module in threadpool_info()
                  if module["user_api"] == "blas"]
-    for module in threadpool_info():
-        if is_old_openblas(module):
-            # OpenBLAS 0.3.3 and older are known to cause an unrecoverable
-            # deadlock at process shutdown time (after pytest has exited).
-            pytest.skip("Old OpenBLAS: skipping test to avoid deadlock")
+
+    blis_linked = any([module['internal_api'] == 'blis'
+                       for module in threadpool_info()])
+    if not blis_linked:
+        # numpy can be linked to BLIS for CBLAS and OpenBLAS for LAPACK. In that
+        # case this test will run BLIS gemm so no need to skip.
+        for module in threadpool_info():
+            if is_old_openblas(module):
+                # OpenBLAS 0.3.3 and older are known to cause an unrecoverable
+                # deadlock at process shutdown time (after pytest has exited).
+                pytest.skip("Old OpenBLAS: skipping test to avoid deadlock")
 
     from ._openmp_test_helper import check_nested_prange_blas
     A = np.ones((1000, 10))

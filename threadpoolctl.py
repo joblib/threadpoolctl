@@ -74,6 +74,11 @@ _SUPPORTED_IMPLEMENTATIONS = [
         "internal_api": "mkl",
         "filename_prefixes": ("libmkl_rt", "mkl_rt",),
     },
+    {
+        "user_api": "blas",
+        "internal_api": "blis",
+        "filename_prefixes": ("libblis",),
+    },
 ]
 
 # map a internal_api (openmp, openblas, mkl) to set and get functions
@@ -88,6 +93,9 @@ _MAP_API_TO_FUNC = {
     "mkl": {
         "set_num_threads": "MKL_Set_Num_Threads",
         "get_num_threads": "MKL_Get_Max_Threads"},
+    "blis": {
+        "set_num_threads": "bli_thread_set_num_threads",
+        "get_num_threads": "bli_thread_get_num_threads"}
 }
 
 # Helpers for the doc and test names
@@ -110,9 +118,8 @@ def _format_docstring(*args, **kwargs):
 def _get_limit(prefix, user_api, limits):
     if prefix in limits:
         return limits[prefix]
-    if user_api in limits:
+    else:
         return limits[user_api]
-    return None
 
 
 @_format_docstring(ALL_PREFIXES=_ALL_PREFIXES,
@@ -210,6 +217,10 @@ def threadpool_info():
     modules = _load_modules(user_api=_ALL_USER_APIS)
     for module in modules:
         module['num_threads'] = module['get_num_threads']()
+        # by default BLIS is single-threaded and get_num_threads returns -1.
+        # we map it to 1 for consistency with other libraries.
+        if module['num_threads'] == -1 and module['internal_api'] == 'blis':
+            module['num_threads'] = 1
         # Remove the wrapper for the module and its function
         del module['set_num_threads'], module['get_num_threads']
         del module['dynlib']
@@ -227,6 +238,8 @@ def _get_version(dynlib, internal_api):
         return None
     elif internal_api == "openblas":
         return _get_openblas_version(dynlib)
+    elif internal_api == "blis":
+        return _get_blis_version(dynlib)
     else:
         raise NotImplementedError("Unsupported API {}".format(internal_api))
 
@@ -255,6 +268,13 @@ def _get_openblas_version(openblas_dynlib):
     if config[0] == b"OpenBLAS":
         return config[1].decode('utf-8')
     return None
+
+
+def _get_blis_version(blis_dynlib):
+    """Return the BLIS version"""
+    get_version = getattr(blis_dynlib, "bli_info_get_version_str")
+    get_version.restype = ctypes.c_char_p
+    return get_version().decode('utf-8')
 
 
 # Loading utilities for dynamically linked shared objects

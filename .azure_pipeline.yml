@@ -79,7 +79,7 @@ jobs:
     name: macOS
     vmImage: xcode9-macos10.13
     matrix:
-      # MacOS environment with OpenMP installed through brew
+      # MacOS environment with OpenMP installed through homebrew
       pylatest_conda_homebrew_libomp:
         PACKAGER: 'conda'
         VERSION_PYTHON: '*'

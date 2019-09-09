@@ -4,37 +4,34 @@ set -e
 
 UNAMESTR=`uname`
 
-if [[ "$UNAMESTR" == "Darwin" ]]; then
-    if [[ "$INSTALL_LIBOMP" == "homebrew" ]]; then
-        # Install a compiler with a working openmp
-        HOMEBREW_NO_AUTO_UPDATE=1 brew install libomp
-
-        # enable OpenMP support for Apple-clang
-        export CC=/usr/bin/clang
-        export CXX=/usr/bin/clang++
-        export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
-        export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
-        export CXXFLAGS="$CXXFLAGS -I/usr/local/opt/libomp/include"
-        export LDFLAGS="$LDFLAGS -L/usr/local/opt/libomp/lib -lomp"
-        export DYLD_LIBRARY_PATH=/usr/local/opt/libomp/lib
-    fi
-
-elif [[ "$CC_OUTER_LOOP" == "clang-8" || "$CC_INNER_LOOP" == "clang-8" ]]; then
-    # Assume Ubuntu: install a recent version of clang and libomp
-    echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
-    echo "deb-src http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
-    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-    sudo apt update
-    sudo apt install clang-8 libomp-8-dev
+if [[ "$CC_OUTER_LOOP" == "clang-8" || "$CC_INNER_LOOP" == "clang-8" ]]; then
+# Assume Ubuntu: install a recent version of clang and libomp
+echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
+echo "deb-src http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
+wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+sudo apt update
+sudo apt install clang-8 libomp-8-dev
 fi
 
 make_conda() {
     TO_INSTALL="$@"
-    if [[ "$INSTALL_LIBOMP" == "conda-forge" ]]; then
-        # Install an OpenMP-enabled clang/llvm from conda-forge
-        TO_INSTALL="$TO_INSTALL conda-forge::compilers conda-forge::llvm-openmp"
-        export LDFLAGS="$LDFLAGS -Wl,-rpath,$CONDA/envs/$VIRTUALENV/lib -L$CONDA/envs/$VIRTUALENV/lib"
-        export CFLAGS="$CFLAGS -I$CONDA/envs/$VIRTUALENV/include"
+    if [[ "$UNAMESTR" == "Darwin" ]]; then
+        if [[ "$INSTALL_LIBOMP" == "conda-forge" ]]; then
+            # Install an OpenMP-enabled clang/llvm from conda-forge
+            TO_INSTALL="$TO_INSTALL conda-forge::compilers conda-forge::llvm-openmp"
+            export LDFLAGS="$LDFLAGS -Wl,-rpath,$CONDA/envs/$VIRTUALENV/lib -L$CONDA/envs/$VIRTUALENV/lib"
+            export CFLAGS="$CFLAGS -I$CONDA/envs/$VIRTUALENV/include"
+
+        elif [[ "$INSTALL_LIBOMP" == "homebrew" ]]; then
+            # Install a compiler with a working openmp
+            HOMEBREW_NO_AUTO_UPDATE=1 brew install libomp
+
+            # enable OpenMP support for Apple-clang
+            export CC=/usr/bin/clang
+            export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
+            export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
+            export LDFLAGS="$LDFLAGS -Wl,-rpath,/usr/local/opt/libomp/lib -L/usr/local/opt/libomp/lib -lomp"
+        fi
     fi
     conda create -n $VIRTUALENV -q --yes $TO_INSTALL
     source activate $VIRTUALENV

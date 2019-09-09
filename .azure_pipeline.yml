@@ -90,7 +90,7 @@ jobs:
         CC_OUTER_LOOP: 'clang-8'
         CC_INNER_LOOP: 'clang-8'
         BLIS_CC: 'gcc'
-      pylatest_blis_sinlge_threaded:
+      pylatest_blis_no_threading:
         PACKAGER: 'conda'
         VERSION_PYTHON: '*'
         INSTALL_BLIS: 'true'

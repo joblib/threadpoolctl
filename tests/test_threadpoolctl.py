@@ -281,19 +281,23 @@ def test_nested_prange_blas(nthreads_outer):
 
 @pytest.mark.parametrize("limit", [1, None])
 def test_get_original_num_threads(limit):
-    original_infos = threadpool_info()
+    with threadpool_limits(limits=2, user_api='blas') as ctl:
+        # set different blas num threads to start with (when multiple openblas)
+        if ctl._original_limits:
+            ctl._original_limits[0]['set_num_threads'](1)
 
-    with threadpool_limits(limits=limit, user_api='blas') as threadpoolctx:
-        original_num_threads = threadpoolctx.get_original_num_threads()
+        original_infos = threadpool_info()
+        with threadpool_limits(limits=limit, user_api='blas') as threadpoolctx:
+            original_num_threads = threadpoolctx.get_original_num_threads()
 
-        assert 'openmp' not in original_num_threads
+            assert 'openmp' not in original_num_threads
 
-        if 'blas' in [module['user_api'] for module in original_infos]:
-            assert original_num_threads['blas'] >= 1
-        else:
-            assert original_num_threads['blas'] is None
+            if 'blas' in [module['user_api'] for module in original_infos]:
+                assert original_num_threads['blas'] >= 1
+            else:
+                assert original_num_threads['blas'] is None
 
-        if len(libopenblas_paths) >= 2:
-            with pytest.warns(None, match='Multiple value possible'):
-                expected = min([module['num_threads'] for module in original_infos])
-                assert original_num_threads['blas'] == expected
+            if len(libopenblas_paths) >= 2:
+                with pytest.warns(None, match='Multiple value possible'):
+                    expected = min([module['num_threads'] for module in original_infos])
+                    assert original_num_threads['blas'] == expected

@@ -18,9 +18,9 @@ make_conda() {
     if [[ "$UNAMESTR" == "Darwin" ]]; then
         if [[ "$INSTALL_LIBOMP" == "conda-forge" ]]; then
             # Install an OpenMP-enabled clang/llvm from conda-forge
-            TO_INSTALL="$TO_INSTALL conda-forge::compilers conda-forge::llvm-openmp"
-            export LDFLAGS="$LDFLAGS -Wl,-rpath,$CONDA/envs/$VIRTUALENV/lib -L$CONDA/envs/$VIRTUALENV/lib"
+            TO_INSTALL="$TO_INSTALL conda-forge::compilers"
             export CFLAGS="$CFLAGS -I$CONDA/envs/$VIRTUALENV/include"
+            export LDFLAGS="$LDFLAGS -Wl,-rpath,$CONDA/envs/$VIRTUALENV/lib -L$CONDA/envs/$VIRTUALENV/lib"
 
         elif [[ "$INSTALL_LIBOMP" == "homebrew" ]]; then
             # Install a compiler with a working openmp

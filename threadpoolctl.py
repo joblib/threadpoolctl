@@ -331,6 +331,7 @@ def _make_module_info(filepath, module_info, prefix):
 def _get_module_info_from_path(filepath, prefixes, user_api, modules):
     # `lower` required to take account of OpenMP dll case on Windows
     # (vcomp, VCOMP, Vcomp, ...)
+    filepath = os.path.realpath(filepath)
     filename = os.path.basename(filepath).lower()
     for info in _SUPPORTED_IMPLEMENTATIONS:
         prefix = _check_prefix(filename, info['filename_prefixes'])

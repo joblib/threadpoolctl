@@ -23,6 +23,9 @@ __all__ = ["threadpool_limits", "threadpool_info"]
 # Cache for libc under POSIX and a few system libraries under Windows
 _system_libraries = {}
 
+# Cache for calls to os.path.realpath on system libraries to reduce the
+# impact of slow system calls (e.g. stat) on slow filesystem
+_realpaths = dict()
 
 # One can get runtime errors or even segfaults due to multiple OpenMP libraries
 # loaded simultaneously which can happen easily in Python when importing and
@@ -105,6 +108,18 @@ _ALL_PREFIXES = [prefix
                  for impl in _SUPPORTED_IMPLEMENTATIONS
                  for prefix in impl['filename_prefixes']]
 _ALL_INTERNAL_APIS = list(_MAP_API_TO_FUNC.keys())
+
+
+def _realpath(filepath, cache_limit=10000):
+    """Small caching wrapper around os.path.realpath to limit system calls"""
+    rpath = _realpaths.get(filepath)
+    if rpath is None:
+        rpath = os.path.realpath(filepath)
+        if len(_realpaths) < cache_limit:
+            # If we drop support for Python 2.7, we could use functools.lru_cache
+            # with maxsize=10000 instead.
+            _realpaths[filepath] = rpath
+    return rpath
 
 
 def _format_docstring(*args, **kwargs):
@@ -330,7 +345,7 @@ def _make_module_info(filepath, module_info, prefix):
 
 def _get_module_info_from_path(filepath, prefixes, user_api, modules):
     # Required to resolve symlinks
-    filepath = os.path.realpath(filepath)
+    filepath =_realpath(filepath)
     # `lower` required to take account of OpenMP dll case on Windows
     # (vcomp, VCOMP, Vcomp, ...)
     filename = os.path.basename(filepath).lower()

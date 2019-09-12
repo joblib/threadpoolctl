@@ -2,7 +2,7 @@
 
 set -e
 
-if [[ "$PACKAGER" == "conda" ]]; then
+if [[ "$PACKAGER" == conda* ]]; then
     source activate $VIRTUALENV
 elif [[ "$PACKAGER" == "pip" ]]; then
     # we actually use conda to install the base environment:

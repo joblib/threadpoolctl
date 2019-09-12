@@ -105,6 +105,10 @@ for an example.
 
 To make a release:
 
+Bump the version number (`__version__`) in `threadpoolctl.py`.
+
+Build the distribution archives:
+
 ```bash
 pip install flit
 flit build

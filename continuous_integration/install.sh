@@ -34,6 +34,8 @@ make_conda() {
         fi
     fi
     conda create -n $VIRTUALENV -q --yes $TO_INSTALL
+    ls $CONDA/bin
+    echo $PATH
     source activate $VIRTUALENV || conda activate $VIRTUALENV
 }
 

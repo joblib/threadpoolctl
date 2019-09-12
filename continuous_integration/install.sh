@@ -40,16 +40,16 @@ make_conda() {
 if [[ "$PACKAGER" == "conda" ]]; then
     TO_INSTALL="python=$VERSION_PYTHON pip"
     if [[ "$NO_NUMPY" != "true" ]]; then
-        if [[ "$CHANNEL" == "conda-forge" ]]; then
-            TO_INSTALL="$TO_INSTALL conda-forge::numpy conda-forge::scipy"
-        else
-            TO_INSTALL="$TO_INSTALL numpy scipy"
-        fi
+        TO_INSTALL="$TO_INSTALL numpy scipy"
         if [[ "$NO_MKL" == "true" ]]; then
             TO_INSTALL="$TO_INSTALL nomkl"
         fi
     fi
 	make_conda $TO_INSTALL
+
+elif [[ "$PACKAGER" == "conda-forge" ]]; then
+    TO_INSTALL="python=$VERSION_PYTHON -c conda-forge numpy scipy"
+    make_conda $TO_INSTALL
 
 elif [[ "$PACKAGER" == "pip" ]]; then
     # Use conda to build an empty python env and then use pip to install

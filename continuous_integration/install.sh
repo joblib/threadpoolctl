@@ -40,7 +40,11 @@ make_conda() {
 if [[ "$PACKAGER" == "conda" ]]; then
     TO_INSTALL="python=$VERSION_PYTHON pip"
     if [[ "$NO_NUMPY" != "true" ]]; then
-        TO_INSTALL="$TO_INSTALL numpy scipy"
+        if [[ "$CHANNEL" == "conda-forge" ]]; then
+            TO_INSTALL="$TO_INSTALL conda-forge::numpy conda-forge::scipy"
+        else
+            TO_INSTALL="$TO_INSTALL numpy scipy"
+        fi
         if [[ "$NO_MKL" == "true" ]]; then
             TO_INSTALL="$TO_INSTALL nomkl"
         fi

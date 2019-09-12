@@ -65,6 +65,13 @@ jobs:
         VERSION_PYTHON: '*'
         CC_OUTER_LOOP: 'gcc'
         CC_INNER_LOOP: 'clang-8'
+      # Linux environment with numpy from conda-forge channel
+      pylatest_conda-forge:
+        PACKAGER: 'conda'
+        CHANNEL: 'conda-forge'
+        VERSION_PYTHON: '*'
+        CC_OUTER_LOOP: 'gcc'
+        CC_INNER_LOOP: 'gcc'
       # Linux environment with no numpy and heterogeneous OpenMP runtime
       # nesting.
       pylatest_conda_nonumpy_gcc_clang:

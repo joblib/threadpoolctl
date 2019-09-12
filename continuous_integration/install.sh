@@ -47,7 +47,7 @@ if [[ "$PACKAGER" == "conda" ]]; then
     fi
 	make_conda $TO_INSTALL
 
-elif [[ "$PACKAGER" == "condaforge" ]]; then
+elif [[ "$PACKAGER" == "conda-forge" ]]; then
     conda config --prepend channels conda-forge
     conda config --set channel_priority strict
     TO_INSTALL="python=$VERSION_PYTHON numpy scipy"

@@ -48,7 +48,7 @@ if [[ "$PACKAGER" == "conda" ]]; then
 	make_conda $TO_INSTALL
 
 elif [[ "$PACKAGER" == "conda-forge" ]]; then
-    TO_INSTALL="python=$VERSION_PYTHON -c conda-forge numpy scipy"
+    TO_INSTALL="python=$VERSION_PYTHON conda-forge::numpy"
     make_conda $TO_INSTALL
 
 elif [[ "$PACKAGER" == "pip" ]]; then

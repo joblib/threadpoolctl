@@ -1,6 +1,8 @@
 # Python and Cython generated files
 *.pyc
 __pycache__
+.cache
+.pytest_cache
 *.so
 *.dylib
 *.c

@@ -34,7 +34,7 @@ make_conda() {
         fi
     fi
     conda create -n $VIRTUALENV -q --yes $TO_INSTALL
-    source activate $VIRTUALENV
+    source activate $VIRTUALENV || conda activate $VIRTUALENV
 }
 
 if [[ "$PACKAGER" == "conda" ]]; then

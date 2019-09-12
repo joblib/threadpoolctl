@@ -517,6 +517,8 @@ class threadpool_limits:
     BLAS libraries if they rely on OpenMP.
     """
     def __init__(self, limits=None, user_api=None):
+        self._user_api = _ALL_USER_APIS if user_api is None else [user_api]
+
         if limits is not None:
             self._original_limits = _set_threadpool_limits(
                 limits=limits, user_api=user_api)
@@ -534,18 +536,30 @@ class threadpool_limits:
             for module in self._original_limits:
                 module['set_num_threads'](module['num_threads'])
 
-    def get_original_num_threads(self, user_api):
-        limits = [module['num_threads'] for module in self._original_limits
-                  if module['user_api'] == user_api]
+    def get_original_num_threads(self):
+        original_limits = self._original_limits or threadpool_info()
 
-        limits = set(limits)
-        n_limits = len(limits)
+        num_threads = {}
+        warning_apis = []
 
-        if n_limits == 1:
-            return limits.pop()
-        elif n_limits == 0:
-            return None
-        else:
-            warnings.warn("Multiple value possible for user_api='{}'. "
-                          "Returning the minimum.".format(user_api))
-            return min(limits)
+        for user_api in self._user_api:
+            limits = [module['num_threads'] for module in original_limits
+                      if module['user_api'] == user_api]
+            limits = set(limits)
+            n_limits = len(limits)
+
+            if n_limits == 1:
+                limit = limits.pop()
+            elif n_limits == 0:
+                limit = None
+            else:
+                limit = min(limits)
+                warning_apis.append(user_api)
+
+            num_threads[user_api] = limit
+
+        if warning_apis:
+            warnings.warn("Multiple value possible for following user apis: "
+                          + ', '.join(warning_apis) + ". Returning the minimum.")
+
+        return num_threads

@@ -191,7 +191,7 @@ def test_openmp_nesting(nthreads_outer):
         assert len(openmp_infos) >= 2
 
     with threadpool_limits(limits=1) as threadpoolctx:
-        max_threads = threadpoolctx.get_original_num_threads('openmp')
+        max_threads = threadpoolctx.get_original_num_threads()['openmp']
         nthreads = effective_num_threads(nthreads_outer, max_threads)
 
         outer_num_threads, inner_num_threads = \
@@ -262,7 +262,7 @@ def test_nested_prange_blas(nthreads_outer):
     B = np.ones((100, 10))
 
     with threadpool_limits(limits=1) as threadpoolctx:
-        max_threads = threadpoolctx.get_original_num_threads('openmp')
+        max_threads = threadpoolctx.get_original_num_threads()['openmp']
         nthreads = effective_num_threads(nthreads_outer, max_threads)
 
         result = check_nested_prange_blas(A, B, nthreads)
@@ -277,3 +277,27 @@ def test_nested_prange_blas(nthreads_outer):
     assert len(nested_blas_info) == len(blas_info)
     for module in nested_blas_info:
         assert module['num_threads'] == 1
+
+
+@pytest.mark.parametrize("limit", [1, None])
+def test_get_original_num_threads(limit):
+    with threadpool_limits(limits=2, user_api='blas') as ctl:
+        # set different blas num threads to start with (when multiple openblas)
+        if ctl._original_limits:
+            ctl._original_limits[0]['set_num_threads'](1)
+
+        original_infos = threadpool_info()
+        with threadpool_limits(limits=limit, user_api='blas') as threadpoolctx:
+            original_num_threads = threadpoolctx.get_original_num_threads()
+
+            assert 'openmp' not in original_num_threads
+
+            if 'blas' in [module['user_api'] for module in original_infos]:
+                assert original_num_threads['blas'] >= 1
+            else:
+                assert original_num_threads['blas'] is None
+
+            if len(libopenblas_paths) >= 2:
+                with pytest.warns(None, match='Multiple value possible'):
+                    expected = min([module['num_threads'] for module in original_infos])
+                    assert original_num_threads['blas'] == expected

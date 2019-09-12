@@ -5,12 +5,17 @@
   conda-forge).
   https://github.com/joblib/threadpoolctl/pull/34
 
-- New method `get_original_num_threads` on the `threadpool_limits`
-  context manager to cheaply access the initial state of the runtime.
-  https://github.com/joblib/threadpoolctl/pull/32
-
 - Add support for BLIS.
   https://github.com/joblib/threadpoolctl/pull/23
+
+- Breaking change: method `get_original_num_threads` on the `threadpool_limits`
+  context manager to cheaply access the initial state of the runtime:
+    - drop the `user_api` parameter;
+    - instead return a dict `{user_api: num_threads}`;
+    - fixed a bug when the limit parameter of `threadpool_limits` was set to
+      `None`.
+
+  https://github.com/joblib/threadpoolctl/pull/32
 
 
 1.0.0 (2019-06-03)

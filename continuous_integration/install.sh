@@ -34,7 +34,7 @@ make_conda() {
         fi
     fi
     conda create -n $VIRTUALENV -q --yes $TO_INSTALL
-    source activate $VIRTUALENV || source $CONDA/bin/activate $VIRTUALENV
+    source activate $VIRTUALENV
 }
 
 if [[ "$PACKAGER" == "conda" ]]; then
@@ -47,7 +47,7 @@ if [[ "$PACKAGER" == "conda" ]]; then
     fi
 	make_conda $TO_INSTALL
 
-elif [[ "$PACKAGER" == "conda-forge" ]]; then
+elif [[ "$PACKAGER" == "condaforge" ]]; then
     conda config --prepend channels conda-forge
     conda config --set channel_priority strict
     TO_INSTALL="python=$VERSION_PYTHON numpy scipy"

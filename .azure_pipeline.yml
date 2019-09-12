@@ -66,8 +66,8 @@ jobs:
         CC_OUTER_LOOP: 'gcc'
         CC_INNER_LOOP: 'clang-8'
       # Linux environment with numpy from conda-forge channel
-      pylatest_conda-forge:
-        PACKAGER: 'conda-forge'
+      pylatest_conda_forge:
+        PACKAGER: 'condaforge'
         VERSION_PYTHON: '*'
         CC_OUTER_LOOP: 'gcc'
         CC_INNER_LOOP: 'gcc'

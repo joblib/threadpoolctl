@@ -17,7 +17,7 @@ import ctypes
 import warnings
 from ctypes.util import find_library
 
-__version__ = '1.1.0'
+__version__ = '1.2.0.dev0'
 __all__ = ["threadpool_limits", "threadpool_info"]
 
 # Cache for libc under POSIX and a few system libraries under Windows

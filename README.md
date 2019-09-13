@@ -122,3 +122,14 @@ tag to github and then:
 ```bash
 flit publish
 ```
+
+### Credits
+
+The initial dynamic library introspection code was written by @anton-malakhov
+for the smp package available at https://github.com/IntelPython/smp .
+
+threadpoolctl extends this for other operationg systems. Contrary to smp,
+threadpoolctl does not attempt to limit the size of Python multiprocessing
+pools (threads or processes) or set operating system-level CPU affinity
+constraints: threadpoolctl only interacts with native libraries via their
+public runtime APIs.

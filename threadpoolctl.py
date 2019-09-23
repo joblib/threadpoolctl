@@ -217,7 +217,7 @@ def _set_threadpool_limits(limits, user_api=None):
 
 
 @_format_docstring(INTERNAL_APIS=_ALL_INTERNAL_APIS)
-def threadpool_info():
+def threadpool_info(return_api=False):
     """Return the maximal number of threads for each detected library.
 
     Return a list with all the supported modules that have been found. Each
@@ -227,6 +227,11 @@ def threadpool_info():
       - 'internal_api': internal API. Possible values are {INTERNAL_APIS}.
       - 'version': version of the library implemented (if available).
       - 'num_threads': the current thread limit.
+
+    If ``return_api``, the dict also contains pointers to the internal API
+    functions:
+      - 'set_num_threads' 
+      - 'get_num_threads' 
     """
     infos = []
     modules = _load_modules(user_api=_ALL_USER_APIS)
@@ -237,9 +242,10 @@ def threadpool_info():
         if module['num_threads'] == -1 and module['internal_api'] == 'blis':
             module['num_threads'] = 1
         # Remove the wrapper for the module and its function
-        del module['set_num_threads'], module['get_num_threads']
         del module['dynlib']
         del module['filename_prefixes']
+        if not return_api:
+            del module['set_num_threads'], module['get_num_threads']
         infos.append(module)
     return infos
 

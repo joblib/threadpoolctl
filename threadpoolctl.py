@@ -139,7 +139,7 @@ def _get_limit(prefix, user_api, limits):
 
 @_format_docstring(ALL_PREFIXES=_ALL_PREFIXES,
                    INTERNAL_APIS=_ALL_INTERNAL_APIS)
-def _set_threadpool_limits(limits, user_api=None):
+def _set_threadpool_limits(limits, user_api=None, infos=None):
     """Limit the maximal number of threads for threadpools in supported libs
 
     Set the maximal number of threads that can be used in thread pools used in
@@ -201,7 +201,11 @@ def _set_threadpool_limits(limits, user_api=None):
         prefixes = [module for module in limits if module in _ALL_PREFIXES]
         user_api = [module for module in limits if module in _ALL_USER_APIS]
 
-    modules = _load_modules(prefixes=prefixes, user_api=user_api)
+    if infos is not None:
+        modules = infos
+    else:
+        modules = _load_modules(prefixes=prefixes, user_api=user_api)
+
     for module in modules:
         # Workaround clang bug (TODO: report it)
         module['get_num_threads']()
@@ -539,12 +543,12 @@ class threadpool_limits:
     limited. Note that the latter can affect the number of threads used by the
     BLAS libraries if they rely on OpenMP.
     """
-    def __init__(self, limits=None, user_api=None):
+    def __init__(self, limits=None, user_api=None, infos=None):
         self._user_api = _ALL_USER_APIS if user_api is None else [user_api]
 
         if limits is not None:
             self._original_limits = _set_threadpool_limits(
-                limits=limits, user_api=user_api)
+                limits=limits, user_api=user_api, infos=infos)
         else:
             self._original_limits = None
 

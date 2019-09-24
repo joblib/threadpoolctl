@@ -28,6 +28,11 @@ def removed_api(infos):
              if key not in ("set_num_threads", "get_num_threads")} 
             for module in infos]
 
+def get_module_from_path(modules, path):
+    for module in modules:
+        if module['filepath'] == path:
+            return module
+
 
 @pytest.mark.parametrize("use_infos", [True, False])
 @pytest.mark.parametrize("prefix", _ALL_PREFIXES)
@@ -319,3 +324,36 @@ def test_get_original_num_threads(limit):
                 with pytest.warns(None, match='Multiple value possible'):
                     expected = min([module['num_threads'] for module in original_infos])
                     assert original_num_threads['blas'] == expected
+
+
+@pytest.mark.parametrize("user_api", [None, *_ALL_USER_APIS])
+def test_threadpool_limits_in_python_threads(user_api):
+    from multiprocessing.pool import ThreadPool
+
+    if user_api is None:
+        user_apis = ("blas", "openmp")
+    else:
+        user_apis = (user_api,)
+
+    original_infos = threadpool_info(return_api=True)
+
+    def func(i):
+        with threadpool_limits(limits=1, user_api=user_api,
+                               infos=original_infos):
+            new_infos = threadpool_info()
+
+            for module in new_infos:
+                if module['user_api'] in user_apis:
+                    assert module['num_threads'] == 1
+                else:
+                    corresponding_module = get_module_from_path(
+                        original_infos, module['filepath'])
+                    expected_num_threads = corresponding_module['num_threads']
+                    assert module['num_threads'] == expected_num_threads
+                
+    pool = ThreadPool(2)
+    pool.map(func, range(2))
+    pool.close()
+    pool.join()
+
+    assert threadpool_info() == removed_api(original_infos)

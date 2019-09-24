@@ -39,7 +39,6 @@ def get_module_from_path(modules, path):
 def test_threadpool_limits_by_prefix(openblas_present, mkl_present,
                                      use_infos, prefix):
     original_infos = threadpool_info(return_api=use_infos)
-    print(original_infos)
     original_infos_or_none = original_infos if use_infos else None
 
     mkl_found = any([True for info in original_infos

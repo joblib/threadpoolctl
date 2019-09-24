@@ -203,7 +203,7 @@ def _set_threadpool_limits(limits, user_api=None, infos=None):
 
     if infos is not None:
         modules = [
-            module for module in infos
+            module for module in infos.copy()
             if _match_module(module, module['prefix'], prefixes, user_api)]
     else:
         modules = _load_modules(prefixes=prefixes, user_api=user_api)

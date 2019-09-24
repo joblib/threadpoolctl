@@ -202,7 +202,9 @@ def _set_threadpool_limits(limits, user_api=None, infos=None):
         user_api = [module for module in limits if module in _ALL_USER_APIS]
 
     if infos is not None:
-        modules = infos
+        modules = [
+            module for module in infos
+            if _match_module(module, module['prefix'], prefixes, user_api)]
     else:
         modules = _load_modules(prefixes=prefixes, user_api=user_api)
 

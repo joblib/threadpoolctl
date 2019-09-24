@@ -203,7 +203,7 @@ def _set_threadpool_limits(limits, user_api=None, infos=None):
 
     if infos is not None:
         modules = [
-            module for module in infos.copy()
+            module for module in infos
             if _match_module(module, module['prefix'], prefixes, user_api)]
     else:
         modules = _load_modules(prefixes=prefixes, user_api=user_api)
@@ -214,6 +214,7 @@ def _set_threadpool_limits(limits, user_api=None, infos=None):
 
     for module in modules:
         module['num_threads'] = module['get_num_threads']()
+        module['num_threads'] = _formatted_num_threads(module)
         num_threads = _get_limit(module['prefix'], module['user_api'], limits)
         if num_threads is not None:
             set_func = module['set_num_threads']
@@ -243,10 +244,7 @@ def threadpool_info(return_api=False):
     modules = _load_modules(user_api=_ALL_USER_APIS)
     for module in modules:
         module['num_threads'] = module['get_num_threads']()
-        # by default BLIS is single-threaded and get_num_threads returns -1.
-        # we map it to 1 for consistency with other libraries.
-        if module['num_threads'] == -1 and module['internal_api'] == 'blis':
-            module['num_threads'] = 1
+        module['num_threads'] = _formatted_num_threads(module)
         # Remove the wrapper for the module and its function
         del module['dynlib']
         del module['filename_prefixes']
@@ -254,6 +252,14 @@ def threadpool_info(return_api=False):
             del module['set_num_threads'], module['get_num_threads']
         infos.append(module)
     return infos
+
+
+def _formatted_num_threads(module):
+    # by default BLIS is single-threaded and get_num_threads returns -1.
+    # we map it to 1 for consistency with other libraries.
+    if module['num_threads'] == -1 and module['internal_api'] == 'blis':
+        return 1
+    return module['num_threads']
 
 
 def _get_version(dynlib, internal_api):

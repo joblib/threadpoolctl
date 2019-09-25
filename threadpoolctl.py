@@ -139,7 +139,7 @@ def _get_limit(prefix, user_api, limits):
 
 @_format_docstring(ALL_PREFIXES=_ALL_PREFIXES,
                    INTERNAL_APIS=_ALL_INTERNAL_APIS)
-def _set_threadpool_limits(limits, user_api=None):
+def _set_threadpool_limits(limits, user_api=None, infos=None):
     """Limit the maximal number of threads for threadpools in supported libs
 
     Set the maximal number of threads that can be used in thread pools used in
@@ -201,13 +201,20 @@ def _set_threadpool_limits(limits, user_api=None):
         prefixes = [module for module in limits if module in _ALL_PREFIXES]
         user_api = [module for module in limits if module in _ALL_USER_APIS]
 
-    modules = _load_modules(prefixes=prefixes, user_api=user_api)
+    if infos is not None:
+        modules = [
+            module for module in infos
+            if _match_module(module, module['prefix'], prefixes, user_api)]
+    else:
+        modules = _load_modules(prefixes=prefixes, user_api=user_api)
+
     for module in modules:
         # Workaround clang bug (TODO: report it)
         module['get_num_threads']()
 
     for module in modules:
         module['num_threads'] = module['get_num_threads']()
+        module['num_threads'] = _formatted_num_threads(module)
         num_threads = _get_limit(module['prefix'], module['user_api'], limits)
         if num_threads is not None:
             set_func = module['set_num_threads']
@@ -217,7 +224,7 @@ def _set_threadpool_limits(limits, user_api=None):
 
 
 @_format_docstring(INTERNAL_APIS=_ALL_INTERNAL_APIS)
-def threadpool_info():
+def threadpool_info(return_api=False):
     """Return the maximal number of threads for each detected library.
 
     Return a list with all the supported modules that have been found. Each
@@ -227,21 +234,32 @@ def threadpool_info():
       - 'internal_api': internal API. Possible values are {INTERNAL_APIS}.
       - 'version': version of the library implemented (if available).
       - 'num_threads': the current thread limit.
+
+    If ``return_api``, the dict also contains pointers to the internal API
+    functions:
+      - 'set_num_threads' 
+      - 'get_num_threads' 
     """
     infos = []
     modules = _load_modules(user_api=_ALL_USER_APIS)
     for module in modules:
         module['num_threads'] = module['get_num_threads']()
-        # by default BLIS is single-threaded and get_num_threads returns -1.
-        # we map it to 1 for consistency with other libraries.
-        if module['num_threads'] == -1 and module['internal_api'] == 'blis':
-            module['num_threads'] = 1
+        module['num_threads'] = _formatted_num_threads(module)
         # Remove the wrapper for the module and its function
-        del module['set_num_threads'], module['get_num_threads']
         del module['dynlib']
         del module['filename_prefixes']
+        if not return_api:
+            del module['set_num_threads'], module['get_num_threads']
         infos.append(module)
     return infos
+
+
+def _formatted_num_threads(module):
+    # by default BLIS is single-threaded and get_num_threads returns -1.
+    # we map it to 1 for consistency with other libraries.
+    if module['num_threads'] == -1 and module['internal_api'] == 'blis':
+        return 1
+    return module['num_threads']
 
 
 def _get_version(dynlib, internal_api):
@@ -533,12 +551,12 @@ class threadpool_limits:
     limited. Note that the latter can affect the number of threads used by the
     BLAS libraries if they rely on OpenMP.
     """
-    def __init__(self, limits=None, user_api=None):
+    def __init__(self, limits=None, user_api=None, infos=None):
         self._user_api = _ALL_USER_APIS if user_api is None else [user_api]
 
         if limits is not None:
             self._original_limits = _set_threadpool_limits(
-                limits=limits, user_api=user_api)
+                limits=limits, user_api=user_api, infos=infos)
         else:
             self._original_limits = None
 

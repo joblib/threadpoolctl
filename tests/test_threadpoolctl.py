@@ -23,9 +23,24 @@ def effective_num_threads(nthreads, max_threads):
     return nthreads
 
 
+def removed_api(infos):
+    return [{key: val for (key, val) in module.items()
+             if key not in ("set_num_threads", "get_num_threads")} 
+            for module in infos]
+
+def get_module_from_path(modules, path):
+    for module in modules:
+        if module['filepath'] == path:
+            return module
+
+
+@pytest.mark.parametrize("use_infos", [True, False])
 @pytest.mark.parametrize("prefix", _ALL_PREFIXES)
-def test_threadpool_limits_by_prefix(openblas_present, mkl_present, prefix):
-    original_infos = threadpool_info()
+def test_threadpool_limits_by_prefix(openblas_present, mkl_present,
+                                     use_infos, prefix):
+    original_infos = threadpool_info(return_api=use_infos)
+    original_infos_or_none = original_infos if use_infos else None
+
     mkl_found = any([True for info in original_infos
                      if info["prefix"] in ('mkl_rt', 'libmkl_rt')])
     prefix_found = len([info["prefix"] for info in original_infos
@@ -38,25 +53,26 @@ def test_threadpool_limits_by_prefix(openblas_present, mkl_present, prefix):
         else:
             pytest.skip("{} runtime missing".format(prefix))
 
-    with threadpool_limits(limits={prefix: 1}):
+    with threadpool_limits(limits={prefix: 1}, infos=original_infos_or_none):
         for module in threadpool_info():
             if is_old_openblas(module):
                 continue
             if module["prefix"] == prefix:
                 assert module["num_threads"] == 1
 
-    with threadpool_limits(limits={prefix: 3}):
+    with threadpool_limits(limits={prefix: 3}, infos=original_infos_or_none):
         for module in threadpool_info():
             if is_old_openblas(module):
                 continue
             if module["prefix"] == prefix:
                 assert module["num_threads"] <= 3
 
-    assert threadpool_info() == original_infos
+    assert threadpool_info() == removed_api(original_infos)
 
 
+@pytest.mark.parametrize("use_infos", [True, False])
 @pytest.mark.parametrize("user_api", (None, "blas", "openmp"))
-def test_set_threadpool_limits_by_api(user_api):
+def test_set_threadpool_limits_by_api(use_infos, user_api):
     # Check that the number of threads used by the multithreaded libraries can
     # be modified dynamically.
     if user_api is None:
@@ -64,31 +80,36 @@ def test_set_threadpool_limits_by_api(user_api):
     else:
         user_apis = (user_api,)
 
-    original_infos = threadpool_info()
+    original_infos = threadpool_info(return_api=use_infos)
+    original_infos_or_none = original_infos if use_infos else None
 
-    with threadpool_limits(limits=1, user_api=user_api):
+    with threadpool_limits(limits=1, user_api=user_api,
+                           infos=original_infos_or_none):
         for module in threadpool_info():
             if is_old_openblas(module):
                 continue
             if module["user_api"] in user_apis:
                 assert module["num_threads"] == 1
 
-    with threadpool_limits(limits=3, user_api=user_api):
+    with threadpool_limits(limits=3, user_api=user_api,
+                           infos=original_infos_or_none):
         for module in threadpool_info():
             if is_old_openblas(module):
                 continue
             if module["user_api"] in user_apis:
                 assert module["num_threads"] <= 3
 
-    assert threadpool_info() == original_infos
+    assert threadpool_info() == removed_api(original_infos)
 
 
-def test_threadpool_limits_function_with_side_effect():
+@pytest.mark.parametrize("use_infos", [True, False])
+def test_threadpool_limits_function_with_side_effect(use_infos):
     # Check that threadpool_limits can be used as a function with
     # side effects instead of a context manager.
-    original_infos = threadpool_info()
+    original_infos = threadpool_info(return_api=use_infos)
+    original_infos_or_none = original_infos if use_infos else None
 
-    threadpool_limits(limits=1)
+    threadpool_limits(limits=1, infos=original_infos_or_none)
     try:
         for module in threadpool_info():
             if is_old_openblas(module):
@@ -99,7 +120,7 @@ def test_threadpool_limits_function_with_side_effect():
         # side-effect.
         threadpool_limits(limits=original_infos)
 
-    assert threadpool_info() == original_infos
+    assert threadpool_info() == removed_api(original_infos)
 
 
 def test_set_threadpool_limits_no_limit():
@@ -111,13 +132,15 @@ def test_set_threadpool_limits_no_limit():
     assert threadpool_info() == original_infos
 
 
-def test_threadpool_limits_manual_unregister():
+@pytest.mark.parametrize("use_infos", [True, False])
+def test_threadpool_limits_manual_unregister(use_infos):
     # Check that threadpool_limits can be used as an object with that hold
     # the original state of the threadpools that can be restored thanks to the
     # dedicated unregister method
-    original_infos = threadpool_info()
+    original_infos = threadpool_info(return_api=use_infos)
+    original_infos_or_none = original_infos if use_infos else None
 
-    limits = threadpool_limits(limits=1)
+    limits = threadpool_limits(limits=1, infos=original_infos_or_none)
     try:
         for module in threadpool_info():
             if is_old_openblas(module):
@@ -128,7 +151,7 @@ def test_threadpool_limits_manual_unregister():
         # side-effect.
         limits.unregister()
 
-    assert threadpool_info() == original_infos
+    assert threadpool_info() == removed_api(original_infos)
 
 
 def test_threadpool_limits_bad_input():
@@ -301,3 +324,36 @@ def test_get_original_num_threads(limit):
                 with pytest.warns(None, match='Multiple value possible'):
                     expected = min([module['num_threads'] for module in original_infos])
                     assert original_num_threads['blas'] == expected
+
+
+@pytest.mark.parametrize("user_api", [None, *_ALL_USER_APIS])
+def test_threadpool_limits_in_python_threads(user_api):
+    from multiprocessing.pool import ThreadPool
+
+    if user_api is None:
+        user_apis = ("blas", "openmp")
+    else:
+        user_apis = (user_api,)
+
+    original_infos = threadpool_info(return_api=True)
+
+    def func(i):
+        with threadpool_limits(limits=1, user_api=user_api,
+                               infos=original_infos):
+            new_infos = threadpool_info()
+
+            for module in new_infos:
+                if module['user_api'] in user_apis:
+                    assert module['num_threads'] == 1
+                else:
+                    corresponding_module = get_module_from_path(
+                        original_infos, module['filepath'])
+                    expected_num_threads = corresponding_module['num_threads']
+                    assert module['num_threads'] == expected_num_threads
+                
+    pool = ThreadPool(2)
+    pool.map(func, range(2))
+    pool.close()
+    pool.join()
+
+    assert threadpool_info() == removed_api(original_infos)

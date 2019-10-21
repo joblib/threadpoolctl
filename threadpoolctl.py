@@ -332,15 +332,6 @@ def _match_module(module_info, prefix, prefixes, user_api):
                                    module_info['user_api'] in user_api)
 
 
-def _get_rtld_noload():
-    """Return the RTLD_NOLOAD flags when the OS supports it"""
-    try:
-        rtld_noload = os.RTLD_NOLOAD
-    except AttributeError:
-        rtld_noload = None
-    return rtld_noload
-
-
 def _make_module_info(filepath, module_info, prefix):
     """Make a dict with the information from the module."""
     filepath = os.path.normpath(filepath)

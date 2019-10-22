@@ -57,6 +57,13 @@ class _dl_phdr_info(ctypes.Structure):
     ]
 
 
+# The RTLD_NOLOAD flag for loading shared libraries is not defined on Windows.
+try:
+        _RTLD_NOLOAD = os.RTLD_NOLOAD
+except AttributeError:
+        _RTLD_NOLOAD = ctypes.DEFAULT_MODE
+
+
 # List of the supported implementations. The items hold the prefix of loaded
 # shared objects, the name of the internal_api to call, matching the
 # MAP_API_TO_FUNC keys and the name of the user_api, in {"blas", "openmp"}.
@@ -328,7 +335,7 @@ def _match_module(module_info, prefix, prefixes, user_api):
 def _make_module_info(filepath, module_info, prefix):
     """Make a dict with the information from the module."""
     filepath = os.path.normpath(filepath)
-    dynlib = ctypes.CDLL(filepath)
+    dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
     internal_api = module_info['internal_api']
     set_func = getattr(dynlib,
                        _MAP_API_TO_FUNC[internal_api]['set_num_threads'],
@@ -493,7 +500,7 @@ def _get_libc():
         libc_name = find_library("c")
         if libc_name is None:  # pragma: no cover
             return None
-        libc = ctypes.CDLL(libc_name)
+        libc = ctypes.CDLL(libc_name, mode=_RTLD_NOLOAD)
         _system_libraries["libc"] = libc
     return libc
 

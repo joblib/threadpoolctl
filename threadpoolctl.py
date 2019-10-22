@@ -59,9 +59,9 @@ class _dl_phdr_info(ctypes.Structure):
 
 # The RTLD_NOLOAD flag for loading shared libraries is not defined on Windows.
 try:
-        _RTLD_NOLOAD = os.RTLD_NOLOAD
+    _RTLD_NOLOAD = os.RTLD_NOLOAD
 except AttributeError:
-        _RTLD_NOLOAD = ctypes.DEFAULT_MODE
+    _RTLD_NOLOAD = ctypes.DEFAULT_MODE
 
 
 # List of the supported implementations. The items hold the prefix of loaded

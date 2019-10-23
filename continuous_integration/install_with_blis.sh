@@ -18,10 +18,8 @@ conda create -n $VIRTUALENV -q --yes python=$VERSION_PYTHON pip cython
 source activate $VIRTUALENV
 
 if [[ "$BLIS_CC" == "gcc" ]]; then
-    # DEBUG
-    conda update -n base -c defaults conda
-    conda list
     # Install a recent version of GCC to build Blis with skx hardware support:
+    conda update --yes -n base -c defaults conda
     conda install --yes conda-forge::c-compiler conda-forge::cxx-compiler
 fi
 

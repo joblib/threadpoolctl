@@ -64,6 +64,15 @@ except AttributeError:
     _RTLD_NOLOAD = ctypes.DEFAULT_MODE
 
 
+# TBB's api to globally control the threadpool is a C++ class `global_control`
+# which can't be accessed using ctypes. It can be accessed through tbb4py,
+# pythons wrappers for TBB.
+try:
+    import tbb
+except ImportError:
+    tbb = None
+
+
 # List of the supported implementations. The items hold the prefix of loaded
 # shared objects, the name of the internal_api to call, matching the
 # MAP_API_TO_FUNC keys and the name of the user_api, in {"blas", "openmp"}.
@@ -88,6 +97,11 @@ _SUPPORTED_IMPLEMENTATIONS = [
         "user_api": "blas",
         "internal_api": "blis",
         "filename_prefixes": ("libblis",),
+    },
+    {
+        "user_api": "tbb",
+        "internal_api": "tbb",
+        "filename_prefixes": ("libtbb",),
     },
 ]
 
@@ -262,6 +276,9 @@ def _get_version(dynlib, internal_api):
         return _get_openblas_version(dynlib)
     elif internal_api == "blis":
         return _get_blis_version(dynlib)
+    elif internal_api == "tbb":
+        # tbb does not expose it's version
+        return None
     else:
         raise NotImplementedError("Unsupported API {}".format(internal_api))
 
@@ -337,16 +354,31 @@ def _make_module_info(filepath, module_info, prefix):
     filepath = os.path.normpath(filepath)
     dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
     internal_api = module_info['internal_api']
-    set_func = getattr(dynlib,
-                       _MAP_API_TO_FUNC[internal_api]['set_num_threads'],
-                       lambda num_threads: None)
-    get_func = getattr(dynlib,
-                       _MAP_API_TO_FUNC[internal_api]['get_num_threads'],
-                       lambda: None)
+
+    if module_info['user_api'] == 'tbb':
+        # tbb's api can't be accessed with ctypes. We access it through
+        # tbb4py.
+        def set_func(max_threads):
+            if tbb is not None:
+                tbb.global_control(
+                    tbb.global_control.max_allowed_parallelism, max_threads)
+    
+        def get_func():
+            if tbb is not None:
+                return tbb.global_control.active_value(
+                    tbb.global_control.max_allowed_parallelism)
+    else:
+        set_func = getattr(dynlib,
+                        _MAP_API_TO_FUNC[internal_api]['set_num_threads'],
+                        lambda num_threads: None)
+        get_func = getattr(dynlib,
+                        _MAP_API_TO_FUNC[internal_api]['get_num_threads'],
+                        lambda: None)
+
     module_info = module_info.copy()
     module_info.update(dynlib=dynlib, filepath=filepath, prefix=prefix,
-                       set_num_threads=set_func, get_num_threads=get_func,
-                       version=_get_version(dynlib, internal_api))
+                    set_num_threads=set_func, get_num_threads=get_func,
+                    version=_get_version(dynlib, internal_api))
     return module_info
 
 

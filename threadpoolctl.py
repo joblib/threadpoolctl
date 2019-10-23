@@ -368,16 +368,16 @@ def _make_module_info(filepath, module_info, prefix):
                     tbb.global_control.max_allowed_parallelism)
     else:
         set_func = getattr(dynlib,
-                        _MAP_API_TO_FUNC[internal_api]['set_num_threads'],
-                        lambda num_threads: None)
+                           _MAP_API_TO_FUNC[internal_api]['set_num_threads'],
+                           lambda num_threads: None)
         get_func = getattr(dynlib,
-                        _MAP_API_TO_FUNC[internal_api]['get_num_threads'],
-                        lambda: None)
+                           _MAP_API_TO_FUNC[internal_api]['get_num_threads'],
+                           lambda: None)
 
     module_info = module_info.copy()
     module_info.update(dynlib=dynlib, filepath=filepath, prefix=prefix,
-                    set_num_threads=set_func, get_num_threads=get_func,
-                    version=_get_version(dynlib, internal_api))
+                       set_num_threads=set_func, get_num_threads=get_func,
+                       version=_get_version(dynlib, internal_api))
     return module_info
 
 

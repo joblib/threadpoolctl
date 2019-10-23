@@ -19,10 +19,10 @@ source activate $VIRTUALENV
 
 if [[ "$BLIS_CC" == "gcc" ]]; then
     # DEBUG
+    conda update -n base -c defaults conda
     conda list
-    echo " About to install conda-forge::compilers"
     # Install a recent version of GCC to build Blis with skx hardware support:
-    conda install --yes --force-reinstall conda-forge::compilers
+    conda install --yes conda-forge::c-compiler conda-forge::cxx-compiler
 fi
 
 pushd ..

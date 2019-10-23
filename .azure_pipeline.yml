@@ -95,7 +95,7 @@ jobs:
         BLIS_NUM_THREADS: '4'
         CC_OUTER_LOOP: 'clang-8'
         CC_INNER_LOOP: 'clang-8'
-        BLIS_CC: 'gcc'
+        BLIS_CC: 'gcc-8'
       pylatest_blis_no_threading:
         PACKAGER: 'conda'
         VERSION_PYTHON: '*'
@@ -103,7 +103,7 @@ jobs:
         BLIS_NUM_THREADS: '1'
         CC_OUTER_LOOP: 'gcc'
         CC_INNER_LOOP: 'gcc'
-        BLIS_CC: 'gcc'
+        BLIS_CC: 'gcc-8'
 
 - template: continuous_integration/posix.yml
   parameters:

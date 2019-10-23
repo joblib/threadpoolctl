@@ -17,6 +17,10 @@ sudo apt install clang-8 libomp-8-dev
 conda create -n $VIRTUALENV -q --yes python=$VERSION_PYTHON pip cython
 source activate $VIRTUALENV
 
+if [[ "$BLIS_CC" == "gcc-8" ]]; then
+    sudo apt install gcc-8
+fi
+
 pushd ..
 
 # build & install blis

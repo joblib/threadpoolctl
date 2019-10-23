@@ -362,7 +362,6 @@ def _make_module_info(filepath, module_info, prefix):
             if tbb is not None:
                 tbb.global_control(
                     tbb.global_control.max_allowed_parallelism, max_threads)
-    
         def get_func():
             if tbb is not None:
                 return tbb.global_control.active_value(

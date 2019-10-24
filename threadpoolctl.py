@@ -257,12 +257,19 @@ def threadpool_info():
         # we map it to 1 for consistency with other libraries.
         if module['num_threads'] == -1 and module['internal_api'] == 'blis':
             module['num_threads'] = 1
+        # add a 'status' field to display additional informations
+        _add_status(module)
         # Remove the wrapper for the module and its function
         del module['set_num_threads'], module['get_num_threads']
         del module['dynlib']
         del module['filename_prefixes']
         infos.append(module)
     return infos
+
+
+def _add_status(module):
+    if module['internal_api'] == 'tbb' and tbb is None:
+        module['status'] = "threadpool introspection failed (tbb4py required)"
 
 
 def _get_version(dynlib, internal_api):
@@ -316,6 +323,19 @@ def _get_blis_version(blis_dynlib):
     return get_version().decode('utf-8')
 
 
+def _tbb_get_num_threads():
+    if tbb is not None:
+        return tbb.global_control.active_value(
+            tbb.global_control.max_allowed_parallelism)
+    return None
+
+
+def _tbb_set_num_threads(max_threads):
+    if tbb is not None:
+        tbb.global_control(
+            tbb.global_control.max_allowed_parallelism, max_threads)
+
+
 # Loading utilities for dynamically linked shared objects
 
 def _load_modules(prefixes=None, user_api=None):
@@ -356,16 +376,9 @@ def _make_module_info(filepath, module_info, prefix):
     internal_api = module_info['internal_api']
 
     if module_info['user_api'] == 'tbb':
-        # tbb's api can't be accessed with ctypes. We access it through
-        # tbb4py.
-        def set_func(max_threads):
-            if tbb is not None:
-                tbb.global_control(
-                    tbb.global_control.max_allowed_parallelism, max_threads)
-        def get_func():
-            if tbb is not None:
-                return tbb.global_control.active_value(
-                    tbb.global_control.max_allowed_parallelism)
+        # tbb's api can't be accessed with ctypes. We access it through tbb4py
+        set_func = _tbb_set_num_threads
+        get_func = _tbb_get_num_threads
     else:
         set_func = getattr(dynlib,
                            _MAP_API_TO_FUNC[internal_api]['set_num_threads'],

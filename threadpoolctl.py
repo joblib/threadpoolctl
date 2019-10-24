@@ -243,12 +243,26 @@ def threadpool_info():
         # we map it to 1 for consistency with other libraries.
         if module['num_threads'] == -1 and module['internal_api'] == 'blis':
             module['num_threads'] = 1
+        if module['internal_api'] == 'mkl':
+            layer = _get_mkl_threading_layer(module['dynlib'])
+            module['threading_layer'] = layer
         # Remove the wrapper for the module and its function
         del module['set_num_threads'], module['get_num_threads']
         del module['dynlib']
         del module['filename_prefixes']
         infos.append(module)
     return infos
+
+
+def _get_mkl_threading_layer(mkl_dynlib):
+    """Return the threading layer of MKL"""
+    # The function mkl_set_threading_layer returns the current threading layer
+    # Calling it with an invalid threading layer allows us to safely get
+    # the threading layer
+    set_threading_layer = getattr(mkl_dynlib, "MKL_Set_Threading_Layer")
+    layer_map = {0: "intel", 1: "sequential", 2: "pgi",
+                 3: "gnu", 4: "tbb", -1: "not specified"}
+    return layer_map[set_threading_layer(-1)]
 
 
 def _get_version(dynlib, internal_api):

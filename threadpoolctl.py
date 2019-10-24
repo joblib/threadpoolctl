@@ -319,8 +319,7 @@ def _get_version(dynlib, internal_api):
     elif internal_api == "blis":
         return _get_blis_version(dynlib)
     elif internal_api == "tbb":
-        # tbb does not expose it's version
-        return None
+        return _get_tbb_version(dynlib)
     else:
         raise NotImplementedError("Unsupported API {}".format(internal_api))
 
@@ -356,6 +355,11 @@ def _get_blis_version(blis_dynlib):
     get_version = getattr(blis_dynlib, "bli_info_get_version_str")
     get_version.restype = ctypes.c_char_p
     return get_version().decode('utf-8')
+
+def _get_tbb_version(tbb_dynlib):
+    """Return the TBB version"""
+    get_version = getattr(tbb_dynlib, "TBB_runtime_interface_version")
+    return str(get_version())
 
 
 def _tbb_get_num_threads():

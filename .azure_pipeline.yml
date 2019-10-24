@@ -58,6 +58,21 @@ jobs:
         VERSION_PYTHON: '*'
         CC_OUTER_LOOP: 'clang-8'
         CC_INNER_LOOP: 'gcc'
+      # Same but with TBB as threading layer for MKL and tbb4py installed
+      pylatest_conda_mkl_tbb4py_clang_gcc:
+        PACKAGER: 'conda'
+        VERSION_PYTHON: '*'
+        CC_OUTER_LOOP: 'clang-8'
+        CC_INNER_LOOP: 'gcc'
+        MKL_THREADING_LAYER: 'TBB'
+        TBB4PY: 'true'
+      # Same but with TBB as threading layer for MKL and tbb4py not installed
+      pylatest_conda_mkl_tbb_clang_gcc:
+        PACKAGER: 'conda'
+        VERSION_PYTHON: '*'
+        CC_OUTER_LOOP: 'clang-8'
+        CC_INNER_LOOP: 'gcc'
+        MKL_THREADING_LAYER: 'TBB'
       # Same but with numpy / scipy installed with pip from PyPI and switched
       # compilers.
       pylatest_pip_openblas_gcc_clang:

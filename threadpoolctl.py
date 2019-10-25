@@ -123,8 +123,8 @@ def _realpath(filepath, cache_limit=10000):
     if rpath is None:
         rpath = os.path.realpath(filepath)
         if len(_realpaths) < cache_limit:
-            # If we drop support for Python 2.7, we could use functools.lru_cache
-            # with maxsize=10000 instead.
+            # If we drop support for Python 2.7, we could use
+            # functools.lru_cache with maxsize=10000 instead.
             _realpaths[filepath] = rpath
     return rpath
 
@@ -352,7 +352,7 @@ def _make_module_info(filepath, module_info, prefix):
 
 def _get_module_info_from_path(filepath, prefixes, user_api, modules):
     # Required to resolve symlinks
-    filepath =_realpath(filepath)
+    filepath = _realpath(filepath)
     # `lower` required to take account of OpenMP dll case on Windows
     # (vcomp, VCOMP, Vcomp, ...)
     filename = os.path.basename(filepath).lower()
@@ -583,7 +583,8 @@ class threadpool_limits:
             num_threads[user_api] = limit
 
         if warning_apis:
-            warnings.warn("Multiple value possible for following user apis: "
-                          + ', '.join(warning_apis) + ". Returning the minimum.")
+            warnings.warn(
+                "Multiple value possible for following user apis: "
+                + ', '.join(warning_apis) + ". Returning the minimum.")
 
         return num_threads

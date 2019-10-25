@@ -13,7 +13,7 @@ jobs:
 
   steps:
     - script: |
-        pip install flake8
+        pip3 install flake8
         flake8
       displayName: Lint
       condition: eq(variables['LINT'], 'true')

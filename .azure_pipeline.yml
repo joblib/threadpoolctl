@@ -58,6 +58,7 @@ jobs:
         VERSION_PYTHON: '*'
         CC_OUTER_LOOP: 'clang-8'
         CC_INNER_LOOP: 'gcc'
+        MKL_THREADING_LAYER: 'INTEL'
       # Same but with numpy / scipy installed with pip from PyPI and switched
       # compilers.
       pylatest_pip_openblas_gcc_clang:

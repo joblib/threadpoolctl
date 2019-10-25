@@ -24,5 +24,5 @@ for _ in range(args.n_calls):
         pass
     timings.append(time.time() - t)
 
-print(f"Overhead per call: {mean(timings) * 1e3:.3f} "
-      f"+/-{stdev(timings) * 1e3:.3f} ms")
+print("Overhead per call: {:.3f} +/-{:.3f} ms"
+      .format(mean(timings) * 1e3, stdev(timings) * 1e3))

@@ -305,11 +305,13 @@ def test_get_original_num_threads(limit):
 
 
 def test_mkl_threading_layer():
+    # Check that threadpool_info correctly recovers the threading layer used
+    # by mkl
     mkl_info = [module for module in threadpool_info()
                 if module['internal_api'] == 'mkl']
 
     if not mkl_info:
-        pytest.skip("mkl runtime missing")
+        pytest.skip("requires MKL")
 
     expected_layer = os.getenv("MKL_THREADING_LAYER")
     actual_layer = mkl_info[0]['threading_layer']

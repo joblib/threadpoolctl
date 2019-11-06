@@ -250,8 +250,8 @@ def test_nested_prange_blas(nthreads_outer):
     blis_linked = any([module['internal_api'] == 'blis'
                        for module in threadpool_info()])
     if not blis_linked:
-        # numpy can be linked to BLIS for CBLAS and OpenBLAS for LAPACK. In that
-        # case this test will run BLIS gemm so no need to skip.
+        # numpy can be linked to BLIS for CBLAS and OpenBLAS for LAPACK. In
+        # that case this test will run BLIS gemm so no need to skip.
         for module in threadpool_info():
             if is_old_openblas(module):
                 # OpenBLAS 0.3.3 and older are known to cause an unrecoverable
@@ -300,7 +300,8 @@ def test_get_original_num_threads(limit):
 
             if len(libopenblas_paths) >= 2:
                 with pytest.warns(None, match='Multiple value possible'):
-                    expected = min([module['num_threads'] for module in original_infos])
+                    expected = min(
+                        [module['num_threads'] for module in original_infos])
                     assert original_num_threads['blas'] == expected
 
 

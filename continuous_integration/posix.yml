@@ -12,6 +12,11 @@ jobs:
       ${{ insert }}: ${{ parameters.matrix }}
 
   steps:
+    - script: |
+        pip3 install flake8
+        python3 -m flake8 .
+      displayName: Lint
+      condition: eq(variables['LINT'], 'true')
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
       condition: or(startsWith(variables['PACKAGER'], 'conda'), eq(variables['PACKAGER'], 'pip'))

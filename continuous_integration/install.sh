@@ -45,6 +45,9 @@ if [[ "$PACKAGER" == "conda" ]]; then
             TO_INSTALL="$TO_INSTALL nomkl"
         fi
     fi
+    if [[ ! -z "$TBB4PY" ]]; then
+        TO_INSTALL="$TO_INSTALL tbb4py"
+    fi
 	make_conda $TO_INSTALL
 
 elif [[ "$PACKAGER" == "conda-forge" ]]; then

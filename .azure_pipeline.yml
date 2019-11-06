@@ -38,6 +38,7 @@ jobs:
         VERSION_PYTHON: '3.5'
         CC_OUTER_LOOP: 'gcc'
         CC_INNER_LOOP: 'gcc'
+        LINT: 'true'
       py35_ubuntu_openblas_gcc_gcc:
         PACKAGER: 'ubuntu'
         APT_BLAS: 'libopenblas-base libopenblas-dev'

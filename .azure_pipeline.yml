@@ -74,11 +74,11 @@ jobs:
         CC_OUTER_LOOP: 'clang-8'
         CC_INNER_LOOP: 'gcc'
         MKL_THREADING_LAYER: 'TBB'
-      # Same but with numpy / scipy installed with pip from PyPI and switched
-      # compilers.
-      pylatest_pip_openblas_gcc_clang:
+      # Linux + Python 3.7 with numpy / scipy installed with pip from PyPI and
+      # heterogeneous openmp runtimes.
+      py37_pip_openblas_gcc_clang:
         PACKAGER: 'pip'
-        VERSION_PYTHON: '*'
+        VERSION_PYTHON: '3.7'
         CC_OUTER_LOOP: 'gcc'
         CC_INNER_LOOP: 'clang-8'
       # Linux environment with numpy from conda-forge channel

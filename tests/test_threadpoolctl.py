@@ -1,3 +1,4 @@
+import os
 import re
 import ctypes
 import pytest
@@ -302,3 +303,19 @@ def test_get_original_num_threads(limit):
                     expected = min(
                         [module['num_threads'] for module in original_infos])
                     assert original_num_threads['blas'] == expected
+
+
+def test_mkl_threading_layer():
+    # Check that threadpool_info correctly recovers the threading layer used
+    # by mkl
+    mkl_info = [module for module in threadpool_info()
+                if module['internal_api'] == 'mkl']
+
+    if not mkl_info:
+        pytest.skip("requires MKL")
+
+    expected_layer = os.getenv("MKL_THREADING_LAYER")
+    actual_layer = mkl_info[0]['threading_layer']
+
+    if expected_layer:
+        assert actual_layer == expected_layer.lower()

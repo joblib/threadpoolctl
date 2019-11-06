@@ -59,6 +59,7 @@ jobs:
         VERSION_PYTHON: '*'
         CC_OUTER_LOOP: 'clang-8'
         CC_INNER_LOOP: 'gcc'
+        MKL_THREADING_LAYER: 'INTEL'
       # Linux + Python 3.7 with numpy / scipy installed with pip from PyPI and
       # heterogeneous openmp runtimes.
       py37_pip_openblas_gcc_clang:

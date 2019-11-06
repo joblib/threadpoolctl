@@ -24,19 +24,11 @@ def effective_num_threads(nthreads, max_threads):
 
 
 @pytest.mark.parametrize("prefix", _ALL_PREFIXES)
-def test_threadpool_limits_by_prefix(openblas_present, mkl_present, prefix):
+def test_threadpool_limits_by_prefix(prefix):
     original_infos = threadpool_info()
-    mkl_found = any([True for info in original_infos
-                     if info["prefix"] in ('mkl_rt', 'libmkl_rt')])
-    prefix_found = len([info["prefix"] for info in original_infos
-                        if info["prefix"] == prefix])
-    if not prefix_found:
-        if "mkl_rt" in prefix and mkl_present and not mkl_found:
-            raise RuntimeError("Could not load the MKL prefix")
-        elif prefix == "libopenblas" and openblas_present:
-            raise RuntimeError("Could not load the OpenBLAS prefix")
-        else:
-            pytest.skip("{} runtime missing".format(prefix))
+
+    if prefix not in [info["prefix"] for info in original_infos]:
+        pytest.skip("Requires {} runtime".format(prefix))
 
     with threadpool_limits(limits={prefix: 1}):
         for module in threadpool_info():
@@ -50,6 +42,8 @@ def test_threadpool_limits_by_prefix(openblas_present, mkl_present, prefix):
             if is_old_openblas(module):
                 continue
             if module["prefix"] == prefix:
+                # threadpool_limits only sets an upper bound on the number of
+                # threads.
                 assert module["num_threads"] <= 3
 
     assert threadpool_info() == original_infos
@@ -59,12 +53,9 @@ def test_threadpool_limits_by_prefix(openblas_present, mkl_present, prefix):
 def test_set_threadpool_limits_by_api(user_api):
     # Check that the number of threads used by the multithreaded libraries can
     # be modified dynamically.
-    if user_api is None:
-        user_apis = ("blas", "openmp")
-    else:
-        user_apis = (user_api,)
-
     original_infos = threadpool_info()
+
+    user_apis = _ALL_USER_APIS if user_api is None else (user_api,)
 
     with threadpool_limits(limits=1, user_api=user_api):
         for module in threadpool_info():
@@ -78,6 +69,8 @@ def test_set_threadpool_limits_by_api(user_api):
             if is_old_openblas(module):
                 continue
             if module["user_api"] in user_apis:
+                # threadpool_limits only sets an upper bound on the number of
+                # threads.
                 assert module["num_threads"] <= 3
 
     assert threadpool_info() == original_infos

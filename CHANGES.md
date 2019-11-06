@@ -1,3 +1,11 @@
+1.2.0 (TBD)
+===========
+
+- Expose MKL threading layer in informations displayed by `threadpool_info`.
+  This information is referenced in the `threading_layer` field.
+  https://github.com/joblib/threadpoolctl/pull/48
+
+
 1.1.0 (2019-09-12)
 ==================
 

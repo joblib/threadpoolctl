@@ -1,8 +1,6 @@
 import os
 import re
-import ctypes
 import pytest
-
 
 from threadpoolctl import threadpool_limits, threadpool_info
 from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
@@ -15,7 +13,7 @@ from .utils import scipy
 def is_old_openblas(module):
     # Possible bug in getting maximum number of threads with OpenBLAS < 0.2.16
     # and OpenBLAS does not expose its version before 0.3.4.
-    return module['internal_api'] == "openblas" and module['version'] is None
+    return module["internal_api"] == "openblas" and module["version"] is None
 
 
 def effective_num_threads(nthreads, max_threads):
@@ -25,61 +23,44 @@ def effective_num_threads(nthreads, max_threads):
 
 
 @pytest.mark.parametrize("prefix", _ALL_PREFIXES)
-def test_threadpool_limits_by_prefix(openblas_present, mkl_present, prefix):
+@pytest.mark.parametrize("limit", [1, 3])
+def test_threadpool_limits_by_prefix(prefix, limit):
+    # Check that the maximum number of threads can be set by prefix
     original_infos = threadpool_info()
-    mkl_found = any([True for info in original_infos
-                     if info["prefix"] in ('mkl_rt', 'libmkl_rt')])
-    prefix_found = len([info["prefix"] for info in original_infos
-                        if info["prefix"] == prefix])
-    if not prefix_found:
-        if "mkl_rt" in prefix and mkl_present and not mkl_found:
-            raise RuntimeError("Could not load the MKL prefix")
-        elif prefix == "libopenblas" and openblas_present:
-            raise RuntimeError("Could not load the OpenBLAS prefix")
-        else:
-            pytest.skip("{} runtime missing".format(prefix))
 
-    with threadpool_limits(limits={prefix: 1}):
-        for module in threadpool_info():
+    modules_matching_prefix = original_infos.get_modules("prefix", prefix)
+    if not modules_matching_prefix:
+        pytest.skip("Requires {} runtime".format(prefix))
+
+    with threadpool_limits(limits={prefix: limit}):
+        for module in modules_matching_prefix:
             if is_old_openblas(module):
                 continue
-            if module["prefix"] == prefix:
-                assert module["num_threads"] == 1
-
-    with threadpool_limits(limits={prefix: 3}):
-        for module in threadpool_info():
-            if is_old_openblas(module):
-                continue
-            if module["prefix"] == prefix:
-                assert module["num_threads"] <= 3
+            # threadpool_limits only sets an upper bound on the number of
+            # threads.
+            assert 0 < module.get_num_threads() <= limit
 
     assert threadpool_info() == original_infos
 
 
 @pytest.mark.parametrize("user_api", (None, "blas", "openmp"))
-def test_set_threadpool_limits_by_api(user_api):
-    # Check that the number of threads used by the multithreaded libraries can
-    # be modified dynamically.
-    if user_api is None:
-        user_apis = ("blas", "openmp")
-    else:
-        user_apis = (user_api,)
-
+@pytest.mark.parametrize("limit", [1, 3])
+def test_set_threadpool_limits_by_api(user_api, limit):
+    # Check that the maximum number of threads can be set by user_api
     original_infos = threadpool_info()
 
-    with threadpool_limits(limits=1, user_api=user_api):
-        for module in threadpool_info():
-            if is_old_openblas(module):
-                continue
-            if module["user_api"] in user_apis:
-                assert module["num_threads"] == 1
+    modules_matching_api = original_infos.get_modules("user_api", user_api)
+    if not modules_matching_api:
+        user_apis = _ALL_USER_APIS if user_api is None else [user_api]
+        pytest.skip("Requires a library which api is in {}".format(user_apis))
 
-    with threadpool_limits(limits=3, user_api=user_api):
-        for module in threadpool_info():
+    with threadpool_limits(limits=limit, user_api=user_api):
+        for module in modules_matching_api:
             if is_old_openblas(module):
                 continue
-            if module["user_api"] in user_apis:
-                assert module["num_threads"] <= 3
+            # threadpool_limits only sets an upper bound on the number of
+            # threads.
+            assert 0 < module.get_num_threads() <= limit
 
     assert threadpool_info() == original_infos
 
@@ -113,8 +94,8 @@ def test_set_threadpool_limits_no_limit():
 
 
 def test_threadpool_limits_manual_unregister():
-    # Check that threadpool_limits can be used as an object with that hold
-    # the original state of the threadpools that can be restored thanks to the
+    # Check that threadpool_limits can be used as an object which holds the
+    # original state of the threadpools and that can be restored thanks to the
     # dedicated unregister method
     original_infos = threadpool_info()
 
@@ -145,7 +126,7 @@ def test_threadpool_limits_bad_input():
 
 
 @with_check_openmp_num_threads
-@pytest.mark.parametrize('num_threads', [1, 2, 4])
+@pytest.mark.parametrize("num_threads", [1, 2, 4])
 def test_openmp_limit_num_threads(num_threads):
     # checks that OpenMP effectively uses the number of threads requested by
     # the context manager
@@ -159,10 +140,10 @@ def test_openmp_limit_num_threads(num_threads):
 
 
 @with_check_openmp_num_threads
-@pytest.mark.parametrize('nthreads_outer', [None, 1, 2, 4])
+@pytest.mark.parametrize("nthreads_outer", [None, 1, 2, 4])
 def test_openmp_nesting(nthreads_outer):
     # checks that OpenMP effectively uses the number of threads requested by
-    # the context manager
+    # the context manager when nested in an outer OpenMP loop.
     from ._openmp_test_helper import check_nested_openmp_loops
     from ._openmp_test_helper import get_inner_compiler
     from ._openmp_test_helper import get_outer_compiler
@@ -173,14 +154,13 @@ def test_openmp_nesting(nthreads_outer):
     outer_num_threads, inner_num_threads = check_nested_openmp_loops(10)
 
     original_infos = threadpool_info()
-    openmp_infos = [info for info in original_infos
-                    if info["user_api"] == "openmp"]
+    openmp_infos = original_infos.get_modules("user_api", "openmp")
 
     if "gcc" in (inner_cc, outer_cc):
-        assert "libgomp" in [info["prefix"] for info in openmp_infos]
+        assert original_infos.get_modules("prefix", "libgomp")
 
     if "clang" in (inner_cc, outer_cc):
-        assert "libomp" in [info["prefix"] for info in openmp_infos]
+        assert original_infos.get_modules("prefix", "libomp")
 
     if inner_cc == outer_cc:
         # The openmp runtime should be shared by default, meaning that
@@ -192,9 +172,11 @@ def test_openmp_nesting(nthreads_outer):
         assert len(openmp_infos) >= 2
 
     with threadpool_limits(limits=1) as threadpoolctx:
-        max_threads = threadpoolctx.get_original_num_threads()['openmp']
+        max_threads = threadpoolctx.get_original_num_threads()["openmp"]
         nthreads = effective_num_threads(nthreads_outer, max_threads)
 
+        # Ask outer loop to run on nthreads threads and inner loop run on 1
+        # thread
         outer_num_threads, inner_num_threads = \
             check_nested_openmp_loops(10, nthreads)
 
@@ -218,16 +200,17 @@ def test_openmp_nesting(nthreads_outer):
 
 
 def test_shipped_openblas():
-    all_openblases = [ctypes.CDLL(path) for path in libopenblas_paths]
-    original_num_threads = [blas.openblas_get_num_threads()
-                            for blas in all_openblases]
+    # checks that OpenBLAS effectively uses the number of threads requested by
+    # the context manager
+    original_info = threadpool_info()
+
+    openblas_modules = original_info.get_modules("internal_api", "openblas")
 
     with threadpool_limits(1):
-        for openblas in all_openblases:
-            assert openblas.openblas_get_num_threads() == 1
+        for module in openblas_modules:
+            assert module.get_num_threads() == 1
 
-    assert original_num_threads == [openblas.openblas_get_num_threads()
-                                    for openblas in all_openblases]
+    assert original_info == threadpool_info()
 
 
 @pytest.mark.skipif(len(libopenblas_paths) < 2,
@@ -240,30 +223,32 @@ def test_multiple_shipped_openblas():
 
 
 @pytest.mark.skipif(scipy is None, reason="requires scipy")
-@pytest.mark.parametrize('nthreads_outer', [None, 1, 2, 4])
+@pytest.mark.parametrize("nthreads_outer", [None, 1, 2, 4])
 def test_nested_prange_blas(nthreads_outer):
+    # Check that the BLAS linked to scipy effectively uses the number of
+    # threads requested by the context manager when nested in an outer OpenMP
+    # loop.
     import numpy as np
-
-    blas_info = [module for module in threadpool_info()
-                 if module["user_api"] == "blas"]
-
-    blis_linked = any([module['internal_api'] == 'blis'
-                       for module in threadpool_info()])
-    if not blis_linked:
-        # numpy can be linked to BLIS for CBLAS and OpenBLAS for LAPACK. In
-        # that case this test will run BLIS gemm so no need to skip.
-        for module in threadpool_info():
-            if is_old_openblas(module):
-                # OpenBLAS 0.3.3 and older are known to cause an unrecoverable
-                # deadlock at process shutdown time (after pytest has exited).
-                pytest.skip("Old OpenBLAS: skipping test to avoid deadlock")
-
     from ._openmp_test_helper import check_nested_prange_blas
+
+    original_info = threadpool_info()
+
+    blas_info = original_info.get_modules("user_api", "blas")
+    blis_info = original_info.get_modules("internal_api", "blis")
+
+    # skip if the BLAS used by numpy is an old openblas. OpenBLAS 0.3.3 and
+    # older are known to cause an unrecoverable deadlock at process shutdown
+    # time (after pytest has exited).
+    # numpy can be linked to BLIS for CBLAS and OpenBLAS for LAPACK. In that
+    # case this test will run BLIS gemm so no need to skip.
+    if not blis_info and any(is_old_openblas(module) for module in blas_info):
+        pytest.skip("Old OpenBLAS: skipping test to avoid deadlock")
+
     A = np.ones((1000, 10))
     B = np.ones((100, 10))
 
     with threadpool_limits(limits=1) as threadpoolctx:
-        max_threads = threadpoolctx.get_original_num_threads()['openmp']
+        max_threads = threadpoolctx.get_original_num_threads()["openmp"]
         nthreads = effective_num_threads(nthreads_outer, max_threads)
 
         result = check_nested_prange_blas(A, B, nthreads)
@@ -272,50 +257,49 @@ def test_nested_prange_blas(nthreads_outer):
     assert np.allclose(C, np.dot(A, B.T))
     assert prange_num_threads == nthreads
 
-    nested_blas_info = [module for module in threadpool_infos
-                        if module["user_api"] == "blas"]
-
+    nested_blas_info = threadpool_infos.get_modules("user_api", "blas")
     assert len(nested_blas_info) == len(blas_info)
     for module in nested_blas_info:
-        assert module['num_threads'] == 1
+        assert module["num_threads"] == 1
+
+    assert original_info == threadpool_info()
 
 
 @pytest.mark.parametrize("limit", [1, None])
 def test_get_original_num_threads(limit):
-    with threadpool_limits(limits=2, user_api='blas') as ctl:
+    # Tests the method get_original_num_threads of the context manager
+    with threadpool_limits(limits=2, user_api="blas") as ctl:
         # set different blas num threads to start with (when multiple openblas)
-        if ctl._original_limits:
-            ctl._original_limits[0]['set_num_threads'](1)
+        if ctl._original_info:
+            ctl._original_info[0].set_num_threads(1)
 
         original_infos = threadpool_info()
-        with threadpool_limits(limits=limit, user_api='blas') as threadpoolctx:
+        with threadpool_limits(limits=limit, user_api="blas") as threadpoolctx:
             original_num_threads = threadpoolctx.get_original_num_threads()
 
-            assert 'openmp' not in original_num_threads
+            assert "openmp" not in original_num_threads
 
-            if 'blas' in [module['user_api'] for module in original_infos]:
-                assert original_num_threads['blas'] >= 1
+            blas_infos = original_infos.get_modules("user_api", "blas")
+            if blas_infos:
+                expected = min(module["num_threads"] for module in blas_infos)
+                assert original_num_threads["blas"] == expected
             else:
-                assert original_num_threads['blas'] is None
+                assert original_num_threads["blas"] is None
 
             if len(libopenblas_paths) >= 2:
-                with pytest.warns(None, match='Multiple value possible'):
-                    expected = min(
-                        [module['num_threads'] for module in original_infos])
-                    assert original_num_threads['blas'] == expected
+                with pytest.warns(None, match="Multiple value possible"):
+                    threadpoolctx.get_original_num_threads()
 
 
 def test_mkl_threading_layer():
     # Check that threadpool_info correctly recovers the threading layer used
     # by mkl
-    mkl_info = [module for module in threadpool_info()
-                if module['internal_api'] == 'mkl']
-
-    if not mkl_info:
-        pytest.skip("requires MKL")
-
+    mkl_info = threadpool_info().get_modules("internal_api", "mkl")
     expected_layer = os.getenv("MKL_THREADING_LAYER")
-    actual_layer = mkl_info[0]['threading_layer']
 
-    if expected_layer:
-        assert actual_layer == expected_layer.lower()
+    if not (mkl_info and expected_layer):
+        pytest.skip("requires MKL and the environment variable "
+                    "MKL_THREADING_LAYER set")
+
+    actual_layer = mkl_info[0]["threading_layer"]
+    assert actual_layer == expected_layer.lower()

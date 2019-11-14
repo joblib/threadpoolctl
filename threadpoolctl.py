@@ -538,32 +538,32 @@ class _Module(UserDict, ABC):
     @property
     @abstractmethod
     def user_api(self):
-        pass
+        pass  # pragma: no cover
 
     @property
     @abstractmethod
     def internal_api(self):
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def get_version(self):
         """Return the version of the shared library"""
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def get_num_threads(self):
         """Return the maximum number of threads available to use"""
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def set_num_threads(self, num_threads):
         """Set the maximum number of threads to use"""
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def _add_extra_info(self):
         """Add additional module specific information"""
-        pass
+        pass  # pragma: no cover
 
 
 class _OpenBLASModule(_Module):

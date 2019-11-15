@@ -6,123 +6,135 @@ variables:
   JUNITXML: 'test-data.xml'
   CODECOV_TOKEN: 'cee0e505-c12e-4139-aa43-621fb16a2347'
 
+stages:
+- stage:
+  jobs:
 
-jobs:
-
-- template: continuous_integration/windows.yml
-  parameters:
-    name: Windows
-    vmImage: vs2017-win2016
-    matrix:
-      py37_conda:
-        VERSION_PYTHON: '3.7'
-        PACKAGER: 'conda'
-      py36_conda:
-        VERSION_PYTHON: '3.6'
-        PACKAGER: 'conda'
-      py35_pip:
-        VERSION_PYTHON: '3.5'
-        PACKAGER: 'pip'
+  - template: continuous_integration/windows.yml
+    parameters:
+      name: Windows
+      vmImage: vs2017-win2016
+      matrix:
+        py37_conda:
+          VERSION_PYTHON: '3.7'
+          PACKAGER: 'conda'
+        py36_conda:
+          VERSION_PYTHON: '3.6'
+          PACKAGER: 'conda'
+        py35_pip:
+          VERSION_PYTHON: '3.5'
+          PACKAGER: 'pip'
 
 
-- template: continuous_integration/posix.yml
-  parameters:
-    name: Linux
-    vmImage: ubuntu-16.04
-    matrix:
-      # Linux environment to test that packages that comes with Ubuntu Xenial
-      # 16.04 are correctly handled.
-      py35_ubuntu_atlas_gcc_gcc:
-        PACKAGER: 'ubuntu'
-        APT_BLAS: 'libatlas3-base libatlas-base-dev libatlas-dev'
-        VERSION_PYTHON: '3.5'
-        CC_OUTER_LOOP: 'gcc'
-        CC_INNER_LOOP: 'gcc'
-        LINT: 'true'
-      py35_ubuntu_openblas_gcc_gcc:
-        PACKAGER: 'ubuntu'
-        APT_BLAS: 'libopenblas-base libopenblas-dev'
-        VERSION_PYTHON: '3.5'
-        CC_OUTER_LOOP: 'gcc'
-        CC_INNER_LOOP: 'gcc'
-      # Linux + Python 3.6 and homogeneous runtime nesting.
-      py36_conda_openblas_clang_clang:
-        PACKAGER: 'conda'
-        VERSION_PYTHON: '3.6'
-        NO_MKL: 'true'
-        CC_OUTER_LOOP: 'clang-8'
-        CC_INNER_LOOP: 'clang-8'
-      # Linux environment to test the latest available dependencies and MKL.
-      # and heterogeneous OpenMP runtime nesting.
-      pylatest_conda_mkl_clang_gcc:
-        PACKAGER: 'conda'
-        VERSION_PYTHON: '*'
-        CC_OUTER_LOOP: 'clang-8'
-        CC_INNER_LOOP: 'gcc'
-        MKL_THREADING_LAYER: 'INTEL'
-      # Linux + Python 3.7 with numpy / scipy installed with pip from PyPI and
-      # heterogeneous openmp runtimes.
-      py37_pip_openblas_gcc_clang:
-        PACKAGER: 'pip'
-        VERSION_PYTHON: '3.7'
-        CC_OUTER_LOOP: 'gcc'
-        CC_INNER_LOOP: 'clang-8'
-      # Linux environment with numpy from conda-forge channel
-      pylatest_conda_forge:
-        PACKAGER: 'conda-forge'
-        VERSION_PYTHON: '*'
-        CC_OUTER_LOOP: 'gcc'
-        CC_INNER_LOOP: 'gcc'
-      # Linux environment with no numpy and heterogeneous OpenMP runtime
-      # nesting.
-      pylatest_conda_nonumpy_gcc_clang:
-        PACKAGER: 'conda'
-        NO_NUMPY: 'true'
-        VERSION_PYTHON: '*'
-        CC_OUTER_LOOP: 'gcc'
-        CC_INNER_LOOP: 'clang-8'
-      # Linux environment with numpy linked to BLIS
-      pylatest_blis_gcc_clang:
-        PACKAGER: 'conda'
-        VERSION_PYTHON: '*'
-        INSTALL_BLIS: 'true'
-        BLIS_NUM_THREADS: '4'
-        CC_OUTER_LOOP: 'gcc'
-        CC_INNER_LOOP: 'gcc'
-        BLIS_CC: 'clang-8'
-      pylatest_blis_clang_gcc:
-        PACKAGER: 'conda'
-        VERSION_PYTHON: '*'
-        INSTALL_BLIS: 'true'
-        BLIS_NUM_THREADS: '4'
-        CC_OUTER_LOOP: 'clang-8'
-        CC_INNER_LOOP: 'clang-8'
-        BLIS_CC: 'gcc-8'
-      pylatest_blis_no_threading:
-        PACKAGER: 'conda'
-        VERSION_PYTHON: '*'
-        INSTALL_BLIS: 'true'
-        BLIS_NUM_THREADS: '1'
-        CC_OUTER_LOOP: 'gcc'
-        CC_INNER_LOOP: 'gcc'
-        BLIS_CC: 'gcc-8'
+  - template: continuous_integration/posix.yml
+    parameters:
+      name: Linux
+      vmImage: ubuntu-16.04
+      matrix:
+        # Linux environment to test that packages that comes with Ubuntu Xenial
+        # 16.04 are correctly handled.
+        py35_ubuntu_atlas_gcc_gcc:
+          PACKAGER: 'ubuntu'
+          APT_BLAS: 'libatlas3-base libatlas-base-dev libatlas-dev'
+          VERSION_PYTHON: '3.5'
+          CC_OUTER_LOOP: 'gcc'
+          CC_INNER_LOOP: 'gcc'
+          LINT: 'true'
+        py35_ubuntu_openblas_gcc_gcc:
+          PACKAGER: 'ubuntu'
+          APT_BLAS: 'libopenblas-base libopenblas-dev'
+          VERSION_PYTHON: '3.5'
+          CC_OUTER_LOOP: 'gcc'
+          CC_INNER_LOOP: 'gcc'
+        # Linux + Python 3.6 and homogeneous runtime nesting.
+        py36_conda_openblas_clang_clang:
+          PACKAGER: 'conda'
+          VERSION_PYTHON: '3.6'
+          NO_MKL: 'true'
+          CC_OUTER_LOOP: 'clang-8'
+          CC_INNER_LOOP: 'clang-8'
+        # Linux environment to test the latest available dependencies and MKL.
+        # and heterogeneous OpenMP runtime nesting.
+        pylatest_conda_mkl_clang_gcc:
+          PACKAGER: 'conda'
+          VERSION_PYTHON: '*'
+          CC_OUTER_LOOP: 'clang-8'
+          CC_INNER_LOOP: 'gcc'
+          MKL_THREADING_LAYER: 'INTEL'
+        # Linux + Python 3.7 with numpy / scipy installed with pip from PyPI and
+        # heterogeneous openmp runtimes.
+        py37_pip_openblas_gcc_clang:
+          PACKAGER: 'pip'
+          VERSION_PYTHON: '3.7'
+          CC_OUTER_LOOP: 'gcc'
+          CC_INNER_LOOP: 'clang-8'
+        # Linux environment with numpy from conda-forge channel
+        pylatest_conda_forge:
+          PACKAGER: 'conda-forge'
+          VERSION_PYTHON: '*'
+          CC_OUTER_LOOP: 'gcc'
+          CC_INNER_LOOP: 'gcc'
+        # Linux environment with no numpy and heterogeneous OpenMP runtime
+        # nesting.
+        pylatest_conda_nonumpy_gcc_clang:
+          PACKAGER: 'conda'
+          NO_NUMPY: 'true'
+          VERSION_PYTHON: '*'
+          CC_OUTER_LOOP: 'gcc'
+          CC_INNER_LOOP: 'clang-8'
+        # Linux environment with numpy linked to BLIS
+        pylatest_blis_gcc_clang:
+          PACKAGER: 'conda'
+          VERSION_PYTHON: '*'
+          INSTALL_BLIS: 'true'
+          BLIS_NUM_THREADS: '4'
+          CC_OUTER_LOOP: 'gcc'
+          CC_INNER_LOOP: 'gcc'
+          BLIS_CC: 'clang-8'
+        pylatest_blis_clang_gcc:
+          PACKAGER: 'conda'
+          VERSION_PYTHON: '*'
+          INSTALL_BLIS: 'true'
+          BLIS_NUM_THREADS: '4'
+          CC_OUTER_LOOP: 'clang-8'
+          CC_INNER_LOOP: 'clang-8'
+          BLIS_CC: 'gcc-8'
+        pylatest_blis_no_threading:
+          PACKAGER: 'conda'
+          VERSION_PYTHON: '*'
+          INSTALL_BLIS: 'true'
+          BLIS_NUM_THREADS: '1'
+          CC_OUTER_LOOP: 'gcc'
+          CC_INNER_LOOP: 'gcc'
+          BLIS_CC: 'gcc-8'
 
-- template: continuous_integration/posix.yml
-  parameters:
-    name: macOS
-    vmImage: xcode9-macos10.13
-    matrix:
-      # MacOS environment with OpenMP installed through homebrew
-      pylatest_conda_homebrew_libomp:
-        PACKAGER: 'conda'
-        VERSION_PYTHON: '*'
-        CC_OUTER_LOOP: 'clang'
-        CC_INNER_LOOP: 'clang'
-        INSTALL_LIBOMP: 'homebrew'
-      # MacOS environment with OpenMP installed through conda-forge compilers
-      pylatest_conda_conda_forge_clang:
-        PACKAGER: 'conda'
-        VERSION_PYTHON: '*'
-        CC_OUTER_LOOP: 'clang'
-        CC_INNER_LOOP: 'clang'
-        INSTALL_LIBOMP: 'conda-forge'
+  - template: continuous_integration/posix.yml
+    parameters:
+      name: macOS
+      vmImage: xcode9-macos10.13
+      matrix:
+        # MacOS environment with OpenMP installed through homebrew
+        pylatest_conda_homebrew_libomp:
+          PACKAGER: 'conda'
+          VERSION_PYTHON: '*'
+          CC_OUTER_LOOP: 'clang'
+          CC_INNER_LOOP: 'clang'
+          INSTALL_LIBOMP: 'homebrew'
+        # MacOS environment with OpenMP installed through conda-forge compilers
+        pylatest_conda_conda_forge_clang:
+          PACKAGER: 'conda'
+          VERSION_PYTHON: '*'
+          CC_OUTER_LOOP: 'clang'
+          CC_INNER_LOOP: 'clang'
+          INSTALL_LIBOMP: 'conda-forge'
+
+- stage:
+  jobs:
+  - job: 'aggregated_test'
+    pool:
+      vmImage: ubuntu-16.04
+    steps:
+      - download: current
+      - script: |
+          python continuous_integration/check_no_test_skipped.py $(Pipeline.Workspace)
+        displayName: 'Check no test skipped'

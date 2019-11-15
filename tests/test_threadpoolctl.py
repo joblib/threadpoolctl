@@ -7,7 +7,7 @@ import pytest
 from threadpoolctl import threadpool_limits, threadpool_info
 from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 
-from .utils import with_check_openmp_num_threads
+from .utils import cython_extensions_compiled
 from .utils import libopenblas_paths
 from .utils import scipy
 
@@ -137,7 +137,8 @@ def test_threadpool_limits_bad_input():
         threadpool_limits(limits=(1, 2, 3))
 
 
-@with_check_openmp_num_threads
+@pytest.mark.skipif(not cython_extensions_compiled,
+                    reason='Requires cython extensions to be compiled')
 @pytest.mark.parametrize('num_threads', [1, 2, 4])
 def test_openmp_limit_num_threads(num_threads):
     # checks that OpenMP effectively uses the number of threads requested by
@@ -151,7 +152,8 @@ def test_openmp_limit_num_threads(num_threads):
     assert check_openmp_num_threads(100) == old_num_threads
 
 
-@with_check_openmp_num_threads
+@pytest.mark.skipif(not cython_extensions_compiled,
+                    reason='Requires cython extensions to be compiled')
 @pytest.mark.parametrize('nthreads_outer', [None, 1, 2, 4])
 def test_openmp_nesting(nthreads_outer):
     # checks that OpenMP effectively uses the number of threads requested by

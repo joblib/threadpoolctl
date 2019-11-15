@@ -28,6 +28,7 @@ jobs:
         testRunTitle: ${{ format('{0}-$(Agent.JobName)', parameters.name) }}
       displayName: 'Publish Test Results'
       condition: succeededOrFailed()
+    - publish: $(JUNITXML)
     - script: |
         bash continuous_integration\\upload_codecov.sh
       displayName: 'Upload to codecov'

@@ -15,9 +15,6 @@ jobs:
     - script: |
         pip3 install flake8
         python3 -m flake8 .
-        cython --version
-        which cython
-        which pytest
       displayName: Lint
       condition: eq(variables['LINT'], 'true')
     - bash: echo "##vso[task.prependpath]$CONDA/bin"

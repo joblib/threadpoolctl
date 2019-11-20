@@ -314,7 +314,3 @@ def test_mkl_threading_layer():
 
     if expected_layer:
         assert actual_layer == expected_layer.lower()
-
-
-def test_aggregate_skip():
-    raise pytest.skip("Just checking")

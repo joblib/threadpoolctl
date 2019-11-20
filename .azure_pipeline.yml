@@ -133,7 +133,8 @@ stages:
   # Meta-test to ensure that at least of the above CI configurations had
   # the necessary platform settings to execute each test without raising
   # skipping.
-  - job: 'No test always skipped'
+  - job: 'no_test_always_skipped'
+    displayName: 'No test always skipped'
     pool:
       vmImage: ubuntu-16.04
     steps:

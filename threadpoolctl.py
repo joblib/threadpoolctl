@@ -479,35 +479,38 @@ class _ThreadpoolInfo(UserList):
                 return prefix
         return None
 
-    def _get_libc(self):
+    @classmethod
+    def _get_libc(cls):
         """Load the lib-C for unix systems."""
-        libc = self._system_libraries.get("libc")
+        libc = cls._system_libraries.get("libc")
         if libc is None:
             libc_name = find_library("c")
             if libc_name is None:  # pragma: no cover
                 return None
             libc = ctypes.CDLL(libc_name, mode=_RTLD_NOLOAD)
-            self._system_libraries["libc"] = libc
+            cls._system_libraries["libc"] = libc
         return libc
 
-    def _get_windll(self, dll_name):
+    @classmethod
+    def _get_windll(cls, dll_name):
         """Load a windows DLL"""
-        dll = self._system_libraries.get(dll_name)
+        dll = cls._system_libraries.get(dll_name)
         if dll is None:
             dll = ctypes.WinDLL("{}.dll".format(dll_name))
-            self._system_libraries[dll_name] = dll
+            cls._system_libraries[dll_name] = dll
         return dll
 
-    def _realpath(self, filepath, cache_limit=10000):
+    @classmethod
+    def _realpath(cls, filepath, cache_limit=10000):
         """Small caching wrapper around os.path.realpath to limit system calls
         """
-        rpath = self._realpaths.get(filepath)
+        rpath = cls._realpaths.get(filepath)
         if rpath is None:
             rpath = os.path.realpath(filepath)
-            if len(self._realpaths) < cache_limit:
+            if len(cls._realpaths) < cache_limit:
                 # If we drop support for Python 2.7, we could use
                 # functools.lru_cache with maxsize=10000 instead.
-                self._realpaths[filepath] = rpath
+                cls._realpaths[filepath] = rpath
         return rpath
 
 

@@ -582,6 +582,7 @@ class _Module(ABC):
         return self.todict() == other.todict()
 
     def todict(self):
+        """Return relevant info wrapped in a dict"""
         return {"user_api": self.user_api,
                 "internal_api": self.internal_api,
                 "prefix": self.prefix,

@@ -15,8 +15,8 @@ stages:
       name: Windows
       vmImage: vs2017-win2016
       matrix:
-        py37_conda:
-          VERSION_PYTHON: '3.7'
+        pylatest_conda:
+          VERSION_PYTHON: '*'
           PACKAGER: 'conda'
         py36_conda:
           VERSION_PYTHON: '3.6'
@@ -118,6 +118,7 @@ stages:
         pylatest_conda_homebrew_libomp:
           PACKAGER: 'conda'
           VERSION_PYTHON: '*'
+          BLAS: 'mkl'
           CC_OUTER_LOOP: 'clang'
           CC_INNER_LOOP: 'clang'
           INSTALL_LIBOMP: 'homebrew'
@@ -125,6 +126,7 @@ stages:
         pylatest_conda_conda_forge_clang:
           PACKAGER: 'conda'
           VERSION_PYTHON: '*'
+          BLAS: 'mkl'
           CC_OUTER_LOOP: 'clang'
           CC_INNER_LOOP: 'clang'
           INSTALL_LIBOMP: 'conda-forge'

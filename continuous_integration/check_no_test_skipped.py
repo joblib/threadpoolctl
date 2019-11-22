@@ -25,12 +25,12 @@ for name in os.listdir(base_dir):
         for test in root.iter("testcase"):
             test_name = test.attrib["name"]
             if test_name not in always_skipped:
-                always_skipped[test_name] = False
+                always_skipped[test_name] = True
 
             for child in test:
                 if child.tag == "skipped":
                     print("    -", test_name)
-                    always_skipped[test_name] |= True
+                    always_skipped[test_name] &= True
                     break
             else:
                 always_skipped[test_name] = False

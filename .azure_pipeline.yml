@@ -18,12 +18,15 @@ stages:
         pylatest_conda:
           VERSION_PYTHON: '*'
           PACKAGER: 'conda'
+          BLAS: 'mkl'
         py36_conda:
           VERSION_PYTHON: '3.6'
           PACKAGER: 'conda'
+          BLAS: 'openblas'
         py35_pip:
           VERSION_PYTHON: '3.5'
           PACKAGER: 'pip'
+          BLAS: 'mkl'
 
 
   - template: continuous_integration/posix.yml
@@ -115,9 +118,9 @@ stages:
       vmImage: xcode9-macos10.13
       matrix:
         # MacOS environment with OpenMP installed through homebrew
-        pylatest_conda_homebrew_libomp:
+        py35_conda_homebrew_libomp:
           PACKAGER: 'conda'
-          VERSION_PYTHON: '*'
+          VERSION_PYTHON: '3.5'
           BLAS: 'mkl'
           CC_OUTER_LOOP: 'clang'
           CC_INNER_LOOP: 'clang'

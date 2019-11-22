@@ -20,7 +20,7 @@ IF USE_BLIS:
 ELSE:
     from scipy.linalg.cython_blas cimport dgemm
 
-from threadpoolctl import threadpool_info
+from threadpoolctl import _ThreadpoolInfo, _ALL_USER_APIS
 
 
 def check_nested_prange_blas(double[:, ::1] A, double[:, ::1] B, int nthreads):
@@ -48,7 +48,7 @@ def check_nested_prange_blas(double[:, ::1] A, double[:, ::1] B, int nthreads):
     with nogil, parallel(num_threads=nthreads):
         if openmp.omp_get_thread_num() == 0:
             with gil:
-                threadpool_infos[0] = threadpool_info()
+                threadpool_infos[0] = _ThreadpoolInfo(user_api=_ALL_USER_APIS)
 
             prange_num_threads_ptr[0] = openmp.omp_get_num_threads()
 

@@ -17,7 +17,6 @@ import ctypes
 import warnings
 from ctypes.util import find_library
 from abc import ABC, abstractmethod
-from collections import UserDict, UserList
 
 __version__ = "1.2.0.dev0"
 __all__ = ["threadpool_limits", "threadpool_info"]
@@ -86,7 +85,7 @@ _SUPPORTED_MODULES = {
 }
 
 # Helpers for the doc and test names
-_ALL_USER_APIS = set(d["user_api"] for lib, d in _SUPPORTED_MODULES.items())
+_ALL_USER_APIS = list(set(d["user_api"] for d in _SUPPORTED_MODULES.values()))
 _ALL_INTERNAL_APIS = list(_SUPPORTED_MODULES.keys())
 _ALL_PREFIXES = [prefix for _, d in _SUPPORTED_MODULES.items()
                  for prefix in d["filename_prefixes"]]
@@ -120,7 +119,7 @@ def threadpool_info():
 
     In addition, each module may contain internal_api specific entries.
     """
-    return _ThreadpoolInfo(user_api=_ALL_USER_APIS)
+    return _ThreadpoolInfo(user_api=_ALL_USER_APIS).todicts()
 
 
 @_format_docstring(
@@ -178,20 +177,23 @@ class threadpool_limits:
     def unregister(self):
         if self._original_info is not None:
             for module in self._original_info:
-                module.set_num_threads(module["num_threads"])
+                module.set_num_threads(module.num_threads)
 
     def get_original_num_threads(self):
         """Original num_threads from before calling threadpool_limits
 
         Return a dict `{user_api: num_threads}`.
         """
-        original_limits = self._original_info or threadpool_info()
+        if self._original_info is not None:
+            original_limits = self._original_info
+        else:
+            original_limits = _ThreadpoolInfo(user_api=self._user_api)
 
         num_threads = {}
         warning_apis = []
 
         for user_api in self._user_api:
-            limits = [module["num_threads"] for module in
+            limits = [module.num_threads for module in
                       original_limits.get_modules("user_api", user_api)]
             limits = set(limits)
             n_limits = len(limits)
@@ -230,10 +232,15 @@ class threadpool_limits:
                 limits = {api: limits for api in user_api}
             prefixes = []
         else:
-            if isinstance(limits, _ThreadpoolInfo):
-                # This should be a list of modules, for compatibility with
-                # the result from threadpool_info.
+            if isinstance(limits, list):
+                # This should be a list of dicts of modules, for compatibility
+                # with the result from threadpool_info.
                 limits = {module["prefix"]: module["num_threads"]
+                          for module in limits}
+            elif isinstance(limits, _ThreadpoolInfo):
+                # To set the limits from the modules of a _ThreadpoolInfo
+                # object.
+                limits = {module.prefix: module.num_threads
                           for module in limits}
 
             if not isinstance(limits, dict):
@@ -262,10 +269,10 @@ class threadpool_limits:
                 # self._limits is a dict {key: num_threads} where key is either
                 # a prefix or a user_api. If a module matches both, the limit
                 # corresponding to the prefix is chosed.
-                if module["prefix"] in self._limits:
-                    num_threads = self._limits[module["prefix"]]
+                if module.prefix in self._limits:
+                    num_threads = self._limits[module.prefix]
                 else:
-                    num_threads = self._limits[module["user_api"]]
+                    num_threads = self._limits[module.user_api]
 
                 if num_threads is not None:
                     module.set_num_threads(num_threads)
@@ -273,27 +280,34 @@ class threadpool_limits:
 
 
 @_format_docstring(
-    PREFIXES=", ".join(_ALL_PREFIXES),
+    PREFIXES=", ".join('"{}"'.format(prefix) for prefix in _ALL_PREFIXES),
     USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
     BLAS_LIBS=", ".join(_ALL_BLAS_LIRARIES),
     OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES))
-class _ThreadpoolInfo(UserList):
-    """List of all supported modules that have been found
+class _ThreadpoolInfo():
+    """Collection of all supported modules that have been found
 
     Parameters
     ----------
+    user_api : list of user APIs or None (default=None)
+        Select libraries matching the requested API. Ignored if `modules` is
+        not None. Supported user APIs are {USER_APIS}.
+
+        - "blas" selects all BLAS supported libraries ({BLAS_LIBS})
+        - "openmp" selects all OpenMP supported libraries ({OPENMP_LIBS})
+
+        If None, libraries are not selected by their `user_api`.
+
     prefixes : list of prefixes or None (default=None)
         Select libraries matching the requested prefixes. Supported prefixes
-        are {PREFIXES}. If None, libraries are not selected by their prefix.
+        are {PREFIXES}.
+        If None, libraries are not selected by their prefix. Ignored if
+        `modules` is not None.
 
-    user_api : {USER_APIS} or None (default=None)
-        Select libraries matching the requested API.
-
-        - If "blas", BLAS supported libraries ({BLAS_LIBS}) are selected.
-
-        - If "openmp", OpenMP supported libraries ({OPENMP_LIBS}) are selected.
-
-        - If None, libraries are not selected by their `user_api`.
+    modules : list of _Module objects or None (default=None)
+        Wraps a list of _Module objects into a _ThreapoolInfo object. Does not
+        load or reload any shared library. If it is not None, `prefixes` and
+        `user_api` are ignored.
 
     Note
     ----
@@ -306,11 +320,15 @@ class _ThreadpoolInfo(UserList):
     # impact of slow system calls (e.g. stat) on slow filesystem
     _realpaths = dict()
 
-    def __init__(self, prefixes=None, user_api=None):
-        super().__init__()
-        self.prefixes = [] if prefixes is None else prefixes
-        self.user_api = [] if user_api is None else user_api
-        self._load_modules()
+    def __init__(self, user_api=None, prefixes=None,  modules=None):
+        if modules is None:
+            self.prefixes = [] if prefixes is None else prefixes
+            self.user_api = [] if user_api is None else user_api
+
+            self.modules = []
+            self._load_modules()
+        else:
+            self.modules = modules
 
     def get_modules(self, key, values):
         """Return all modules such that values contains module[key]"""
@@ -318,10 +336,25 @@ class _ThreadpoolInfo(UserList):
             values = list(_ALL_USER_APIS)
         if not isinstance(values, list):
             values = [values]
-        return [module for module in self if module[key] in values]
+        modules = [module for module in self.modules
+                   if getattr(module, key) in values]
+        return _ThreadpoolInfo(modules=modules)
+
+    def todicts(self):
+        """Return info as a list of dicts"""
+        return [module.todict() for module in self.modules]
+
+    def __len__(self):
+        return len(self.modules)
+
+    def __iter__(self):
+        yield from self.modules
+
+    def __eq__(self, other):
+        return self.modules == other.modules
 
     def _load_modules(self):
-        """Loop through loaded libraries and store supported ones."""
+        """Loop through loaded libraries and store supported ones"""
         if sys.platform == "darwin":
             self._find_modules_with_dyld()
         elif sys.platform == "win32":
@@ -467,7 +500,7 @@ class _ThreadpoolInfo(UserList):
                     candidate_module["user_api"] in self.user_api):
                 module_class = globals()[candidate_module["module_class"]]
                 module = module_class(filepath, prefix)
-                self.append(module)
+                self.modules.append(module)
 
     def _check_prefix(self, library_basename, filename_prefixes):
         """Return the prefix library_basename starts with
@@ -514,13 +547,13 @@ class _ThreadpoolInfo(UserList):
         return rpath
 
 
-class _Module(UserDict, ABC):
+class _Module(ABC):
     """Abstract base class for the modules
 
-    A module is represented by a dict with the following information:
+    A module is represented by the following information:
       - "user_api" : user API. Possible values are {USER_APIS}.
       - "internal_api" : internal API. Possible values are {INTERNAL_APIS}.
-      - "prefix" : filename prefix of the specific implementation.
+      - "prefix" : prefix of the shared library's name.
       - "filepath" : path to the loaded module.
       - "version" : version of the library (if available).
       - "num_threads" : the current thread limit.
@@ -528,15 +561,12 @@ class _Module(UserDict, ABC):
     In addition, each module may contain internal_api specific entries.
     """
     def __init__(self, filepath=None, prefix=None):
-        super().__init__()
-        self["user_api"] = self.user_api
-        self["internal_api"] = self.internal_api
-        self["prefix"] = prefix
-        self["filepath"] = filepath
+        self.filepath = filepath
+        self.prefix = prefix
         self.dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
-        self["version"] = self.get_version()
-        self["num_threads"] = self.get_num_threads()
-        self._add_extra_info()
+        self.version = self.get_version()
+        self.num_threads = self.get_num_threads()
+        self._get_extra_info()
 
     @property
     @abstractmethod
@@ -547,6 +577,17 @@ class _Module(UserDict, ABC):
     @abstractmethod
     def internal_api(self):
         pass  # pragma: no cover
+
+    def __eq__(self, other):
+        return self.todict() == other.todict()
+
+    def todict(self):
+        return {"user_api": self.user_api,
+                "internal_api": self.internal_api,
+                "prefix": self.prefix,
+                "filepath": self.filepath,
+                "version": self.version,
+                "num_threads": self.num_threads}
 
     @abstractmethod
     def get_version(self):
@@ -564,7 +605,7 @@ class _Module(UserDict, ABC):
         pass  # pragma: no cover
 
     @abstractmethod
-    def _add_extra_info(self):
+    def _get_extra_info(self):
         """Add additional module specific information"""
         pass  # pragma: no cover
 
@@ -595,7 +636,7 @@ class _OpenBLASModule(_Module):
                            lambda num_threads: None)
         return set_func(num_threads)
 
-    def _add_extra_info(self):
+    def _get_extra_info(self):
         pass
 
 
@@ -623,7 +664,7 @@ class _BLISModule(_Module):
                            lambda num_threads: None)
         return set_func(num_threads)
 
-    def _add_extra_info(self):
+    def _get_extra_info(self):
         pass
 
 
@@ -651,8 +692,8 @@ class _MKLModule(_Module):
                            lambda num_threads: None)
         return set_func(num_threads)
 
-    def _add_extra_info(self):
-        self["threading_layer"] = self.get_threading_layer()
+    def _get_extra_info(self):
+        self.threading_layer = self.get_threading_layer()
 
     def get_threading_layer(self):
         """Return the threading layer of MKL"""
@@ -684,5 +725,5 @@ class _OpenMPModule(_Module):
                            lambda num_threads: None)
         return set_func(num_threads)
 
-    def _add_extra_info(self):
+    def _get_extra_info(self):
         pass

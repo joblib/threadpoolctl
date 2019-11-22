@@ -2,7 +2,7 @@ import os
 import re
 import pytest
 
-from threadpoolctl import threadpool_limits, _ThreadpoolInfo
+from threadpoolctl import threadpool_limits, threadpool_info, _ThreadpoolInfo
 from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 
 from .utils import cython_extensions_compiled
@@ -25,6 +25,15 @@ def effective_num_threads(nthreads, max_threads):
 def _threadpool_info():
     # Like threadpool_info but return the object instead of the list of dicts
     return _ThreadpoolInfo(user_api=_ALL_USER_APIS)
+
+
+def test_threadpool_limits_public_api():
+    # Check consistency between threadpool_info and _ThreadpoolInfo
+    public_info = threadpool_info()
+    private_info = _threadpool_info()
+
+    for module1, module2 in zip(public_info, private_info):
+        assert module1 == module2.todict()
 
 
 @pytest.mark.parametrize("prefix", _ALL_PREFIXES)

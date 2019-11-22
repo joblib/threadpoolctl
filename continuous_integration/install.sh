@@ -40,10 +40,7 @@ make_conda() {
 if [[ "$PACKAGER" == "conda" ]]; then
     TO_INSTALL="python=$VERSION_PYTHON pip"
     if [[ "$NO_NUMPY" != "true" ]]; then
-        TO_INSTALL="$TO_INSTALL numpy scipy"
-        if [[ "$NO_MKL" == "true" ]]; then
-            TO_INSTALL="$TO_INSTALL nomkl"
-        fi
+        TO_INSTALL="$TO_INSTALL numpy scipy blas[$BLAS]"
     fi
 	make_conda $TO_INSTALL
 

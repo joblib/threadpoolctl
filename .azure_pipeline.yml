@@ -50,7 +50,7 @@ stages:
         py36_conda_openblas_clang_clang:
           PACKAGER: 'conda'
           VERSION_PYTHON: '3.6'
-          NO_MKL: 'true'
+          BLAS: 'openblas'
           CC_OUTER_LOOP: 'clang-8'
           CC_INNER_LOOP: 'clang-8'
         # Linux environment to test the latest available dependencies and MKL.
@@ -58,11 +58,12 @@ stages:
         pylatest_conda_mkl_clang_gcc:
           PACKAGER: 'conda'
           VERSION_PYTHON: '*'
+          BLAS: 'mkl'
           CC_OUTER_LOOP: 'clang-8'
           CC_INNER_LOOP: 'gcc'
           MKL_THREADING_LAYER: 'INTEL'
-        # Linux + Python 3.7 with numpy / scipy installed with pip from PyPI and
-        # heterogeneous openmp runtimes.
+        # Linux + Python 3.7 with numpy / scipy installed with pip from PyPI
+        # and heterogeneous openmp runtimes.
         py37_pip_openblas_gcc_clang:
           PACKAGER: 'pip'
           VERSION_PYTHON: '3.7'

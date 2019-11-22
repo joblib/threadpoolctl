@@ -24,16 +24,13 @@ for name in os.listdir(base_dir):
         # All tests are identified by the xml tag testcase.
         for test in root.iter("testcase"):
             test_name = test.attrib["name"]
-            if test_name not in always_skipped:
-                always_skipped[test_name] = True
-
-            for child in test:
-                if child.tag == "skipped":
-                    print("    -", test_name)
-                    always_skipped[test_name] &= True
-                    break
+            skipped = any(child.tag == "skipped" for child in test)
+            if skipped:
+                print("    -", test_name)
+            if test_name in always_skipped:
+                always_skipped[test_name] &= skipped
             else:
-                always_skipped[test_name] = False
+                always_skipped[test_name] = skipped
 
 print("\n------------------------------------------------------------------\n")
 fail = False

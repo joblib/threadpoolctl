@@ -29,7 +29,7 @@ for name in os.listdir(base_dir):
 
             for child in test:
                 if child.tag == "skipped":
-                    print("  -", test_name)
+                    print("    -", test_name)
                     always_skipped[test_name] |= True
                     break
             else:

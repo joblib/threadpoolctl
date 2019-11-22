@@ -31,6 +31,7 @@ for name in os.listdir(base_dir):
                 print("    -", child.tag)
                 if child.tag == "skipped":
                     aggregated_results[test_name] |= False
+                    break
             else:
                 aggregated_results[test_name] |= True
 

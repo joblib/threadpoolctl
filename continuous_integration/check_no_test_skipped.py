@@ -16,18 +16,26 @@ aggregated_results = {}
 for name in os.listdir(base_dir):
     # all test result files are in /base_dir/jobs.*/ dirs
     if name.startswith("stage1."):
+        print("> processing test result from job", name.replace("stage1", ""))
         result_file = os.path.join(base_dir, name, "test-data.xml")
         root = ET.parse(result_file).getroot()
 
         # All tests are identified by the xml tag testcase.
-        for test in root.iter('testcase'):
-            test_name = test.attrib['name']
+        for test in root.iter("testcase"):
+            test_name = test.attrib["name"]
             if test_name not in aggregated_results:
-                # len(test) is > 0 if the test is skipped.
-                aggregated_results[test_name] = not bool(len(test))
-            else:
-                aggregated_results[test_name] |= not bool(len(test))
+                aggregated_results[test_name] = False
+            print("  -", test_name)
 
+            for child in test:
+                print("    -", child.tag)
+                if child.tag == "skipped":
+                    aggregated_results[test_name] |= False
+                    break
+            else:
+                aggregated_results[test_name] |= True
+
+print("\n------------------------------------------------------------------\n")
 fail = False
 for test, result in aggregated_results.items():
     if not result:

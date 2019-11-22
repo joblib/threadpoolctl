@@ -18,7 +18,7 @@ import warnings
 from ctypes.util import find_library
 from abc import ABC, abstractmethod
 
-__version__ = "1.2.0.dev0"
+__version__ = "2.0.0.dev0"
 __all__ = ["threadpool_limits", "threadpool_info"]
 
 
@@ -46,7 +46,7 @@ class _dl_phdr_info(ctypes.Structure):
         ("dlpi_addr",  _SYSTEM_UINT),       # Base address of object
         ("dlpi_name",  ctypes.c_char_p),    # path to the library
         ("dlpi_phdr",  ctypes.c_void_p),    # pointer on dlpi_headers
-        ("dlpi_phnum",  _SYSTEM_UINT_HALF)  # number of element in dlpi_phdr
+        ("dlpi_phnum",  _SYSTEM_UINT_HALF)  # number of elements in dlpi_phdr
     ]
 
 
@@ -140,13 +140,13 @@ class threadpool_limits:
     Parameters
     ----------
     limits : int, dict or None (default=None)
-        The maximal number of thread that can be used in thread pools
+        The maximal number of threads that can be used in thread pools
 
-        - If int, sets the maximum number of thread to `limits` for each
+        - If int, sets the maximum number of threads to `limits` for each
           library selected by `user_api`.
 
         - If it is a dictionary `{{key: max_threads}}`, this function sets a
-          custom maximum number of thread for each `key` which can be either a
+          custom maximum number of threads for each `key` which can be either a
           `user_api` or a `prefix` for a specific library.
 
         - If None, this function does not do anything.
@@ -279,6 +279,9 @@ class threadpool_limits:
             return modules
 
 
+# The object oriented API of _ThreadpoolInfo and its modules is private.
+# The public API (i.e. the "threadpool_info" function) only exposes the
+# "list of dicts" representation returned by the .todicts method.
 @_format_docstring(
     PREFIXES=", ".join('"{}"'.format(prefix) for prefix in _ALL_PREFIXES),
     USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
@@ -314,10 +317,16 @@ class _ThreadpoolInfo():
     Is is possible to select libraries both by prefixes and by user_api. All
     libraries matching one or the other will be selected.
     """
-    # Cache for libc under POSIX and a few system libraries under Windows
+    # Cache for libc under POSIX and a few system libraries under Windows.
+    # We use a class level cache instead of an instance level cache because
+    # it's very unlikely that a shared library will be unloaded and reloaded
+    # during the lifetime of a program.
     _system_libraries = dict()
     # Cache for calls to os.path.realpath on system libraries to reduce the
-    # impact of slow system calls (e.g. stat) on slow filesystem
+    # impact of slow system calls (e.g. stat) on slow filesystem.
+    # We use a class level cache instead of an instance level cache because
+    # we can safely assume that the filepath of loaded shared libraries will
+    # never change during the lifetime of a program.
     _realpaths = dict()
 
     def __init__(self, user_api=None, prefixes=None,  modules=None):

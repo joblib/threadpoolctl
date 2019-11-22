@@ -36,6 +36,22 @@ def test_threadpool_limits_public_api():
         assert module1 == module2.todict()
 
 
+def test_ThreadpoolInfo_todicts():
+    info = _threadpool_info()
+
+    assert info.todicts() == [module.todict() for module in info]
+    assert info.todicts() == [module.todict() for module in info.modules]
+
+    for module in info:
+        module_dict = module.todict()
+        assert "user_api" in module_dict
+        assert "internal_api" in module_dict
+        assert "prefix" in module_dict
+        assert "filepath" in module_dict
+        assert "version" in module_dict
+        assert "num_threads" in module_dict
+
+
 @pytest.mark.parametrize("prefix", _ALL_PREFIXES)
 @pytest.mark.parametrize("limit", [1, 3])
 def test_threadpool_limits_by_prefix(prefix, limit):

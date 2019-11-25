@@ -57,41 +57,42 @@ except AttributeError:
     _RTLD_NOLOAD = ctypes.DEFAULT_MODE
 
 
-# List of the supported libraries. The items hold the possible prefixes of
-# loaded shared objects, the name of the internal_api to call, the name of the
-# user_api and the name of the class to instanciate to create a module object
-# from this library.
+# List of the supported libraries. The items are indexed by the name of the
+# class to instanciate to create the module objects. The items hold the
+# possible prefixes of loaded shared objects, the name of the internal_api to
+# call and the name of the user_api.
 _SUPPORTED_MODULES = {
-    "openmp": {
+    "_OpenMPModule": {
         "user_api": "openmp",
-        "filename_prefixes": ("libiomp", "libgomp", "libomp", "vcomp",),
-        "module_class": "_OpenMPModule"
+        "internal_api": "openmp",
+        "filename_prefixes": ("libiomp", "libgomp", "libomp", "vcomp")
     },
-    "openblas": {
+    " _OpenBLASModule": {
         "user_api": "blas",
-        "filename_prefixes": ("libopenblas",),
-        "module_class": "_OpenBLASModule"
+        "internal_api": "openblas",
+        "filename_prefixes": ("libopenblas",)
     },
-    "mkl": {
+    "_MKLModule": {
         "user_api": "blas",
-        "filename_prefixes": ("libmkl_rt", "mkl_rt",),
-        "module_class": "_MKLModule"
+        "internal_api": "mkl",
+        "filename_prefixes": ("libmkl_rt", "mkl_rt")
     },
-    "blis": {
+    "_BLISModule": {
         "user_api": "blas",
-        "filename_prefixes": ("libblis",),
-        "module_class": "_BLISModule"
+        "internal_api": "blis",
+        "filename_prefixes": ("libblis",)
     }
 }
 
 # Helpers for the doc and test names
-_ALL_USER_APIS = list(set(d["user_api"] for d in _SUPPORTED_MODULES.values()))
-_ALL_INTERNAL_APIS = list(_SUPPORTED_MODULES.keys())
-_ALL_PREFIXES = [prefix for _, d in _SUPPORTED_MODULES.items()
-                 for prefix in d["filename_prefixes"]]
-_ALL_BLAS_LIRARIES = [lib for lib, d in _SUPPORTED_MODULES.items()
-                      if d["user_api"] == "blas"]
-_ALL_OPENMP_LIBRARIES = list(_SUPPORTED_MODULES["openmp"]["filename_prefixes"])
+_ALL_USER_APIS = list(set(m["user_api"] for m in _SUPPORTED_MODULES.values()))
+_ALL_INTERNAL_APIS = [m["internal_api"] for m in _SUPPORTED_MODULES.values()]
+_ALL_PREFIXES = [prefix for m in _SUPPORTED_MODULES.values()
+                 for prefix in m["filename_prefixes"]]
+_ALL_BLAS_LIBRARIES = [m["internal_api"] for m in _SUPPORTED_MODULES.values()
+                       if m["user_api"] == "blas"]
+_ALL_OPENMP_LIBRARIES = list(
+    _SUPPORTED_MODULES["_OpenMPModule"]["filename_prefixes"])
 
 
 def _format_docstring(*args, **kwargs):
@@ -124,7 +125,7 @@ def threadpool_info():
 
 @_format_docstring(
     USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
-    BLAS_LIBS=", ".join(_ALL_BLAS_LIRARIES),
+    BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
     OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES))
 class threadpool_limits:
     """Change the maximal number of threads that can be used in thread pools.
@@ -285,7 +286,7 @@ class threadpool_limits:
 @_format_docstring(
     PREFIXES=", ".join('"{}"'.format(prefix) for prefix in _ALL_PREFIXES),
     USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
-    BLAS_LIBS=", ".join(_ALL_BLAS_LIRARIES),
+    BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
     OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES))
 class _ThreadpoolInfo():
     """Collection of all supported modules that have been found
@@ -493,7 +494,7 @@ class _ThreadpoolInfo():
 
         # Loop through supported modules to find if this filename corresponds
         # to a supported module.
-        for _, candidate_module in _SUPPORTED_MODULES.items():
+        for module_class, candidate_module in _SUPPORTED_MODULES.items():
             # check if filename matches a supported prefix
             prefix = self._check_prefix(filename,
                                         candidate_module["filename_prefixes"])
@@ -505,10 +506,11 @@ class _ThreadpoolInfo():
 
             # filename matches a prefix. Check if it matches the request. If
             # so, create and store the module.
-            if (prefix in self.prefixes or
-                    candidate_module["user_api"] in self.user_api):
-                module_class = globals()[candidate_module["module_class"]]
-                module = module_class(filepath, prefix)
+            user_api = candidate_module["user_api"]
+            internal_api = candidate_module["internal_api"]
+            if prefix in self.prefixes or user_api in self.user_api:
+                module_class = globals()[module_class]
+                module = module_class(filepath, prefix, user_api, internal_api)
                 self.modules.append(module)
 
     def _check_prefix(self, library_basename, filename_prefixes):
@@ -569,35 +571,23 @@ class _Module(ABC):
 
     In addition, each module may contain internal_api specific entries.
     """
-    def __init__(self, filepath=None, prefix=None):
+    def __init__(self, filepath=None, prefix=None, user_api=None,
+                 internal_api=None):
         self.filepath = filepath
         self.prefix = prefix
-        self.dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
+        self.user_api = user_api
+        self.internal_api = internal_api
+        self._dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
         self.version = self.get_version()
         self.num_threads = self.get_num_threads()
         self._get_extra_info()
-
-    @property
-    @abstractmethod
-    def user_api(self):
-        pass  # pragma: no cover
-
-    @property
-    @abstractmethod
-    def internal_api(self):
-        pass  # pragma: no cover
 
     def __eq__(self, other):
         return self.todict() == other.todict()
 
     def todict(self):
         """Return relevant info wrapped in a dict"""
-        return {"user_api": self.user_api,
-                "internal_api": self.internal_api,
-                "prefix": self.prefix,
-                "filepath": self.filepath,
-                "version": self.version,
-                "num_threads": self.num_threads}
+        return {k: v for k, v in vars(self).items() if not k.startswith("_")}
 
     @abstractmethod
     def get_version(self):
@@ -622,13 +612,10 @@ class _Module(ABC):
 
 class _OpenBLASModule(_Module):
     """Module class for OpenBLAS"""
-    user_api = "blas"
-    internal_api = "openblas"
-
     def get_version(self):
         # None means OpenBLAS is not loaded or version < 0.3.4, since OpenBLAS
         # did not expose its version before that.
-        get_config = getattr(self.dynlib, "openblas_get_config",
+        get_config = getattr(self._dynlib, "openblas_get_config",
                              lambda: None)
         get_config.restype = ctypes.c_char_p
         config = get_config().split()
@@ -637,12 +624,12 @@ class _OpenBLASModule(_Module):
         return None
 
     def get_num_threads(self):
-        get_func = getattr(self.dynlib, "openblas_get_num_threads",
+        get_func = getattr(self._dynlib, "openblas_get_num_threads",
                            lambda: None)
         return get_func()
 
     def set_num_threads(self, num_threads):
-        set_func = getattr(self.dynlib, "openblas_set_num_threads",
+        set_func = getattr(self._dynlib, "openblas_set_num_threads",
                            lambda num_threads: None)
         return set_func(num_threads)
 
@@ -652,17 +639,14 @@ class _OpenBLASModule(_Module):
 
 class _BLISModule(_Module):
     """Module class for BLIS"""
-    user_api = "blas"
-    internal_api = "blis"
-
     def get_version(self):
-        get_version_ = getattr(self.dynlib, "bli_info_get_version_str",
+        get_version_ = getattr(self._dynlib, "bli_info_get_version_str",
                                lambda: None)
         get_version_.restype = ctypes.c_char_p
         return get_version_().decode("utf-8")
 
     def get_num_threads(self):
-        get_func = getattr(self.dynlib, "bli_thread_get_num_threads",
+        get_func = getattr(self._dynlib, "bli_thread_get_num_threads",
                            lambda: None)
         num_threads = get_func()
         # by default BLIS is single-threaded and get_num_threads
@@ -670,7 +654,7 @@ class _BLISModule(_Module):
         return 1 if num_threads == -1 else num_threads
 
     def set_num_threads(self, num_threads):
-        set_func = getattr(self.dynlib, "bli_thread_set_num_threads",
+        set_func = getattr(self._dynlib, "bli_thread_set_num_threads",
                            lambda num_threads: None)
         return set_func(num_threads)
 
@@ -680,12 +664,9 @@ class _BLISModule(_Module):
 
 class _MKLModule(_Module):
     """Module class for MKL"""
-    user_api = "blas"
-    internal_api = "mkl"
-
     def get_version(self):
         res = ctypes.create_string_buffer(200)
-        self.dynlib.mkl_get_version_string(res, 200)
+        self._dynlib.mkl_get_version_string(res, 200)
 
         version = res.value.decode("utf-8")
         group = re.search(r"Version ([^ ]+) ", version)
@@ -694,11 +675,11 @@ class _MKLModule(_Module):
         return version.strip()
 
     def get_num_threads(self):
-        get_func = getattr(self.dynlib, "MKL_Get_Max_Threads", lambda: None)
+        get_func = getattr(self._dynlib, "MKL_Get_Max_Threads", lambda: None)
         return get_func()
 
     def set_num_threads(self, num_threads):
-        set_func = getattr(self.dynlib, "MKL_Set_Num_Threads",
+        set_func = getattr(self._dynlib, "MKL_Set_Num_Threads",
                            lambda num_threads: None)
         return set_func(num_threads)
 
@@ -710,7 +691,7 @@ class _MKLModule(_Module):
         # The function mkl_set_threading_layer returns the current threading
         # layer. Calling it with an invalid threading layer allows us to safely
         # get the threading layer
-        set_threading_layer = getattr(self.dynlib, "MKL_Set_Threading_Layer",
+        set_threading_layer = getattr(self._dynlib, "MKL_Set_Threading_Layer",
                                       lambda layer: -1)
         layer_map = {0: "intel", 1: "sequential", 2: "pgi",
                      3: "gnu", 4: "tbb", -1: "not specified"}
@@ -719,19 +700,16 @@ class _MKLModule(_Module):
 
 class _OpenMPModule(_Module):
     """Module class for OpenMP"""
-    user_api = "openmp"
-    internal_api = "openmp"
-
     def get_version(self):
         # There is no way to get the version number programmatically in OpenMP.
         return None
 
     def get_num_threads(self):
-        get_func = getattr(self.dynlib, "omp_get_max_threads", lambda: None)
+        get_func = getattr(self._dynlib, "omp_get_max_threads", lambda: None)
         return get_func()
 
     def set_num_threads(self, num_threads):
-        set_func = getattr(self.dynlib, "omp_set_num_threads",
+        set_func = getattr(self._dynlib, "omp_set_num_threads",
                            lambda num_threads: None)
         return set_func(num_threads)
 

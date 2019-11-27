@@ -37,8 +37,11 @@ def test_threadpool_limits_public_api():
 
 
 def test_ThreadpoolInfo_todicts():
+    # Check all keys expected for the public api are in the dicts returned by
+    # the .todict(s) methods
     info = _threadpool_info()
 
+    assert threadpool_info() == [module.todict() for module in info.modules]
     assert info.todicts() == [module.todict() for module in info]
     assert info.todicts() == [module.todict() for module in info.modules]
 
@@ -50,6 +53,9 @@ def test_ThreadpoolInfo_todicts():
         assert "filepath" in module_dict
         assert "version" in module_dict
         assert "num_threads" in module_dict
+
+        if module.internal_api == "mkl":
+            assert "threading_layer" in module_dict
 
 
 @pytest.mark.parametrize("prefix", _ALL_PREFIXES)

@@ -18,9 +18,11 @@ stages:
         pylatest_conda:
           VERSION_PYTHON: '*'
           PACKAGER: 'conda'
+          BLAS: 'mkl'
         py36_conda:
           VERSION_PYTHON: '3.6'
           PACKAGER: 'conda'
+          BLAS: 'mkl'
         py35_pip:
           VERSION_PYTHON: '3.5'
           PACKAGER: 'pip'

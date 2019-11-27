@@ -191,7 +191,7 @@ def test_openmp_nesting(nthreads_outer):
     outer_num_threads, inner_num_threads = check_nested_openmp_loops(10)
 
     original_info = _threadpool_info()
-    openmp_infos = original_info.get_modules("user_api", "openmp")
+    openmp_info = original_info.get_modules("user_api", "openmp")
 
     if "gcc" in (inner_cc, outer_cc):
         assert original_info.get_modules("prefix", "libgomp")
@@ -206,7 +206,7 @@ def test_openmp_nesting(nthreads_outer):
         assert inner_num_threads == 1
     else:
         # There should be at least 2 OpenMP runtime detected.
-        assert len(openmp_infos) >= 2
+        assert len(openmp_info) >= 2
 
     with threadpool_limits(limits=1) as threadpoolctx:
         max_threads = threadpoolctx.get_original_num_threads()["openmp"]
@@ -289,12 +289,12 @@ def test_nested_prange_blas(nthreads_outer):
         nthreads = effective_num_threads(nthreads_outer, max_threads)
 
         result = check_nested_prange_blas(A, B, nthreads)
-        C, prange_num_threads, threadpool_infos = result
+        C, prange_num_threads, inner_info = result
 
     assert np.allclose(C, np.dot(A, B.T))
     assert prange_num_threads == nthreads
 
-    nested_blas_info = threadpool_infos.get_modules("user_api", "blas")
+    nested_blas_info = inner_info.get_modules("user_api", "blas")
     assert len(nested_blas_info) == len(blas_info)
     for module in nested_blas_info:
         assert module.num_threads == 1
@@ -317,9 +317,9 @@ def test_get_original_num_threads(limit):
 
             assert "openmp" not in original_num_threads
 
-            blas_infos = original_info.get_modules("user_api", "blas")
-            if blas_infos:
-                expected = min(module.num_threads for module in blas_infos)
+            blas_info = original_info.get_modules("user_api", "blas")
+            if blas_info:
+                expected = min(module.num_threads for module in blas_info)
                 assert original_num_threads["blas"] == expected
             else:
                 assert original_num_threads["blas"] is None

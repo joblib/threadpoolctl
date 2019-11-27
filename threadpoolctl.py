@@ -67,7 +67,7 @@ _SUPPORTED_MODULES = {
         "internal_api": "openmp",
         "filename_prefixes": ("libiomp", "libgomp", "libomp", "vcomp")
     },
-    " _OpenBLASModule": {
+    "_OpenBLASModule": {
         "user_api": "blas",
         "internal_api": "openblas",
         "filename_prefixes": ("libopenblas",)
@@ -511,7 +511,6 @@ class _ThreadpoolInfo():
             if prefix in self.prefixes or user_api in self.user_api:
                 module_class = globals()[module_class]
                 module = module_class(filepath, prefix, user_api, internal_api)
-                print(module)
                 self.modules.append(module)
 
     def _check_prefix(self, library_basename, filename_prefixes):

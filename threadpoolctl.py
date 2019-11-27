@@ -509,6 +509,7 @@ class _ThreadpoolInfo():
             user_api = candidate_module["user_api"]
             internal_api = candidate_module["internal_api"]
             if prefix in self.prefixes or user_api in self.user_api:
+                print(globals())
                 module_class = globals()[module_class]
                 module = module_class(filepath, prefix, user_api, internal_api)
                 self.modules.append(module)

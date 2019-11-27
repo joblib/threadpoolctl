@@ -62,9 +62,9 @@ def test_ThreadpoolInfo_todicts():
 @pytest.mark.parametrize("limit", [1, 3])
 def test_threadpool_limits_by_prefix(prefix, limit):
     # Check that the maximum number of threads can be set by prefix
-    original_infos = _threadpool_info()
+    original_info = _threadpool_info()
 
-    modules_matching_prefix = original_infos.get_modules("prefix", prefix)
+    modules_matching_prefix = original_info.get_modules("prefix", prefix)
     if not modules_matching_prefix:
         pytest.skip("Requires {} runtime".format(prefix))
 
@@ -75,16 +75,16 @@ def test_threadpool_limits_by_prefix(prefix, limit):
             # threadpool_limits only sets an upper bound on the number of
             # threads.
             assert 0 < module.get_num_threads() <= limit
-    assert _threadpool_info() == original_infos
+    assert _threadpool_info() == original_info
 
 
 @pytest.mark.parametrize("user_api", (None, "blas", "openmp"))
 @pytest.mark.parametrize("limit", [1, 3])
 def test_set_threadpool_limits_by_api(user_api, limit):
     # Check that the maximum number of threads can be set by user_api
-    original_infos = _threadpool_info()
+    original_info = _threadpool_info()
 
-    modules_matching_api = original_infos.get_modules("user_api", user_api)
+    modules_matching_api = original_info.get_modules("user_api", user_api)
     if not modules_matching_api:
         user_apis = _ALL_USER_APIS if user_api is None else [user_api]
         pytest.skip("Requires a library which api is in {}".format(user_apis))
@@ -97,13 +97,13 @@ def test_set_threadpool_limits_by_api(user_api, limit):
             # threads.
             assert 0 < module.get_num_threads() <= limit
 
-    assert _threadpool_info() == original_infos
+    assert _threadpool_info() == original_info
 
 
 def test_threadpool_limits_function_with_side_effect():
     # Check that threadpool_limits can be used as a function with
     # side effects instead of a context manager.
-    original_infos = _threadpool_info()
+    original_info = _threadpool_info()
 
     threadpool_limits(limits=1)
     try:
@@ -114,25 +114,25 @@ def test_threadpool_limits_function_with_side_effect():
     finally:
         # Restore the original limits so that this test does not have any
         # side-effect.
-        threadpool_limits(limits=original_infos)
+        threadpool_limits(limits=original_info)
 
-    assert _threadpool_info() == original_infos
+    assert _threadpool_info() == original_info
 
 
 def test_set_threadpool_limits_no_limit():
     # Check that limits=None does nothing.
-    original_infos = _threadpool_info()
+    original_info = _threadpool_info()
     with threadpool_limits(limits=None):
-        assert _threadpool_info() == original_infos
+        assert _threadpool_info() == original_info
 
-    assert _threadpool_info() == original_infos
+    assert _threadpool_info() == original_info
 
 
 def test_threadpool_limits_manual_unregister():
     # Check that threadpool_limits can be used as an object which holds the
     # original state of the threadpools and that can be restored thanks to the
     # dedicated unregister method
-    original_infos = _threadpool_info()
+    original_info = _threadpool_info()
 
     limits = threadpool_limits(limits=1)
     try:
@@ -145,7 +145,7 @@ def test_threadpool_limits_manual_unregister():
         # side-effect.
         limits.unregister()
 
-    assert _threadpool_info() == original_infos
+    assert _threadpool_info() == original_info
 
 
 def test_threadpool_limits_bad_input():
@@ -190,14 +190,14 @@ def test_openmp_nesting(nthreads_outer):
 
     outer_num_threads, inner_num_threads = check_nested_openmp_loops(10)
 
-    original_infos = _threadpool_info()
-    openmp_infos = original_infos.get_modules("user_api", "openmp")
+    original_info = _threadpool_info()
+    openmp_infos = original_info.get_modules("user_api", "openmp")
 
     if "gcc" in (inner_cc, outer_cc):
-        assert original_infos.get_modules("prefix", "libgomp")
+        assert original_info.get_modules("prefix", "libgomp")
 
     if "clang" in (inner_cc, outer_cc):
-        assert original_infos.get_modules("prefix", "libomp")
+        assert original_info.get_modules("prefix", "libomp")
 
     if inner_cc == outer_cc:
         # The openmp runtime should be shared by default, meaning that
@@ -219,7 +219,7 @@ def test_openmp_nesting(nthreads_outer):
 
     # The state of the original state of all threadpools should have been
     # restored.
-    assert _threadpool_info() == original_infos
+    assert _threadpool_info() == original_info
 
     # The number of threads available in the outer loop should not have been
     # decreased:
@@ -310,14 +310,14 @@ def test_get_original_num_threads(limit):
         if ctl._original_info:
             ctl._original_info.modules[0].set_num_threads(1)
 
-        original_infos = _threadpool_info()
+        original_info = _threadpool_info()
         with threadpool_limits(limits=limit, user_api="blas") as threadpoolctx:
             original_num_threads = threadpoolctx.get_original_num_threads()
             print(original_num_threads)
 
             assert "openmp" not in original_num_threads
 
-            blas_infos = original_infos.get_modules("user_api", "blas")
+            blas_infos = original_info.get_modules("user_api", "blas")
             if blas_infos:
                 expected = min(module.num_threads for module in blas_infos)
                 assert original_num_threads["blas"] == expected

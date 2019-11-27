@@ -263,21 +263,21 @@ class threadpool_limits:
         """
         if self._limits is None:
             return None
-        else:
-            modules = _ThreadpoolInfo(prefixes=self._prefixes,
-                                      user_api=self._user_api)
-            for module in modules:
-                # self._limits is a dict {key: num_threads} where key is either
-                # a prefix or a user_api. If a module matches both, the limit
-                # corresponding to the prefix is chosed.
-                if module.prefix in self._limits:
-                    num_threads = self._limits[module.prefix]
-                else:
-                    num_threads = self._limits[module.user_api]
 
-                if num_threads is not None:
-                    module.set_num_threads(num_threads)
-            return modules
+        modules = _ThreadpoolInfo(prefixes=self._prefixes,
+                                  user_api=self._user_api)
+        for module in modules:
+            # self._limits is a dict {key: num_threads} where key is either
+            # a prefix or a user_api. If a module matches both, the limit
+            # corresponding to the prefix is chosed.
+            if module.prefix in self._limits:
+                num_threads = self._limits[module.prefix]
+            else:
+                num_threads = self._limits[module.user_api]
+
+            if num_threads is not None:
+                module.set_num_threads(num_threads)
+        return modules
 
 
 # The object oriented API of _ThreadpoolInfo and its modules is private.

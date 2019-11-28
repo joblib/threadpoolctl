@@ -558,6 +558,9 @@ class _ThreadpoolInfo():
         return rpath
 
 
+@_format_docstring(
+    USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
+    INTERNAL_APIS=", ".join('"{}"'.format(api) for api in _ALL_INTERNAL_APIS))
 class _Module(ABC):
     """Abstract base class for the modules
 

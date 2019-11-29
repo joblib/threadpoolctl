@@ -639,8 +639,8 @@ class _OpenBLASModule(_Module):
     def _get_extra_info(self):
         self.multithreading = self.get_multithreading()
 
-    def get_threading_layer(self):
-        """Return the threading layer of OpenBLAS"""
+    def get_multithreading(self):
+        """Return the multithreading option of OpenBLAS"""
         multithreading = self._dynlib.openblas_get_parallel()
         if multithreading == 2:
             return "openmp"
@@ -674,7 +674,7 @@ class _BLISModule(_Module):
         self.multithreading = self.get_multithreading()
 
     def get_multithreading(self):
-        """Return the threading layer of BLIS"""
+        """Return the multithreading option of BLIS"""
         if self._dynlib.bli_info_get_enable_openmp():
             return "openmp"
         elif self._dynlib.bli_info_get_enable_pthreads():

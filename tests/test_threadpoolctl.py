@@ -54,8 +54,10 @@ def test_ThreadpoolInfo_todicts():
         assert "version" in module_dict
         assert "num_threads" in module_dict
 
-        if module.internal_api in ("mkl", "blis", "openblas"):
+        if module.internal_api == "mkl":
             assert "threading_layer" in module_dict
+        if module.internal_api in ("blis", "openblas"):
+            assert "multithreading" in module_dict
 
 
 @pytest.mark.parametrize("prefix", _ALL_PREFIXES)

@@ -14,6 +14,7 @@ import os
 import re
 import sys
 import ctypes
+import textwrap
 import warnings
 from ctypes.util import find_library
 from abc import ABC, abstractmethod
@@ -337,6 +338,7 @@ class _ThreadpoolInfo():
 
             self.modules = []
             self._load_modules()
+            self._warn_if_incompatible_openmp()
         else:
             self.modules = modules
 
@@ -522,6 +524,24 @@ class _ThreadpoolInfo():
             if library_basename.startswith(prefix):
                 return prefix
         return None
+
+    def _warn_if_incompatible_openmp(self):
+        """Raise a warning if llvm-OpenMP and intel-OpenMP are both loaded"""
+        if sys.platform != 'linux':
+            # Only raise the warning on linux
+            return
+
+        prefixes = [module.prefix for module in self.modules]
+        msg = textwrap.dedent(
+            """
+            Found intel OpenMP ('libiomp') and llvm OpenMP ('libomp') loaded at
+            the same time. Both libraries are known to be incompatible.
+            Using threadpoolctl may cause crashes or deadlocks. For more
+            information and possible workarounds, please see
+                https://github.com/joblib/threadpoolctl/blob/master/TODO.md
+            """)
+        if 'libomp' in prefixes and 'libiomp' in prefixes:
+            warnings.warn(msg, RuntimeWarning)
 
     @classmethod
     def _get_libc(cls):

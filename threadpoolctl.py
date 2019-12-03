@@ -538,7 +538,7 @@ class _ThreadpoolInfo():
             the same time. Both libraries are known to be incompatible.
             Using threadpoolctl may cause crashes or deadlocks. For more
             information and possible workarounds, please see
-                https://github.com/joblib/threadpoolctl/blob/master/TODO.md
+                https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
             """)
         if 'libomp' in prefixes and 'libiomp' in prefixes:
             warnings.warn(msg, RuntimeWarning)

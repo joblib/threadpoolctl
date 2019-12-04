@@ -341,3 +341,16 @@ def test_mkl_threading_layer():
 
     actual_layer = mkl_info.modules[0].threading_layer
     assert actual_layer == expected_layer.lower()
+
+
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
+def test_libomp_libiomp_warning():
+    # Check that a warning is raised when both libomp and libiomp are loaded
+    info = _threadpool_info()
+    prefixes = [module.prefix for module in info]
+
+    if not ("libomp" in prefixes and "libiomp" in prefixes):
+        pytest.skip("Requires both libomp and libiomp loaded")
+
+    with pytest.warns(RuntimeWarning, match=r"Found intel .* llvm"):
+        _threadpool_info()

@@ -302,6 +302,7 @@ def test_nested_prange_blas(nthreads_outer):
     assert original_info == _threadpool_info()
 
 
+@pytest.mark.filterwarnings("ignore::UserWarning")
 @pytest.mark.parametrize("limit", [1, None])
 def test_get_original_num_threads(limit):
     # Tests the method get_original_num_threads of the context manager
@@ -313,7 +314,6 @@ def test_get_original_num_threads(limit):
         original_info = _threadpool_info()
         with threadpool_limits(limits=limit, user_api="blas") as threadpoolctx:
             original_num_threads = threadpoolctx.get_original_num_threads()
-            print(original_num_threads)
 
             assert "openmp" not in original_num_threads
 

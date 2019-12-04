@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import pytest
 
 from threadpoolctl import threadpool_limits, threadpool_info, _ThreadpoolInfo
@@ -349,8 +350,9 @@ def test_libomp_libiomp_warning():
     info = _threadpool_info()
     prefixes = [module.prefix for module in info]
 
-    if not ("libomp" in prefixes and "libiomp" in prefixes):
-        pytest.skip("Requires both libomp and libiomp loaded")
+    if not ("libomp" in prefixes and "libiomp" in prefixes
+            and sys.platform == "linux"):
+        pytest.skip("Requires both libomp and libiomp loaded, on Linux")
 
     with pytest.warns(RuntimeWarning, match=r"Found intel .* llvm"):
         _threadpool_info()

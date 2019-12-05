@@ -377,5 +377,5 @@ def test_libomp_libiomp_warning():
             and sys.platform == "linux"):
         pytest.skip("Requires both libomp and libiomp loaded, on Linux")
 
-    with pytest.warns(RuntimeWarning, match=r"Found intel .* llvm"):
+    with pytest.warns(RuntimeWarning, match=r"Found Intel .* LLVM"):
         _threadpool_info()

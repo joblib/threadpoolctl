@@ -534,8 +534,10 @@ class _ThreadpoolInfo():
         prefixes = [module.prefix for module in self.modules]
         msg = textwrap.dedent(
             """
-            Found intel OpenMP ('libiomp') and llvm OpenMP ('libomp') loaded at
-            the same time. Both libraries are known to be incompatible.
+            Found Intel OpenMP ('libiomp') and LLVM OpenMP ('libomp') loaded at
+            the same time. Both libraries are known to be incompatible and this
+            can cause random crashes or deadlocks on Linux when loaded in the
+            same Python program.
             Using threadpoolctl may cause crashes or deadlocks. For more
             information and possible workarounds, please see
                 https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md

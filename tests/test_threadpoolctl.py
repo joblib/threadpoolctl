@@ -364,12 +364,14 @@ def test_blis_threading_layer():
     assert actual_layer == expected_layer
 
 
-# threadpool_info will raise a warning when libomp and libiomp are both loaded.
-# It will happen in one CI job (pylatest_conda_mkl_clang_gcc). We can safely
-# ignore it since we make sure that the warning is raised in that case.
-@pytest.mark.filterwarnings("ignore::RuntimeWarning")
-def test_libomp_libiomp_warning():
+@pytest.mark.skipif(not cython_extensions_compiled,
+                    reason='Requires cython extensions to be compiled')
+def test_libomp_libiomp_warning(recwarn):
+    # Trigger the import of a potentially clang-compiled extension:
+    from ._openmp_test_helper import check_nested_openmp_loops  # noqa
+
     # Check that a warning is raised when both libomp and libiomp are loaded
+    # It should happen in one CI job (pylatest_conda_mkl_clang_gcc).
     info = _threadpool_info()
     prefixes = [module.prefix for module in info]
 
@@ -377,5 +379,9 @@ def test_libomp_libiomp_warning():
             and sys.platform == "linux"):
         pytest.skip("Requires both libomp and libiomp loaded, on Linux")
 
-    with pytest.warns(RuntimeWarning, match=r"Found Intel .* LLVM"):
-        _threadpool_info()
+    assert len(recwarn) == 1
+    wm = recwarn[0]
+    assert wm.category == RuntimeWarning
+    assert "Found Intel" in str(wm.message)
+    assert "LLVM" in str(wm.message)
+    assert "multiple_openmp.md" in str(wm.message)

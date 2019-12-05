@@ -1,4 +1,4 @@
-2.0.0 (TBD)
+2.0.0 (2019-12-05)
 ===========
 
 - Expose MKL, BLIS and OpenBLAS threading layer in informations displayed by

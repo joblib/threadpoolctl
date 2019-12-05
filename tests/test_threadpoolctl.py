@@ -370,6 +370,9 @@ def test_libomp_libiomp_warning(recwarn):
     # Trigger the import of a potentially clang-compiled extension:
     from ._openmp_test_helper import check_nested_openmp_loops  # noqa
 
+    # Trigger the import of numpy to potentially import Intel OpenMP via MKL
+    import numpy.linalg  # noqa
+
     # Check that a warning is raised when both libomp and libiomp are loaded
     # It should happen in one CI job (pylatest_conda_mkl_clang_gcc).
     info = _threadpool_info()

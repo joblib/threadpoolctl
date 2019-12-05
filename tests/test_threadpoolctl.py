@@ -302,8 +302,10 @@ def test_nested_prange_blas(nthreads_outer):
     assert original_info == _threadpool_info()
 
 
-# the method `get_original_num_threads` raises a UserWarning in one CI job. It
-# is expected so we can safely filter it.
+# the method `get_original_num_threads` raises a UserWarning due to different
+# num_threads from libraries with the same `user_api`. It will be raised only
+# in the CI job with 2 openblas (py37_pip_openblas_gcc_clang). It is expected
+# so we can safely filter it.
 @pytest.mark.filterwarnings("ignore::UserWarning")
 @pytest.mark.parametrize("limit", [1, None])
 def test_get_original_num_threads(limit):

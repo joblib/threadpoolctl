@@ -2,9 +2,9 @@
 
 OpenMP is an API specification for parallel programming. There are many
 implementations of it, tied to a compiler most of the time: the libgomp library
-for GCC, libomp for Clang, libiomp for ICC and vcomp for MSVC for example. In
-the following, we refer to OpenMP without distinction between the specification
-and an implementation.
+for GCC, libomp for LLVM/Clang, libiomp for ICC and vcomp for MSVC for example.
+In the following, we refer to OpenMP without distinction between the
+specification and an implementation.
 
 In general, it's not advised to have different OpenMP libraries (or even
 different copies of the same library) loaded at the same time in a program.
@@ -24,12 +24,12 @@ program. For instance, on Linux, we never observed any issue between libgomp
 and libiomp, which is the most common mix (numpy with MKL + a package compiled
 with GCC, the most widely used C compiler).
 
-The only unrecoverable incompatibility we encountered is between libomp (Clang)
-and libiomp (ICC), on Linux, manifested by crashes or deadlocks. It can happen
-even with the simplest OpenMP calls like getting the maximum number of threads
-that will be used in a subsequent parallel region. A possible explanation is
-that libomp is actually a fork of libiomp causing name colliding for instance.
-Using threadpoolctl may crash your program in such a setting.
+The only unrecoverable incompatibility we encountered is between libomp
+(LLVM/Clang) and libiomp (ICC), on Linux, manifested by crashes or deadlocks.
+It can happen even with the simplest OpenMP calls like getting the maximum
+number of threads that will be used in a subsequent parallel region. A possible
+explanation is that libomp is actually a fork of libiomp causing name colliding
+for instance. Using threadpoolctl may crash your program in such a setting.
 
 Surprisingly, we never encountered this kind of issue on macOS, where this mix
 is the most frequent (Clang being the default C compiler on macOS).

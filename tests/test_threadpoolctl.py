@@ -341,3 +341,19 @@ def test_mkl_threading_layer():
 
     actual_layer = mkl_info.modules[0].threading_layer
     assert actual_layer == expected_layer.lower()
+
+
+def test_blis_threading_layer():
+    # Check that threadpool_info correctly recovers the threading layer used
+    # by blis
+    blis_info = _threadpool_info().get_modules("internal_api", "blis")
+    expected_layer = os.getenv("BLIS_ENABLE_THREADING")
+    if expected_layer == "no":
+        expected_layer = "disabled"
+
+    if not (blis_info and expected_layer):
+        pytest.skip("requires BLIS and the environment variable "
+                    "BLIS_ENABLE_THREADING set")
+
+    actual_layer = blis_info.modules[0].threading_layer
+    assert actual_layer == expected_layer

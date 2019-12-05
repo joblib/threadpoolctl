@@ -77,8 +77,7 @@ stages:
           VERSION_PYTHON: '3.7'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'clang-8'
-        # Linux environment with numpy from conda-forge channel and
-        # heterogeneous OpenMP runtimes.
+        # Linux environment with numpy from conda-forge channel
         pylatest_conda_forge:
           PACKAGER: 'conda-forge'
           VERSION_PYTHON: '*'

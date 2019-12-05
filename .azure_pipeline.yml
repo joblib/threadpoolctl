@@ -53,17 +53,25 @@ stages:
           BLAS: 'openblas'
           CC_OUTER_LOOP: 'clang-8'
           CC_INNER_LOOP: 'clang-8'
-        # Linux environment to test the latest available dependencies and MKL.
-        # and heterogeneous OpenMP runtime nesting.
+        # Linux environment with MKL and Clang (known to be unsafe for
+        # threadpoolctl) to only test the warning from multiple OpenMP.
         pylatest_conda_mkl_clang_gcc:
           PACKAGER: 'conda'
           VERSION_PYTHON: '*'
           BLAS: 'mkl'
           CC_OUTER_LOOP: 'clang-8'
           CC_INNER_LOOP: 'gcc'
+          TESTS: 'libomp_libiomp_warning'
+        # Linux environment with MKL, safe for threadpoolctl.
+        pylatest_conda_mkl_gcc_gcc:
+          PACKAGER: 'conda'
+          VERSION_PYTHON: '*'
+          BLAS: 'mkl'
+          CC_OUTER_LOOP: 'gcc'
+          CC_INNER_LOOP: 'gcc'
           MKL_THREADING_LAYER: 'INTEL'
         # Linux + Python 3.7 with numpy / scipy installed with pip from PyPI
-        # and heterogeneous openmp runtimes.
+        # and heterogeneous OpenMP runtimes.
         py37_pip_openblas_gcc_clang:
           PACKAGER: 'pip'
           VERSION_PYTHON: '3.7'
@@ -75,8 +83,7 @@ stages:
           VERSION_PYTHON: '*'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
-        # Linux environment with no numpy and heterogeneous OpenMP runtime
-        # nesting.
+        # Linux environment with no numpy and heterogeneous OpenMP runtimes.
         pylatest_conda_nonumpy_gcc_clang:
           PACKAGER: 'conda'
           NO_NUMPY: 'true'

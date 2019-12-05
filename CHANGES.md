@@ -1,9 +1,11 @@
-1.2.0 (TBD)
+2.0.0 (TBD)
 ===========
 
-- Expose MKL threading layer in informations displayed by `threadpool_info`.
-  This information is referenced in the `threading_layer` field.
+- Expose MKL, BLIS and OpenBLAS threading layer in informations displayed by
+  `threadpool_info`. This information is referenced in the `threading_layer`
+  field.
   https://github.com/joblib/threadpoolctl/pull/48
+  https://github.com/joblib/threadpoolctl/pull/60
 
 
 1.1.0 (2019-09-12)

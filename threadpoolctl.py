@@ -637,7 +637,16 @@ class _OpenBLASModule(_Module):
         return set_func(num_threads)
 
     def _get_extra_info(self):
-        pass
+        self.threading_layer = self.get_threading_layer()
+
+    def get_threading_layer(self):
+        """Return the threading layer of OpenBLAS"""
+        threading_layer = self._dynlib.openblas_get_parallel()
+        if threading_layer == 2:
+            return "openmp"
+        elif threading_layer == 1:
+            return "pthreads"
+        return "disabled"
 
 
 class _BLISModule(_Module):
@@ -662,7 +671,15 @@ class _BLISModule(_Module):
         return set_func(num_threads)
 
     def _get_extra_info(self):
-        pass
+        self.threading_layer = self.get_threading_layer()
+
+    def get_threading_layer(self):
+        """Return the threading layer of BLIS"""
+        if self._dynlib.bli_info_get_enable_openmp():
+            return "openmp"
+        elif self._dynlib.bli_info_get_enable_pthreads():
+            return "pthreads"
+        return "disabled"
 
 
 class _MKLModule(_Module):

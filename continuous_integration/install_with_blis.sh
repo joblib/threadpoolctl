@@ -27,12 +27,8 @@ pushd ..
 mkdir BLIS_install
 git clone https://github.com/flame/blis.git
 pushd blis
-if [[ "$BLIS_NUM_THREADS" == "1" ]]; then
-    THREADING='no'
-else
-    THREADING='openmp'
-fi
-./configure --prefix=$ABS_PATH/BLIS_install --enable-cblas --enable-threading=$THREADING CC=$BLIS_CC auto
+
+./configure --prefix=$ABS_PATH/BLIS_install --enable-cblas --enable-threading=$BLIS_ENABLE_THREADING CC=$BLIS_CC auto
 make -j4
 make install
 popd

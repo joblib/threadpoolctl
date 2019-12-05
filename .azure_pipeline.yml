@@ -91,8 +91,8 @@ stages:
           VERSION_PYTHON: '*'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'clang-8'
-        # Linux environment with numpy linked to BLIS.
-        pylatest_blis_gcc_clang:
+        # Linux environment with numpy linked to BLIS
+        pylatest_blis_gcc_clang_openmp:
           PACKAGER: 'conda'
           VERSION_PYTHON: '*'
           INSTALL_BLIS: 'true'
@@ -100,7 +100,8 @@ stages:
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
           BLIS_CC: 'clang-8'
-        pylatest_blis_clang_gcc:
+          BLIS_ENABLE_THREADING: 'openmp'
+        pylatest_blis_clang_gcc_pthreads:
           PACKAGER: 'conda'
           VERSION_PYTHON: '*'
           INSTALL_BLIS: 'true'
@@ -108,6 +109,7 @@ stages:
           CC_OUTER_LOOP: 'clang-8'
           CC_INNER_LOOP: 'clang-8'
           BLIS_CC: 'gcc-8'
+          BLIS_ENABLE_THREADING: 'pthreads'
         pylatest_blis_no_threading:
           PACKAGER: 'conda'
           VERSION_PYTHON: '*'
@@ -116,6 +118,7 @@ stages:
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
           BLIS_CC: 'gcc-8'
+          BLIS_ENABLE_THREADING: 'no'
 
   - template: continuous_integration/posix.yml
     parameters:

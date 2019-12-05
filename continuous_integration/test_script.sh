@@ -14,4 +14,4 @@ fi
 set -x
 PYTHONPATH="." python continuous_integration/display_versions.py
 
-pytest -vlrxXs -k "$TESTS" --junitxml=$JUNITXML --cov=threadpoolctl
+pytest -vlrxXs -W error -k "$TESTS" --junitxml=$JUNITXML --cov=threadpoolctl

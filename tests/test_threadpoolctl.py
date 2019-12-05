@@ -55,7 +55,7 @@ def test_ThreadpoolInfo_todicts():
         assert "version" in module_dict
         assert "num_threads" in module_dict
 
-        if module.internal_api == "mkl":
+        if module.internal_api in ("mkl", "blis", "openblas"):
             assert "threading_layer" in module_dict
 
 
@@ -303,6 +303,11 @@ def test_nested_prange_blas(nthreads_outer):
     assert original_info == _threadpool_info()
 
 
+# the method `get_original_num_threads` raises a UserWarning due to different
+# num_threads from libraries with the same `user_api`. It will be raised only
+# in the CI job with 2 openblas (py37_pip_openblas_gcc_clang). It is expected
+# so we can safely filter it.
+@pytest.mark.filterwarnings("ignore::UserWarning")
 @pytest.mark.parametrize("limit", [1, None])
 def test_get_original_num_threads(limit):
     # Tests the method get_original_num_threads of the context manager
@@ -314,7 +319,6 @@ def test_get_original_num_threads(limit):
         original_info = _threadpool_info()
         with threadpool_limits(limits=limit, user_api="blas") as threadpoolctx:
             original_num_threads = threadpoolctx.get_original_num_threads()
-            print(original_num_threads)
 
             assert "openmp" not in original_num_threads
 
@@ -344,6 +348,25 @@ def test_mkl_threading_layer():
     assert actual_layer == expected_layer.lower()
 
 
+def test_blis_threading_layer():
+    # Check that threadpool_info correctly recovers the threading layer used
+    # by blis
+    blis_info = _threadpool_info().get_modules("internal_api", "blis")
+    expected_layer = os.getenv("BLIS_ENABLE_THREADING")
+    if expected_layer == "no":
+        expected_layer = "disabled"
+
+    if not (blis_info and expected_layer):
+        pytest.skip("requires BLIS and the environment variable "
+                    "BLIS_ENABLE_THREADING set")
+
+    actual_layer = blis_info.modules[0].threading_layer
+    assert actual_layer == expected_layer
+
+
+# threadpool_info will raise a warning when libomp and libiomp are both loaded.
+# It will happen in one CI job (pylatest_conda_mkl_clang_gcc). We can safely
+# ignore it since we make sure that the warning is raised in that case.
 @pytest.mark.filterwarnings("ignore::RuntimeWarning")
 def test_libomp_libiomp_warning():
     # Check that a warning is raised when both libomp and libiomp are loaded

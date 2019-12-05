@@ -5,6 +5,10 @@
   This information is referenced in the `threading_layer` field.
   https://github.com/joblib/threadpoolctl/pull/48
 
+- When threadpoolctl finds libomp (LLVM OpenMP) and libiomp (Intel OpenMP)
+  both loaded, a warning is raised to recall that using threadpoolctl with
+  this mix of OpenMP libraries may cause crashes or deadlocks.
+  https://github.com/joblib/threadpoolctl/pull/49
 
 1.1.0 (2019-09-12)
 ==================

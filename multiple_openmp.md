@@ -33,3 +33,21 @@ for instance. Using threadpoolctl may crash your program in such a setting.
 
 Surprisingly, we never encountered this kind of issue on macOS, where this mix
 is the most frequent (Clang being the default C compiler on macOS).
+
+As far as we know, the only workaround consists in getting rid of one of the
+OpenMP libraries. For example:
+
+- Build your OpenMP-enabled extensions with GCC (or ICC) instead of Clang.
+
+- Install a build of Numpy linked against OpenBLAS instead of MKL. This can be
+  done for instance by installing Numpy from PyPI::
+
+    pip install numpy
+
+  from the conda-forge conda channel::
+
+    conda install -c conda-forge numpy
+
+  or from the default conda channel::
+
+    conda install numpy blas[build=openblas]

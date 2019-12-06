@@ -1,53 +1,76 @@
-# Multiple OpenMP runtimes
+# Multiple OpenMP Runtimes
+
+## Context
 
 OpenMP is an API specification for parallel programming. There are many
-implementations of it, tied to a compiler most of the time: the libgomp library
-for GCC, libomp for LLVM/Clang, libiomp for ICC and vcomp for MSVC for example.
-In the following, we refer to OpenMP without distinction between the
-specification and an implementation.
+implementations of it, tied to a compiler most of the time:
 
-In general, it's not advised to have different OpenMP libraries (or even
-different copies of the same library) loaded at the same time in a program.
-It's considered an undefined behavior. Fortunately it's not as bad as it sounds
-in most situations.
+-  `libgomp` for GCC (GNU C/C++ Compiler),
+-  `libomp` for LLVM/Clang,
+-  `libiomp` for ICC (Intel C/C++ Compiler),
+-  `vcomp` for MSVC (Microsoft Visual Studio C/C++ Compiler).
 
-However it can easily happen in the Python ecosystem since you can install
-packages compiled with different compilers (hence linked to different OpenMP
-implementations) and import them in a same Python program.
+In general, it is not advised to have different OpenMP runtime libraries (or
+even different copies of the same library) loaded at the same time in a
+program. It's considered an undefined behavior. Fortunately it is not as bad as
+it sounds in most situations.
 
-A typical example is installing numpy from Anaconda which ships MKL
-(Intel's math library) and a package using multi-threading with OpenMP
-(Scikit-learn, LightGBM, XGBoost, ...).
+However this situation is frequent in the Python ecosystem since you can
+install packages compiled with different compilers (hence linked to different
+OpenMP implementations) and import them together in a Python program.
 
-From our experience, most OpenMP libraries can seamlessly coexist in a same
-program. For instance, on Linux, we never observed any issue between libgomp
-and libiomp, which is the most common mix (numpy with MKL + a package compiled
-with GCC, the most widely used C compiler).
+A typical example is installing NumPy from Anaconda which is linked against MKL
+(Intel's math library) and anothe package that uses multi-threading with OpenMP
+directly in a compiled extension, as is the case in Scikit-learn (via Cython
+`prange`), LightGBM and XGBoost (via pragmas in the C++ source code).
 
-The only unrecoverable incompatibility we encountered is between libomp
-(LLVM/Clang) and libiomp (ICC), on Linux, manifested by crashes or deadlocks.
-It can happen even with the simplest OpenMP calls like getting the maximum
-number of threads that will be used in a subsequent parallel region. A possible
-explanation is that libomp is actually a fork of libiomp causing name colliding
-for instance. Using threadpoolctl may crash your program in such a setting.
+From our experience, **most OpenMP libraries can seamlessly coexist in a same
+program**. For instance, on Linux, we never observed any issue between
+`libgomp` and `libiomp`, which is the most common mix (NumPy with MKL + a
+package compiled with GCC, the most widely used C compiler on that platform).
+
+## Incompatibility between Intel OpenMP and LLVM OpenMP under Linux
+
+The only unrecoverable incompatibility we encountered happens when loading a
+mix of compiled extensions linked with **`libomp` (LLVM/Clang) and `libiomp`
+(ICC), on Linux**, manifested by crashes or deadlocks. It can happen even with
+the simplest OpenMP calls like getting the maximum number of threads that will
+be used in a subsequent parallel region. A possible explanation is that
+`libomp` is actually a fork of `libiomp` causing name colliding for instance.
+Using `threadpoolctl` may crash your program in such a setting.
 
 Surprisingly, we never encountered this kind of issue on macOS, where this mix
 is the most frequent (Clang being the default C compiler on macOS).
 
-As far as we know, the only workaround consists in getting rid of one of the
-OpenMP libraries. For example:
+**Fortunately this problem is a very rare**: at the time of writing, all major
+binary distributions of Python packages for Linux use either GCC or ICC to
+build the Python scientific packages. Therefore this problem would only happen
+if some packagers decide to start shipping Python packages built with
+LLVM/Clang instead of GCC.
 
-- Build your OpenMP-enabled extensions with GCC (or ICC) instead of Clang.
+## Workarounds for Intel OpenMP and LLVM OpenMP case
 
-- Install a build of Numpy linked against OpenBLAS instead of MKL. This can be
-  done for instance by installing Numpy from PyPI::
+As far as we know, the only workaround consists in making sure only of one of
+the two incompatible OpenMP libraries is loaded. For example:
 
-    pip install numpy
+- Tell MKL (used by NumPy) to use the GNU OpenMP runtime instead of the Intel
+  OpenMP runtime by setting the following environment variable:
 
-  from the conda-forge conda channel::
+      export MKL_THREADING_LAYER=GNU
 
-    conda install -c conda-forge numpy
+- Install a build of NumPy and SciPy linked against OpenBLAS instead of MKL.
+  This can be done for instance by installing NumPy and SciPy from PyPI:
 
-  or from the default conda channel::
+      pip install numpy scipy
 
-    conda install numpy blas[build=openblas]
+  from the conda-forge conda channel:
+
+      conda install -c conda-forge numpy
+
+  or from the default conda channel:
+
+      conda install numpy blas[build=openblas]
+
+- Re-build your OpenMP-enabled extensions from source with GCC (or ICC) instead
+  of Clang if you want to keep on using NumPy/SciPy linked against MKL with the
+  default `libiomp`-based threading layer.

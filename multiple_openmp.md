@@ -6,7 +6,7 @@ OpenMP is an API specification for parallel programming. There are many
 implementations of it, tied to a compiler most of the time:
 
 -  `libgomp` for GCC (GNU C/C++ Compiler),
--  `libomp` Clang (LLVM C/C++ Compiler),
+-  `libomp` for Clang (LLVM C/C++ Compiler),
 -  `libiomp` for ICC (Intel C/C++ Compiler),
 -  `vcomp` for MSVC (Microsoft Visual Studio C/C++ Compiler).
 

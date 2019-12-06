@@ -39,14 +39,14 @@ be used in a subsequent parallel region. A possible explanation is that
 `libomp` is actually a fork of `libiomp` causing name colliding for instance.
 Using `threadpoolctl` may crash your program in such a setting.
 
-Surprisingly, we never encountered this kind of issue on macOS, where this mix
-is the most frequent (Clang being the default C compiler on macOS).
-
 **Fortunately this problem is a very rare**: at the time of writing, all major
 binary distributions of Python packages for Linux use either GCC or ICC to
 build the Python scientific packages. Therefore this problem would only happen
 if some packagers decide to start shipping Python packages built with
 LLVM/Clang instead of GCC.
+
+Surprisingly, we never encountered this kind of issue on macOS, where this mix
+is the most frequent (Clang being the default C compiler on macOS).
 
 ## Workarounds for Intel OpenMP and LLVM OpenMP case
 
@@ -65,11 +65,11 @@ the two incompatible OpenMP libraries is loaded. For example:
 
   from the conda-forge conda channel:
 
-      conda install -c conda-forge numpy
+      conda install -c conda-forge numpy scipy
 
   or from the default conda channel:
 
-      conda install numpy blas[build=openblas]
+      conda install numpy scipy blas[build=openblas]
 
 - Re-build your OpenMP-enabled extensions from source with GCC (or ICC) instead
   of Clang if you want to keep on using NumPy/SciPy linked against MKL with the

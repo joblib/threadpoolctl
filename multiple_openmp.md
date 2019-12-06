@@ -74,3 +74,12 @@ the two incompatible OpenMP libraries is loaded. For example:
 - Re-build your OpenMP-enabled extensions from source with GCC (or ICC) instead
   of Clang if you want to keep on using NumPy/SciPy linked against MKL with the
   default `libiomp`-based threading layer.
+
+## References
+
+The above incompatibility has been reported upstream to the LLVM and Intel
+developers on the following public issue trackers/forums along with a minimal
+reproducer written in C:
+
+- https://bugs.llvm.org/show_bug.cgi?id=43565
+- https://software.intel.com/en-us/forums/intel-c-compiler/topic/827607

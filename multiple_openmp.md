@@ -39,7 +39,7 @@ be used in a subsequent parallel region. A possible explanation is that
 `libomp` is actually a fork of `libiomp` causing name colliding for instance.
 Using `threadpoolctl` may crash your program in such a setting.
 
-**Fortunately this problem is a very rare**: at the time of writing, all major
+**Fortunately this problem is very rare**: at the time of writing, all major
 binary distributions of Python packages for Linux use either GCC or ICC to
 build the Python scientific packages. Therefore this problem would only happen
 if some packagers decide to start shipping Python packages built with

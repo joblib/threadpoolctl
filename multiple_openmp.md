@@ -20,7 +20,7 @@ install packages compiled with different compilers (hence linked to different
 OpenMP implementations) and import them together in a Python program.
 
 A typical example is installing NumPy from Anaconda which is linked against MKL
-(Intel's math library) and anothe package that uses multi-threading with OpenMP
+(Intel's math library) and another package that uses multi-threading with OpenMP
 directly in a compiled extension, as is the case in Scikit-learn (via Cython
 `prange`), LightGBM and XGBoost (via pragmas in the C++ source code).
 

@@ -762,12 +762,17 @@ class _OpenMPModule(_Module):
 def _main():
     """Commandline interface to display thread-pool information and exit."""
     import argparse
+    import importlib
     import json
     import sys
 
     parser = argparse.ArgumentParser(
-        usage="python -m threadpoolctl -c \"import numpy\"",
+        usage="python -m threadpoolctl -i numpy scipy.linalg xgboost",
         description="Display thread-pool information and exit.",
+    )
+    parser.add_argument(
+        "-i", "--import", dest="modules", nargs="*", default=(),
+        help="Python modules to import before introspecting thread-pools."
     )
     parser.add_argument(
         "-c", "--command",
@@ -775,6 +780,12 @@ def _main():
              " thread-pools.")
 
     options = parser.parse_args(sys.argv[1:])
+    for module in options.modules:
+        try:
+            importlib.import_module(module, package=None)
+        except ImportError:
+            print("WARNING: could not import", module, file=sys.stderr)
+
     if options.command:
         exec(options.command)
 

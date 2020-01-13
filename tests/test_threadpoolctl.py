@@ -398,7 +398,7 @@ def test_command_line_empty():
     assert json.loads(output.decode("utf-8")) == []
 
 
-def test_command_line_numpy():
+def test_command_line_numpy_command_flag():
     pytest.importorskip("numpy")
     output = subprocess.check_output(
         ["python", "-m", "threadpoolctl", "-c", "import numpy"])
@@ -407,3 +407,24 @@ def test_command_line_numpy():
     this_process_info = threadpool_info()
     for module in cli_info:
         assert module in this_process_info
+
+
+def test_command_line_numpy_other_import_flag():
+    if not hasattr(subprocess, "run"):
+        pytest.skip("subprocess.run is required")
+    result = subprocess.run(
+        ["python", "-m", "threadpoolctl", "-i",
+          "numpy",
+          "scipy.linalg",
+          "invalid_package",
+          "numpy.invalid_sumodule",
+        ], capture_output=True, check=True)
+    cli_info = json.loads(result.stdout.decode("utf-8"))
+
+    this_process_info = threadpool_info()
+    for module in cli_info:
+        assert module in this_process_info
+
+    warnings = [w.strip() for w in result.stderr.decode("utf-8").splitlines()]
+    assert "WARNING: could not import invalid_package" in warnings
+    assert "WARNING: could not import numpy.invalid_sumodule" in warnings

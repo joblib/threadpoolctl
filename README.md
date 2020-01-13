@@ -35,10 +35,10 @@ oversubscription issues.
 ### Command Line Interface
 
 Get a JSON description of thread-pools initialized when importing python
-packages such as numpy:
+packages such as numpy or scipy for instance:
 
 ```
-python -m threadpoolctl -c "import numpy"
+python -m threadpoolctl -i numpy scipy.linalg
 [
   {
     "filepath": "/home/ogrisel/miniconda3/envs/tmp/lib/libmkl_rt.so",
@@ -60,6 +60,8 @@ python -m threadpoolctl -c "import numpy"
 ]
 ```
 
+The JSON information is written on STDOUT. If some of the packages are missing,
+a warning message is displayed on STDERR.
 
 ### Runtime Introspection
 

@@ -414,13 +414,13 @@ def test_command_line_numpy_command_flag():
 def test_command_line_numpy_other_import_flag():
     if not hasattr(subprocess, "run"):
         pytest.skip("subprocess.run is required")
-    result = subprocess.run(
-        ["python", "-m", "threadpoolctl", "-i",
-          "numpy",
-          "scipy.linalg",
-          "invalid_package",
-          "numpy.invalid_sumodule",
-        ], capture_output=True, check=True, encoding="utf-8")
+    result = subprocess.run([
+        "python", "-m", "threadpoolctl", "-i",
+        "numpy",
+        "scipy.linalg",
+        "invalid_package",
+        "numpy.invalid_sumodule",
+    ], capture_output=True, check=True, encoding="utf-8")
     cli_info = json.loads(result.stdout)
 
     this_process_info = threadpool_info()

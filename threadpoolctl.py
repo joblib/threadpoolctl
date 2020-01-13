@@ -757,3 +757,29 @@ class _OpenMPModule(_Module):
 
     def _get_extra_info(self):
         pass
+
+
+def _main():
+    """Commandline interface to display thread-pool information and exit."""
+    import argparse
+    import json
+    import sys
+
+    parser = argparse.ArgumentParser(
+        usage="python -m threadpoolctl -c \"import numpy\"",
+        description="Display thread-pool information and exit.",
+    )
+    parser.add_argument(
+        "-c", "--command",
+        help="a Python statement to execute before introspecting"
+             " thread-pools.")
+
+    options = parser.parse_args(sys.argv[1:])
+    if options.command:
+        exec(options.command)
+
+    print(json.dumps(threadpool_info(), indent=2))
+
+
+if __name__ == "__main__":
+    _main()

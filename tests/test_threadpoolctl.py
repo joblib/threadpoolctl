@@ -1,7 +1,9 @@
+import json
 import os
-import re
-import sys
 import pytest
+import re
+import subprocess
+import sys
 
 from threadpoolctl import threadpool_limits, threadpool_info, _ThreadpoolInfo
 from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
@@ -388,3 +390,21 @@ def test_libomp_libiomp_warning(recwarn):
     assert "Found Intel" in str(wm.message)
     assert "LLVM" in str(wm.message)
     assert "multiple_openmp.md" in str(wm.message)
+
+
+def test_command_line_empty():
+    output = subprocess.check_output(
+        "python -m threadpoolctl".split())
+    assert json.loads(output.decode("utf-8")) == []
+
+
+def test_command_line_numpy():
+    pytest.importorskip("numpy")
+    output = subprocess.check_output(
+        ["python", "-m", "threadpoolctl", "-c", "import numpy"])
+    cli_info = json.loads(output.decode("utf-8"))
+    assert len(cli_info) >= 1
+
+    this_process_info = threadpool_info()
+    for module in cli_info:
+        assert module in this_process_info

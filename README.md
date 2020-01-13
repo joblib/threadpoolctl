@@ -32,6 +32,35 @@ oversubscription issues.
 
 ## Usage
 
+### Command Line Interface
+
+Get a JSON description of thread-pools initialized when importing python
+packages such as numpy:
+
+```
+python -m threadpoolctl -c "import numpy"
+[
+  {
+    "filepath": "/home/ogrisel/miniconda3/envs/tmp/lib/libmkl_rt.so",
+    "prefix": "libmkl_rt",
+    "user_api": "blas",
+    "internal_api": "mkl",
+    "version": "2019.0.4",
+    "num_threads": 2,
+    "threading_layer": "intel"
+  },
+  {
+    "filepath": "/home/ogrisel/miniconda3/envs/tmp/lib/libiomp5.so",
+    "prefix": "libiomp",
+    "user_api": "openmp",
+    "internal_api": "openmp",
+    "version": null,
+    "num_threads": 4
+  }
+]
+```
+
+
 ### Runtime Introspection
 
 Introspect the current state of the threadpool-enabled runtime libraries

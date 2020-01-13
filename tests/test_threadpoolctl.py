@@ -398,7 +398,7 @@ def test_command_line_empty():
     assert json.loads(output.decode("utf-8")) == []
 
 
-def test_command_line_numpy_command_flag():
+def test_command_line_command_flag():
     pytest.importorskip("numpy")
     output = subprocess.check_output(
         ["python", "-m", "threadpoolctl", "-c", "import numpy"])
@@ -410,8 +410,8 @@ def test_command_line_numpy_command_flag():
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7),
-                    reason="need modern subprocess.run options")
-def test_command_line_numpy_other_import_flag():
+                    reason="need recent subprocess.run options")
+def test_command_line_import_flag():
     result = subprocess.run([
         "python", "-m", "threadpoolctl", "-i",
         "numpy",
@@ -428,3 +428,7 @@ def test_command_line_numpy_other_import_flag():
     warnings = [w.strip() for w in result.stderr.splitlines()]
     assert "WARNING: could not import invalid_package" in warnings
     assert "WARNING: could not import numpy.invalid_sumodule" in warnings
+    if scipy is None:
+        assert "WARNING: could not import scipy.linalg" in warnings
+    else:
+        assert "WARNING: could not import scipy.linalg" not in warnings

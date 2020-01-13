@@ -403,7 +403,6 @@ def test_command_line_numpy():
     output = subprocess.check_output(
         ["python", "-m", "threadpoolctl", "-c", "import numpy"])
     cli_info = json.loads(output.decode("utf-8"))
-    assert len(cli_info) >= 1
 
     this_process_info = threadpool_info()
     for module in cli_info:

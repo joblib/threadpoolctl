@@ -412,8 +412,6 @@ def test_command_line_numpy_command_flag():
 @pytest.mark.skipif(sys.version_info < (3, 7),
                     reason="need modern subprocess.run options")
 def test_command_line_numpy_other_import_flag():
-    if not hasattr(subprocess, "run"):
-        pytest.skip("subprocess.run is required")
     result = subprocess.run([
         "python", "-m", "threadpoolctl", "-i",
         "numpy",

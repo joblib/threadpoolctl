@@ -138,12 +138,27 @@ with threadpool_limits(limits=1, user_api='blas'):
 
 ### Known Limitations
 
-`threadpool_limits` does not act as expected in nested parallel loops
-managed by distinct OpenMP runtime implementations (for instance libgomp
-from GCC and libomp from clang/llvm or libiomp from ICC).
+- `threadpool_limits` can fail to limit the number of inner threads when nesting
+  parallel loops managed by distinct OpenMP runtime implementations (for instance
+  libgomp from GCC and libomp from clang/llvm or libiomp from ICC).
 
-See the `test_openmp_nesting()` function in `tests/test_threadpoolctl.py`
-for an example.
+  See the `test_openmp_nesting` function in [tests/test_threadpoolctl.py](
+  https://github.com/joblib/threadpoolctl/blob/master/tests/test_threadpoolctl.py)
+  for an example. More information can be found at:
+  https://github.com/jeremiedbb/Nested_OpenMP
+
+  Note however that this problem does not happen when `threadpool_limits` is
+  used to limit the number of threads used internally by BLAS calls that are
+  them-selves nested under OpenMP parallel loops as long as `threadpool_limits`
+  is called prior to entering the outer parallel OpenMP region. This works as
+  expected even if the inner BLAS implementation relies on a distinct OpenMP
+  implementation.
+
+- Using Intel OpenMP (ICC) and LLVM OpenMP (clang) in the same Python program
+  under Linux is known to cause problems. See the following guide for more details
+  and workarounds:
+  https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
+
 
 ## Maintainers
 

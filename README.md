@@ -63,7 +63,7 @@ python -m threadpoolctl -i numpy scipy.linalg
 The JSON information is written on STDOUT. If some of the packages are missing,
 a warning message is displayed on STDERR.
 
-### Runtime Introspection
+### Python Runtime Programmatic Introspection
 
 Introspect the current state of the threadpool-enabled runtime libraries
 that are loaded when importing Python packages:
@@ -76,28 +76,36 @@ that are loaded when importing Python packages:
 
 >>> import numpy
 >>> pprint(threadpool_info())
-[{'filepath': '/opt/venvs/py37/lib/python3.7/site-packages/numpy/.libs/libopenblasp-r0-382c8f3a.3.5.dev.so',
-  'internal_api': 'openblas',
-  'num_threads': 4,
-  'prefix': 'libopenblas',
+[{'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libmkl_rt.so',
+  'internal_api': 'mkl',
+  'num_threads': 2,
+  'prefix': 'libmkl_rt',
+  'threading_layer': 'intel',
   'user_api': 'blas',
-  'version': '0.3.5.dev'}]
+  'version': '2019.0.4'},
+ {'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libiomp5.so',
+  'internal_api': 'openmp',
+  'num_threads': 4,
+  'prefix': 'libiomp',
+  'user_api': 'openmp',
+  'version': None}]
 
 >>> import xgboost
 >>> pprint(threadpool_info())
-[{'filepath': '/opt/venvs/py37/lib/python3.7/site-packages/numpy/.libs/libopenblasp-r0-382c8f3a.3.5.dev.so',
-  'internal_api': 'openblas',
-  'num_threads': 4,
-  'prefix': 'libopenblas',
+[{'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libmkl_rt.so',
+  'internal_api': 'mkl',
+  'num_threads': 2,
+  'prefix': 'libmkl_rt',
+  'threading_layer': 'intel',
   'user_api': 'blas',
-  'version': '0.3.5.dev'},
- {'filepath': '/opt/venvs/py37/lib/python3.7/site-packages/scipy/.libs/libopenblasp-r0-8dca6697.3.0.dev.so',
-  'internal_api': 'openblas',
+  'version': '2019.0.4'},
+ {'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libiomp5.so',
+  'internal_api': 'openmp',
   'num_threads': 4,
-  'prefix': 'libopenblas',
-  'user_api': 'blas',
+  'prefix': 'libiomp',
+  'user_api': 'openmp',
   'version': None},
- {'filepath': '/usr/lib/x86_64-linux-gnu/libgomp.so.1',
+ {'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libgomp.so.1.0.0',
   'internal_api': 'openmp',
   'num_threads': 4,
   'prefix': 'libgomp',
@@ -105,7 +113,12 @@ that are loaded when importing Python packages:
   'version': None}]
 ```
 
-### Set the maximum size of thread-pools
+In the above example, `numpy` was installed from the default anaconda channel and
+comes with the MKL and its Intel OpenMP (`libiomp5`) implementation while
+`xgboost` was installed from pypi.org and links against GNU OpenMP (`libgomp`)
+so both OpenMP runtimes are loaded in the same Python program.
+
+### Setting the Maximum Size of Thread-Pools
 
 Control the number of threads used by the underlying runtime libraries
 in specific sections of your Python program:
@@ -123,7 +136,7 @@ with threadpool_limits(limits=1, user_api='blas'):
     a_squared = a @ a
 ```
 
-### Known limitation
+### Known Limitations
 
 `threadpool_limits` does not act as expected in nested parallel loops
 managed by distinct OpenMP runtime implementations (for instance libgomp

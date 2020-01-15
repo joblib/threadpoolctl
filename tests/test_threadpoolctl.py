@@ -1,7 +1,9 @@
+import json
 import os
-import re
-import sys
 import pytest
+import re
+import subprocess
+import sys
 
 from threadpoolctl import threadpool_limits, threadpool_info, _ThreadpoolInfo
 from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
@@ -388,3 +390,45 @@ def test_libomp_libiomp_warning(recwarn):
     assert "Found Intel" in str(wm.message)
     assert "LLVM" in str(wm.message)
     assert "multiple_openmp.md" in str(wm.message)
+
+
+def test_command_line_empty():
+    output = subprocess.check_output(
+        "python -m threadpoolctl".split())
+    assert json.loads(output.decode("utf-8")) == []
+
+
+def test_command_line_command_flag():
+    pytest.importorskip("numpy")
+    output = subprocess.check_output(
+        ["python", "-m", "threadpoolctl", "-c", "import numpy"])
+    cli_info = json.loads(output.decode("utf-8"))
+
+    this_process_info = threadpool_info()
+    for module in cli_info:
+        assert module in this_process_info
+
+
+@pytest.mark.skipif(sys.version_info < (3, 7),
+                    reason="need recent subprocess.run options")
+def test_command_line_import_flag():
+    result = subprocess.run([
+        "python", "-m", "threadpoolctl", "-i",
+        "numpy",
+        "scipy.linalg",
+        "invalid_package",
+        "numpy.invalid_sumodule",
+    ], capture_output=True, check=True, encoding="utf-8")
+    cli_info = json.loads(result.stdout)
+
+    this_process_info = threadpool_info()
+    for module in cli_info:
+        assert module in this_process_info
+
+    warnings = [w.strip() for w in result.stderr.splitlines()]
+    assert "WARNING: could not import invalid_package" in warnings
+    assert "WARNING: could not import numpy.invalid_sumodule" in warnings
+    if scipy is None:
+        assert "WARNING: could not import scipy.linalg" in warnings
+    else:
+        assert "WARNING: could not import scipy.linalg" not in warnings

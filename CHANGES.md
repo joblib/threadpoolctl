@@ -1,5 +1,17 @@
+2.1.0 (Under development)
+=========================
+
+- New commandline interface:
+
+      python -m threadpoolctl -i numpy
+
+  will try to import the `numpy` package and then return the output of
+  `threadpoolctl.threadpool_info()` on STDOUT formatted using the JSON
+  syntax. This makes it easier to quickly introspect a Python environment.
+
+
 2.0.0 (2019-12-05)
-===========
+==================
 
 - Expose MKL, BLIS and OpenBLAS threading layer in informations displayed by
   `threadpool_info`. This information is referenced in the `threading_layer`

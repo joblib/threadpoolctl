@@ -149,7 +149,7 @@ with threadpool_limits(limits=1, user_api='blas'):
 
   Note however that this problem does not happen when `threadpool_limits` is
   used to limit the number of threads used internally by BLAS calls that are
-  them-selves nested under OpenMP parallel loops as long as `threadpool_limits`
+  themselves nested under OpenMP parallel loops as long as `threadpool_limits`
   is called prior to entering the outer parallel OpenMP region. This works as
   expected even if the inner BLAS implementation relies on a distinct OpenMP
   implementation.

@@ -263,6 +263,8 @@ def test_multiple_shipped_openblas():
 
 
 @pytest.mark.skipif(scipy is None, reason="requires scipy")
+@pytest.mark.skipif(not cython_extensions_compiled,
+                    reason='Requires cython extensions to be compiled')
 @pytest.mark.parametrize("nthreads_outer", [None, 1, 2, 4])
 def test_nested_prange_blas(nthreads_outer):
     # Check that the BLAS linked to scipy effectively uses the number of
@@ -373,7 +375,7 @@ def test_libomp_libiomp_warning(recwarn):
     from ._openmp_test_helper import check_nested_openmp_loops  # noqa
 
     # Trigger the import of numpy to potentially import Intel OpenMP via MKL
-    import numpy.linalg  # noqa
+    pytest.importorskip("numpy.linalg")
 
     # Check that a warning is raised when both libomp and libiomp are loaded
     # It should happen in one CI job (pylatest_conda_mkl_clang_gcc).

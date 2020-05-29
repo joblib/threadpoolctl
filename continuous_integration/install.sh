@@ -73,6 +73,7 @@ echo "#########################################################################"
 which gcc
 echo $CFLAGS
 echo $LDFLAGS
+find / -name "libgomp*"
 echo "#########################################################################"
 
 python -m pip install -q -r dev-requirements.txt

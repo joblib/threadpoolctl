@@ -197,7 +197,7 @@ def test_openmp_nesting(nthreads_outer):
     openmp_info = original_info.get_modules("user_api", "openmp")
 
     if "gcc" in (inner_cc, outer_cc):
-        print(original_info)
+        print(original_info.todicts())
         assert original_info.get_modules("prefix", "libgomp")
 
     if "clang" in (inner_cc, outer_cc):

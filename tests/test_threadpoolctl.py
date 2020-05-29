@@ -197,10 +197,10 @@ def test_openmp_nesting(nthreads_outer):
     openmp_info = original_info.get_modules("user_api", "openmp")
 
     if "gcc" in (inner_cc, outer_cc):
-        assert original_info.get_modules("prefix", "libgomp")
+        assert original_info.get_modules("prefix", "libgomp").todicts()
 
     if "clang" in (inner_cc, outer_cc):
-        assert original_info.get_modules("prefix", "libomp")
+        assert original_info.get_modules("prefix", "libomp").todicts()
 
     if inner_cc == outer_cc:
         # The openmp runtime should be shared by default, meaning that

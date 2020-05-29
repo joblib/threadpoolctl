@@ -69,8 +69,11 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
     source $VIRTUALENV/bin/activate
 fi
 
+echo "#########################################################################"
+which gcc
 echo $CFLAGS
 echo $LDFLAGS
+echo "#########################################################################"
 
 python -m pip install -q -r dev-requirements.txt
 bash ./continuous_integration/build_test_ext.sh

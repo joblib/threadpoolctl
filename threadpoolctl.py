@@ -19,7 +19,7 @@ import warnings
 from ctypes.util import find_library
 from abc import ABC, abstractmethod
 
-__version__ = "2.1.0"
+__version__ = "2.2.0.dev0"
 __all__ = ["threadpool_limits", "threadpool_info"]
 
 

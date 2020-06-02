@@ -1,5 +1,11 @@
 import os
+import sys
+import tempfile
+import textwrap
+import threadpoolctl
 from glob import glob
+from os.path import dirname, join, normpath
+from subprocess import check_output
 
 
 # Path to shipped openblas for libraries such as numpy or scipy
@@ -36,3 +42,32 @@ try:
     cython_extensions_compiled = True
 except ImportError:
     cython_extensions_compiled = False
+
+
+def threadpool_info_from_subprocess(code):
+    """Utility to call threadpool_info in a subprocess
+
+    `code` is exectuted before calling threadpool_info
+    """
+    _, filename = tempfile.mkstemp(suffix='.py')
+
+    src = code + textwrap.dedent("""
+    from threadpoolctl import threadpool_info
+    print(threadpool_info())
+    """)
+
+    cwd = normpath(dirname(threadpoolctl.__file__))
+    env = os.environ.copy()
+    try:
+        env["PYTHONPATH"] = os.pathsep.join([cwd, env["PYTHONPATH"]])
+    except KeyError:
+        env["PYTHONPATH"] = cwd
+
+    try:
+        with open(filename, "wb") as f:
+            f.write(src.encode("utf-8"))
+        cmd = [sys.executable, filename]
+        out = check_output(cmd, env=env).decode("utf-8")
+        return eval(out)
+    finally:
+        os.remove(filename)

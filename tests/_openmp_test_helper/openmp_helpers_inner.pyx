@@ -36,7 +36,3 @@ cdef int inner_openmp_loop(int n) nogil:
         return -1
 
     return num_threads
-
-
-def get_compiler():
-    return CC_INNER_LOOP

@@ -49,7 +49,8 @@ def threadpool_info_from_subprocess(code):
 
     `code` is exectuted before calling threadpool_info
     """
-    _, filename = tempfile.mkstemp(suffix='.py')
+    handle, filename = tempfile.mkstemp(suffix='.py')
+    os.close(handle)
 
     src = code + textwrap.dedent("""
     from threadpoolctl import threadpool_info
@@ -70,6 +71,7 @@ def threadpool_info_from_subprocess(code):
             f.write(src.encode("utf-8"))
         cmd = [sys.executable, filename]
         out = check_output(cmd, env=env).decode("utf-8")
-        return eval(out)
     finally:
         os.remove(filename)
+
+    return eval(out)

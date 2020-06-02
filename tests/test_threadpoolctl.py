@@ -184,9 +184,9 @@ def test_openmp_limit_num_threads(num_threads):
 def test_openmp_nesting(nthreads_outer):
     # checks that OpenMP effectively uses the number of threads requested by
     # the context manager when nested in an outer OpenMP loop.
-    from ._openmp_test_helper import check_nested_openmp_loops
-    from ._openmp_test_helper import get_inner_compiler
-    from ._openmp_test_helper import get_outer_compiler
+    from ._openmp_test_helper.openmp_helpers_outer import check_nested_openmp_loops
+    from ._openmp_test_helper.openmp_helpers_inner import get_inner_compiler
+    from ._openmp_test_helper.openmp_helpers_outer import get_outer_compiler
 
     inner_cc = get_inner_compiler()
     outer_cc = get_outer_compiler()

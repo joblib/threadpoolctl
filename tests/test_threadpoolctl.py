@@ -191,11 +191,13 @@ def test_openmp_nesting(nthreads_outer):
     outer_info = threadpool_info_from_subprocess(
         "import tests._openmp_test_helper.openmp_helpers_outer")
     outer_omp = outer_info[0]["prefix"]
+    print(outer_omp)
 
     # Find which OpenMP lib is used at runtime for inner loop
     inner_info = threadpool_info_from_subprocess(
         "import tests._openmp_test_helper.openmp_helpers_inner")
     inner_omp = inner_info[0]["prefix"]
+    print(inner_omp)
 
     outer_num_threads, inner_num_threads = check_nested_openmp_loops(10)
     original_info = _threadpool_info()

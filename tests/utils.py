@@ -4,7 +4,7 @@ import tempfile
 import textwrap
 import threadpoolctl
 from glob import glob
-from os.path import dirname, join, normpath
+from os.path import dirname, normpath
 from subprocess import check_output
 
 
@@ -38,7 +38,7 @@ libopenblas_paths = set(path for pattern in libopenblas_patterns
 
 
 try:
-    from ._openmp_test_helper import check_openmp_num_threads  # noqa: F401
+    import tests._openmp_test_helper.openmp_helpers_inner  # noqa: F401
     cython_extensions_compiled = True
 except ImportError:
     cython_extensions_compiled = False
@@ -56,12 +56,14 @@ def threadpool_info_from_subprocess(code):
     print(threadpool_info())
     """)
 
-    cwd = normpath(dirname(threadpoolctl.__file__))
+    path1 = normpath(dirname(threadpoolctl.__file__))
+    path2 = os.path.join(path1, "tests", "_openmp_test_helper")
+    pythonpath = os.pathsep.join([path1, path2])
     env = os.environ.copy()
     try:
-        env["PYTHONPATH"] = os.pathsep.join([cwd, env["PYTHONPATH"]])
+        env["PYTHONPATH"] = os.pathsep.join([pythonpath, env["PYTHONPATH"]])
     except KeyError:
-        env["PYTHONPATH"] = cwd
+        env["PYTHONPATH"] = pythonpath
 
     try:
         with open(filename, "wb") as f:

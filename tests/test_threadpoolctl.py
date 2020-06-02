@@ -187,15 +187,18 @@ def test_openmp_nesting(nthreads_outer):
     # the context manager when nested in an outer OpenMP loop.
     from ._openmp_test_helper import check_nested_openmp_loops
 
+    from pprint import pprint
     # Find which OpenMP lib is used at runtime for outer loop
     outer_info = threadpool_info_from_subprocess(
         "import tests._openmp_test_helper.openmp_helpers_outer")
+    pprint(outer_info)
     outer_omp = outer_info[0]["prefix"]
     print(outer_omp)
 
     # Find which OpenMP lib is used at runtime for inner loop
     inner_info = threadpool_info_from_subprocess(
         "import tests._openmp_test_helper.openmp_helpers_inner")
+    pprint(inner_info)
     inner_omp = inner_info[0]["prefix"]
     print(inner_omp)
 

@@ -1,8 +1,6 @@
 import os
 import json
 import sys
-import tempfile
-import textwrap
 import threadpoolctl
 from glob import glob
 from os.path import dirname, normpath

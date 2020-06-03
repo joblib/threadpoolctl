@@ -378,7 +378,7 @@ def test_blis_threading_layer():
                     reason='Requires cython extensions to be compiled')
 def test_libomp_libiomp_warning(recwarn):
     # Trigger the import of a potentially clang-compiled extension:
-    from ._openmp_test_helper.openmp_helpers_outer import check_nested_openmp_loops  # noqa
+    import tests._openmp_test_helper.openmp_helpers_outer  # noqa
 
     # Trigger the import of numpy to potentially import Intel OpenMP via MKL
     pytest.importorskip("numpy.linalg")

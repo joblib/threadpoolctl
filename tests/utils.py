@@ -57,6 +57,7 @@ def threadpool_info_from_subprocess(code):
     print(threadpool_info())
     """)
 
+    # set PYTHONPATH to import from non sub-modules
     path1 = normpath(dirname(threadpoolctl.__file__))
     path2 = os.path.join(path1, "tests", "_openmp_test_helper")
     pythonpath = os.pathsep.join([path1, path2])
@@ -71,7 +72,6 @@ def threadpool_info_from_subprocess(code):
             f.write(src.encode("utf-8"))
         cmd = [sys.executable, filename]
         out = check_output(cmd, env=env).decode("utf-8")
+        return eval(out)
     finally:
         os.remove(filename)
-
-    return eval(out)

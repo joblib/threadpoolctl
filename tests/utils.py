@@ -1,4 +1,5 @@
 import os
+import json
 import sys
 import tempfile
 import textwrap
@@ -44,19 +45,11 @@ except ImportError:
     cython_extensions_compiled = False
 
 
-def threadpool_info_from_subprocess(code):
+def threadpool_info_from_subprocess(module):
     """Utility to call threadpool_info in a subprocess
 
-    `code` is exectuted before calling threadpool_info
+    `module` is imported before calling threadpool_info
     """
-    handle, filename = tempfile.mkstemp(suffix='.py')
-    os.close(handle)
-
-    src = code + textwrap.dedent("""
-    from threadpoolctl import threadpool_info
-    print(threadpool_info())
-    """)
-
     # set PYTHONPATH to import from non sub-modules
     path1 = normpath(dirname(threadpoolctl.__file__))
     path2 = os.path.join(path1, "tests", "_openmp_test_helper")
@@ -67,11 +60,6 @@ def threadpool_info_from_subprocess(code):
     except KeyError:
         env["PYTHONPATH"] = pythonpath
 
-    try:
-        with open(filename, "wb") as f:
-            f.write(src.encode("utf-8"))
-        cmd = [sys.executable, filename]
-        out = check_output(cmd, env=env).decode("utf-8")
-        return eval(out)
-    finally:
-        os.remove(filename)
+    cmd = [sys.executable, "-m", "threadpoolctl", "-i", module]
+    out = check_output(cmd, env=env).decode("utf-8")
+    return json.loads(out)

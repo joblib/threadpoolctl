@@ -191,13 +191,13 @@ def test_openmp_nesting(nthreads_outer):
 
     # Find which OpenMP lib is used at runtime for inner loop
     inner_info = threadpool_info_from_subprocess(
-        "import tests._openmp_test_helper.openmp_helpers_inner")
+        "tests._openmp_test_helper.openmp_helpers_inner")
     assert len(inner_info) == 1
     inner_omp = inner_info[0]["prefix"]
 
     # Find which OpenMP lib is used at runtime for outer loop
     outer_info = threadpool_info_from_subprocess(
-        "import tests._openmp_test_helper.openmp_helpers_outer")
+        "tests._openmp_test_helper.openmp_helpers_outer")
     if len(outer_info) == 1:
         # Only 1 openmp loaded. It has to be this one.
         outer_omp = outer_info[0]["prefix"]

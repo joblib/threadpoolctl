@@ -1,5 +1,10 @@
 import os
+import json
+import sys
+import threadpoolctl
 from glob import glob
+from os.path import dirname, normpath
+from subprocess import check_output
 
 
 # Path to shipped openblas for libraries such as numpy or scipy
@@ -32,7 +37,27 @@ libopenblas_paths = set(path for pattern in libopenblas_patterns
 
 
 try:
-    from ._openmp_test_helper import check_openmp_num_threads  # noqa: F401
+    import tests._openmp_test_helper.openmp_helpers_inner  # noqa: F401
     cython_extensions_compiled = True
 except ImportError:
     cython_extensions_compiled = False
+
+
+def threadpool_info_from_subprocess(module):
+    """Utility to call threadpool_info in a subprocess
+
+    `module` is imported before calling threadpool_info
+    """
+    # set PYTHONPATH to import from non sub-modules
+    path1 = normpath(dirname(threadpoolctl.__file__))
+    path2 = os.path.join(path1, "tests", "_openmp_test_helper")
+    pythonpath = os.pathsep.join([path1, path2])
+    env = os.environ.copy()
+    try:
+        env["PYTHONPATH"] = os.pathsep.join([pythonpath, env["PYTHONPATH"]])
+    except KeyError:
+        env["PYTHONPATH"] = pythonpath
+
+    cmd = [sys.executable, "-m", "threadpoolctl", "-i", module]
+    out = check_output(cmd, env=env).decode("utf-8")
+    return json.loads(out)

@@ -11,6 +11,7 @@ from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 from .utils import cython_extensions_compiled
 from .utils import libopenblas_paths
 from .utils import scipy
+from .utils import threadpool_info_from_subprocess
 
 
 def is_old_openblas(module):
@@ -169,7 +170,8 @@ def test_threadpool_limits_bad_input():
 def test_openmp_limit_num_threads(num_threads):
     # checks that OpenMP effectively uses the number of threads requested by
     # the context manager
-    from ._openmp_test_helper import check_openmp_num_threads
+    import tests._openmp_test_helper.openmp_helpers_inner as omp_inner
+    check_openmp_num_threads = omp_inner.check_openmp_num_threads
 
     old_num_threads = check_openmp_num_threads(100)
 
@@ -179,37 +181,40 @@ def test_openmp_limit_num_threads(num_threads):
 
 
 @pytest.mark.skipif(not cython_extensions_compiled,
-                    reason='Requires cython extensions to be compiled')
-@pytest.mark.parametrize('nthreads_outer', [None, 1, 2, 4])
+                    reason="Requires cython extensions to be compiled")
+@pytest.mark.parametrize("nthreads_outer", [None, 1, 2, 4])
 def test_openmp_nesting(nthreads_outer):
     # checks that OpenMP effectively uses the number of threads requested by
     # the context manager when nested in an outer OpenMP loop.
-    from ._openmp_test_helper import check_nested_openmp_loops
-    from ._openmp_test_helper import get_inner_compiler
-    from ._openmp_test_helper import get_outer_compiler
+    import tests._openmp_test_helper.openmp_helpers_outer as omp_outer
+    check_nested_openmp_loops = omp_outer.check_nested_openmp_loops
 
-    inner_cc = get_inner_compiler()
-    outer_cc = get_outer_compiler()
+    # Find which OpenMP lib is used at runtime for inner loop
+    inner_info = threadpool_info_from_subprocess(
+        "tests._openmp_test_helper.openmp_helpers_inner")
+    assert len(inner_info) == 1
+    inner_omp = inner_info[0]["prefix"]
+
+    # Find which OpenMP lib is used at runtime for outer loop
+    outer_info = threadpool_info_from_subprocess(
+        "tests._openmp_test_helper.openmp_helpers_outer")
+    if len(outer_info) == 1:
+        # Only 1 openmp loaded. It has to be this one.
+        outer_omp = outer_info[0]["prefix"]
+    else:
+        # There are 2 openmp, the one from inner and the one from outer.
+        assert len(outer_info) == 2
+        # We already know the one from inner. It has to be the other one.
+        prefixes = {module["prefix"] for module in outer_info}
+        outer_omp = prefixes - {inner_omp}
 
     outer_num_threads, inner_num_threads = check_nested_openmp_loops(10)
-
     original_info = _threadpool_info()
-    openmp_info = original_info.get_modules("user_api", "openmp")
 
-    if "gcc" in (inner_cc, outer_cc):
-        assert original_info.get_modules("prefix", "libgomp")
-
-    if "clang" in (inner_cc, outer_cc):
-        assert original_info.get_modules("prefix", "libomp")
-
-    if inner_cc == outer_cc:
-        # The openmp runtime should be shared by default, meaning that
-        # the inner loop should automatically be run serially by the OpenMP
-        # runtime.
+    if inner_omp == outer_omp:
+        # The OpenMP runtime should be shared by default, meaning that the
+        # inner loop should automatically be run serially by the OpenMP runtime
         assert inner_num_threads == 1
-    else:
-        # There should be at least 2 OpenMP runtime detected.
-        assert len(openmp_info) >= 2
 
     with threadpool_limits(limits=1) as threadpoolctx:
         max_threads = threadpoolctx.get_original_num_threads()["openmp"]
@@ -229,8 +234,8 @@ def test_openmp_nesting(nthreads_outer):
     assert outer_num_threads == nthreads
 
     # The number of threads available in the inner loop should have been
-    # set to 1 so avoid oversubscription and preserve performance:
-    if inner_cc != outer_cc:
+    # set to 1 to avoid oversubscription and preserve performance:
+    if inner_omp != outer_omp:
         if inner_num_threads != 1:
             # XXX: this does not always work when nesting independent openmp
             # implementations. See: https://github.com/jeremiedbb/Nested_OpenMP
@@ -271,7 +276,8 @@ def test_nested_prange_blas(nthreads_outer):
     # threads requested by the context manager when nested in an outer OpenMP
     # loop.
     import numpy as np
-    from ._openmp_test_helper import check_nested_prange_blas
+    import tests._openmp_test_helper.nested_prange_blas as prange_blas
+    check_nested_prange_blas = prange_blas.check_nested_prange_blas
 
     original_info = _threadpool_info()
 
@@ -372,7 +378,7 @@ def test_blis_threading_layer():
                     reason='Requires cython extensions to be compiled')
 def test_libomp_libiomp_warning(recwarn):
     # Trigger the import of a potentially clang-compiled extension:
-    from ._openmp_test_helper import check_nested_openmp_loops  # noqa
+    import tests._openmp_test_helper.openmp_helpers_outer  # noqa
 
     # Trigger the import of numpy to potentially import Intel OpenMP via MKL
     pytest.importorskip("numpy.linalg")

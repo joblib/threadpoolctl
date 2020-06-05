@@ -20,7 +20,3 @@ def check_nested_openmp_loops(int n, nthreads=None):
         outer_num_threads = openmp.omp_get_num_threads()
         
     return outer_num_threads, inner_num_threads
-
-
-def get_compiler():
-    return CC_OUTER_LOOP

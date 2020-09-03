@@ -402,14 +402,14 @@ def test_libomp_libiomp_warning(recwarn):
 
 def test_command_line_empty():
     output = subprocess.check_output(
-        "python -m threadpoolctl".split())
+        (sys.executable + " -m threadpoolctl").split())
     assert json.loads(output.decode("utf-8")) == []
 
 
 def test_command_line_command_flag():
     pytest.importorskip("numpy")
     output = subprocess.check_output(
-        ["python", "-m", "threadpoolctl", "-c", "import numpy"])
+        [sys.executable, "-m", "threadpoolctl", "-c", "import numpy"])
     cli_info = json.loads(output.decode("utf-8"))
 
     this_process_info = threadpool_info()
@@ -421,7 +421,7 @@ def test_command_line_command_flag():
                     reason="need recent subprocess.run options")
 def test_command_line_import_flag():
     result = subprocess.run([
-        "python", "-m", "threadpoolctl", "-i",
+        sys.executable, "-m", "threadpoolctl", "-i",
         "numpy",
         "scipy.linalg",
         "invalid_package",

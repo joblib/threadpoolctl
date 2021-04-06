@@ -708,7 +708,7 @@ class _MKLModule(_Module):
     """Module class for MKL"""
     def get_version(self):
         res = ctypes.create_string_buffer(200)
-        self._dynlib.mkl_get_version_string(res, 200)
+        self._dynlib.MKL_Get_Version_String(res, 200)
 
         version = res.value.decode("utf-8")
         group = re.search(r"Version ([^ ]+) ", version)

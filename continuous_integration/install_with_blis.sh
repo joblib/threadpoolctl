@@ -6,12 +6,10 @@ pushd ..
 ABS_PATH=$(pwd)
 popd
 
-# Assume Ubuntu: install a recent version of clang and libomp
-echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
-echo "deb-src http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
-wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-sudo apt update
-sudo apt install clang-8 libomp-8-dev
+# Install a recent version of clang and libomp
+wget https://apt.llvm.org/llvm.sh
+chmod +x llvm.sh
+sudo ./llvm.sh 10
 
 # create conda env
 conda create -n $VIRTUALENV -q --yes python=$VERSION_PYTHON pip cython

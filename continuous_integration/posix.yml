@@ -13,8 +13,7 @@ jobs:
 
   steps:
     - script: |
-        python3 -m pip install --upgrade pip
-        python3 -m pip install flake8
+        sudo apt-get install python3-flake8
         python3 -m flake8 .
       displayName: Lint
       condition: eq(variables['LINT'], 'true')

@@ -388,8 +388,8 @@ def test_libomp_libiomp_warning(recwarn):
     info = _threadpool_info()
     prefixes = [module.prefix for module in info]
 
-    if not ("libomp" in prefixes and "libiomp" in prefixes
-            and sys.platform == "linux"):
+    if not ("libomp" in prefixes and "libiomp" in prefixes and
+            sys.platform == "linux"):
         pytest.skip("Requires both libomp and libiomp loaded, on Linux")
 
     assert len(recwarn) == 1

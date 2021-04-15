@@ -212,8 +212,8 @@ class threadpool_limits:
 
         if warning_apis:
             warnings.warn(
-                "Multiple value possible for following user apis: "
-                + ", ".join(warning_apis) + ". Returning the minimum.")
+                "Multiple value possible for following user apis: " +
+                ", ".join(warning_apis) + ". Returning the minimum.")
 
         return num_threads
 

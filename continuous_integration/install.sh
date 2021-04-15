@@ -4,13 +4,13 @@ set -e
 
 UNAMESTR=`uname`
 
-if [[ "$CC_OUTER_LOOP" == "clang-8" || "$CC_INNER_LOOP" == "clang-8" ]]; then
+if [[ "$CC_OUTER_LOOP" == "clang-10" || "$CC_INNER_LOOP" == "clang-10" ]]; then
     # Assume Ubuntu: install a recent version of clang and libomp
-    echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
-    echo "deb-src http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
-    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+    # echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
+    # echo "deb-src http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main" | sudo tee -a /etc/apt/sources.list.d/llvm.list
+    # wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
     sudo apt update
-    sudo apt install clang-8 libomp-8-dev
+    sudo apt install clang-10 # libomp-8-dev
 fi
 
 make_conda() {

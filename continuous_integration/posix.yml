@@ -14,6 +14,8 @@ jobs:
   steps:
     - script: |
         python3 -m pip install --upgrade pip
+        echo "#############################################################"
+        echo "installing flake8 !!!"
         python3 -m pip install flake8
         echo "installed flake8 !!!"
         echo "#############################################################"

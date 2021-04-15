@@ -16,7 +16,7 @@ jobs:
         python3 -m pip install --upgrade pip
         echo "#############################################################"
         echo "installing flake8 !!!"
-        python3 -m pip install flake8
+        python3 -m pip install -v flake8
         echo "installed flake8 !!!"
         echo "#############################################################"
         python3 -m flake8 .

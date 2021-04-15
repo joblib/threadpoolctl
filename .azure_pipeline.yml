@@ -51,15 +51,15 @@ stages:
           PACKAGER: 'conda'
           VERSION_PYTHON: '3.6'
           BLAS: 'openblas'
-          CC_OUTER_LOOP: 'clang-8'
-          CC_INNER_LOOP: 'clang-8'
+          CC_OUTER_LOOP: 'clang-10'
+          CC_INNER_LOOP: 'clang-10'
         # Linux environment with MKL and Clang (known to be unsafe for
         # threadpoolctl) to only test the warning from multiple OpenMP.
         pylatest_conda_mkl_clang_gcc:
           PACKAGER: 'conda'
           VERSION_PYTHON: '*'
           BLAS: 'mkl'
-          CC_OUTER_LOOP: 'clang-8'
+          CC_OUTER_LOOP: 'clang-10'
           CC_INNER_LOOP: 'gcc'
           TESTS: 'libomp_libiomp_warning'
         # Linux environment with MKL, safe for threadpoolctl.
@@ -76,7 +76,7 @@ stages:
           PACKAGER: 'pip'
           VERSION_PYTHON: '3.7'
           CC_OUTER_LOOP: 'gcc'
-          CC_INNER_LOOP: 'clang-8'
+          CC_INNER_LOOP: 'clang-10'
         # Linux environment with numpy from conda-forge channel
         pylatest_conda_forge:
           PACKAGER: 'conda-forge'
@@ -89,7 +89,7 @@ stages:
           NO_NUMPY: 'true'
           VERSION_PYTHON: '*'
           CC_OUTER_LOOP: 'gcc'
-          CC_INNER_LOOP: 'clang-8'
+          CC_INNER_LOOP: 'clang-10'
         # Linux environment with numpy linked to BLIS
         pylatest_blis_gcc_clang_openmp:
           PACKAGER: 'conda'
@@ -98,15 +98,15 @@ stages:
           BLIS_NUM_THREADS: '4'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
-          BLIS_CC: 'clang-8'
+          BLIS_CC: 'clang-10'
           BLIS_ENABLE_THREADING: 'openmp'
         pylatest_blis_clang_gcc_pthreads:
           PACKAGER: 'conda'
           VERSION_PYTHON: '*'
           INSTALL_BLIS: 'true'
           BLIS_NUM_THREADS: '4'
-          CC_OUTER_LOOP: 'clang-8'
-          CC_INNER_LOOP: 'clang-8'
+          CC_OUTER_LOOP: 'clang-10'
+          CC_INNER_LOOP: 'clang-10'
           BLIS_CC: 'gcc-8'
           BLIS_ENABLE_THREADING: 'pthreads'
         pylatest_blis_no_threading:

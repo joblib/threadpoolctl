@@ -660,6 +660,7 @@ class _OpenBLASModule(_Module):
 
     def _get_extra_info(self):
         self.threading_layer = self.get_threading_layer()
+        self.corename = self.get_corename()
 
     def get_threading_layer(self):
         """Return the threading layer of OpenBLAS"""
@@ -670,6 +671,11 @@ class _OpenBLASModule(_Module):
             return "pthreads"
         return "disabled"
 
+    def get_corename(self):
+        get_corename = getattr(self._dynlib, "openblas_get_corename",
+                               lambda: None)
+        get_corename.restype = ctypes.c_char_p
+        return get_corename().decode("utf-8")
 
 class _BLISModule(_Module):
     """Module class for BLIS"""

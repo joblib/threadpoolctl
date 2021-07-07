@@ -677,6 +677,7 @@ class _OpenBLASModule(_Module):
         get_corename.restype = ctypes.c_char_p
         return get_corename().decode("utf-8")
 
+
 class _BLISModule(_Module):
     """Module class for BLIS"""
     def get_version(self):

@@ -1,6 +1,8 @@
 2.2.0 (In development)
 ======================
 
+- Report the architecture of the CPU cores detected by OpenBLAS
+  (`openblas_get_corename`) in `threadpool_info()`.
 
 2.1.0 (2020-05-29)
 ==================

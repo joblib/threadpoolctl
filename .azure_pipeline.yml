@@ -35,7 +35,7 @@ stages:
         # are correctly handled.
         py36_ubuntu_atlas_gcc_gcc:
           PACKAGER: 'ubuntu'
-          APT_BLAS: 'libatlas3-base libatlas-base-dev libatlas-dev'
+          APT_BLAS: 'libatlas3-base libatlas-base-dev'
           VERSION_PYTHON: '3.6'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'

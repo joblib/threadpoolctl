@@ -128,7 +128,7 @@ stages:
         py36_conda_homebrew_libomp:
           PACKAGER: 'conda'
           VERSION_PYTHON: '3.6'
-          BLAS: 'mkl'
+          BLAS: 'openblas'
           CC_OUTER_LOOP: 'clang'
           CC_INNER_LOOP: 'clang'
           INSTALL_LIBOMP: 'homebrew'

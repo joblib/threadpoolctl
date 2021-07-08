@@ -10,6 +10,7 @@ popd
 wget https://apt.llvm.org/llvm.sh
 chmod +x llvm.sh
 sudo ./llvm.sh 10
+sudo apt-get install libomp-dev
 
 # create conda env
 conda create -n $VIRTUALENV -q --yes python=$VERSION_PYTHON pip cython

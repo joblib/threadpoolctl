@@ -29,21 +29,21 @@ stages:
   - template: continuous_integration/posix.yml
     parameters:
       name: Linux
-      vmImage: ubuntu-18.04
+      vmImage: ubuntu-20.04
       matrix:
-        # Linux environment to test that packages that comes with Ubuntu 18.04
+        # Linux environment to test that packages that comes with Ubuntu 20.04
         # are correctly handled.
-        py36_ubuntu_atlas_gcc_gcc:
+        py38_ubuntu_atlas_gcc_gcc:
           PACKAGER: 'ubuntu'
           APT_BLAS: 'libatlas3-base libatlas-base-dev'
-          VERSION_PYTHON: '3.6'
+          VERSION_PYTHON: '3.8'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
           LINT: 'true'
         py36_ubuntu_openblas_gcc_gcc:
           PACKAGER: 'ubuntu'
           APT_BLAS: 'libopenblas-base libopenblas-dev'
-          VERSION_PYTHON: '3.6'
+          VERSION_PYTHON: '3.8'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
         # Linux + Python 3.7 and homogeneous runtime nesting.
@@ -149,7 +149,7 @@ stages:
   - job: 'no_test_always_skipped'
     displayName: 'No test always skipped'
     pool:
-      vmImage: ubuntu-18.04
+      vmImage: ubuntu-20.04
     steps:
       - download: current
       - script: |

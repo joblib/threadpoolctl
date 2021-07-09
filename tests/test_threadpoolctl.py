@@ -460,3 +460,6 @@ def test_architecture():
             assert module["architecture"] in expected_openblas_architectures
         elif module["internal_api"] == "blis":
             assert module["architecture"] in expected_blis_architectures
+        else:
+            # Not supported for other modules
+            assert "architecture" not in module

@@ -6,9 +6,9 @@
 2.2.0 (2021-07-09)
 ==================
 
-- Report the architecture of the CPU cores detected by OpenBLAS
-  (`openblas_get_corename`) in `threadpool_info()` and BLIS
-  (`bli_arch_query_id` and `bli_arch_string`).
+- `threadpoolctl.threadpool_info()` now reports the architecture of the CPU
+  cores detected by OpenBLAS (via `openblas_get_corename`) and BLIS (via
+  `bli_arch_query_id` and `bli_arch_string`).
 
 - Fixed a bug when the version of MKL was not found. The
   "version" field is now set to None in that case.

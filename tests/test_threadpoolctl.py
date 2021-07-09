@@ -453,6 +453,7 @@ def test_architecture():
     expected_blis_architectures = (
         # XXX: add more as needed by CI or developer laptops
         "skx",
+        "haswell",
     )
     for module in threadpool_info():
         if module["internal_api"] == "openblas":

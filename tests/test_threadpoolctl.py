@@ -446,7 +446,7 @@ def test_architecture():
     expected_openblas_architectures = (
         # XXX: add more as needed by CI or developer laptops
         "armv8",
-        "haswell",
+        "Haswell",
         "SkylakeX",
         "Sandybridge",
     )

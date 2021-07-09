@@ -5,6 +5,10 @@
   (`openblas_get_corename`) in `threadpool_info()` and BLIS
   (`bli_arch_query_id` and `bli_arch_string`).
 
+- Fixed a bug when the version of MKL was not found. The
+  "version" field is now set to None in that case.
+  https://github.com/joblib/threadpoolctl/pull/82
+
 2.1.0 (2020-05-29)
 ==================
 

@@ -660,6 +660,7 @@ class _OpenBLASModule(_Module):
 
     def _get_extra_info(self):
         self.threading_layer = self.get_threading_layer()
+        self.architecture = self.get_architecture()
 
     def get_threading_layer(self):
         """Return the threading layer of OpenBLAS"""
@@ -669,6 +670,14 @@ class _OpenBLASModule(_Module):
         elif threading_layer == 1:
             return "pthreads"
         return "disabled"
+
+    def get_architecture(self):
+        get_corename = getattr(self._dynlib, "openblas_get_corename", None)
+        if get_corename is None:
+            return None
+
+        get_corename.restype = ctypes.c_char_p
+        return get_corename().decode("utf-8")
 
 
 class _BLISModule(_Module):
@@ -694,6 +703,7 @@ class _BLISModule(_Module):
 
     def _get_extra_info(self):
         self.threading_layer = self.get_threading_layer()
+        self.architecture = self.get_architecture()
 
     def get_threading_layer(self):
         """Return the threading layer of BLIS"""
@@ -702,6 +712,18 @@ class _BLISModule(_Module):
         elif self._dynlib.bli_info_get_enable_pthreads():
             return "pthreads"
         return "disabled"
+
+    def get_architecture(self):
+        bli_arch_query_id = getattr(self._dynlib, "bli_arch_query_id", None)
+        bli_arch_string = getattr(self._dynlib, "bli_arch_string", None)
+        if bli_arch_query_id is None or bli_arch_string is None:
+            return None
+
+        # the true restype should be BLIS' arch_t (enum) but int should work
+        # for us:
+        bli_arch_query_id.restype = ctypes.c_int
+        bli_arch_string.restype = ctypes.c_char_p
+        return bli_arch_string(bli_arch_query_id()).decode("utf-8")
 
 
 class _MKLModule(_Module):

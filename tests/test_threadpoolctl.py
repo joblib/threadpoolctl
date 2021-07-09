@@ -440,3 +440,18 @@ def test_command_line_import_flag():
         assert "WARNING: could not import scipy.linalg" in warnings
     else:
         assert "WARNING: could not import scipy.linalg" not in warnings
+
+
+def test_architecture():
+    expected_openblas_architectures = (
+        # XXX: add more as needed by CI or developer laptops
+        "armv8",
+    )
+    expected_blis_architectures = (
+        # XXX: add more as needed by CI or developer laptops
+    )
+    for module in threadpool_info():
+        if module["internal_api"] == "openblas":
+            assert module["architecture"] in expected_openblas_architectures
+        elif module["internal_api"] == "blis":
+            assert module["architecture"] in expected_blis_architectures

@@ -9,6 +9,7 @@ if [[ "$CC_OUTER_LOOP" == "clang-10" || "$CC_INNER_LOOP" == "clang-10" ]]; then
     wget https://apt.llvm.org/llvm.sh
     chmod +x llvm.sh
     sudo ./llvm.sh 10
+    sudo apt-get install libomp-dev
 fi
 
 make_conda() {

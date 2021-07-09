@@ -18,38 +18,38 @@ stages:
         pylatest_conda:
           VERSION_PYTHON: '*'
           PACKAGER: 'conda'
-        py36_conda:
-          VERSION_PYTHON: '3.6'
+        py37_conda:
+          VERSION_PYTHON: '3.7'
           PACKAGER: 'conda'
-        py35_pip:
-          VERSION_PYTHON: '3.5'
+        py36_pip:
+          VERSION_PYTHON: '3.6'
           PACKAGER: 'pip'
 
 
   - template: continuous_integration/posix.yml
     parameters:
       name: Linux
-      vmImage: ubuntu-16.04
+      vmImage: ubuntu-20.04
       matrix:
-        # Linux environment to test that packages that comes with Ubuntu Xenial
-        # 16.04 are correctly handled.
-        py35_ubuntu_atlas_gcc_gcc:
+        # Linux environment to test that packages that comes with Ubuntu 20.04
+        # are correctly handled.
+        py38_ubuntu_atlas_gcc_gcc:
           PACKAGER: 'ubuntu'
-          APT_BLAS: 'libatlas3-base libatlas-base-dev libatlas-dev'
-          VERSION_PYTHON: '3.5'
+          APT_BLAS: 'libatlas3-base libatlas-base-dev'
+          VERSION_PYTHON: '3.8'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
           LINT: 'true'
-        py35_ubuntu_openblas_gcc_gcc:
+        py36_ubuntu_openblas_gcc_gcc:
           PACKAGER: 'ubuntu'
           APT_BLAS: 'libopenblas-base libopenblas-dev'
-          VERSION_PYTHON: '3.5'
+          VERSION_PYTHON: '3.8'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
-        # Linux + Python 3.6 and homogeneous runtime nesting.
-        py36_conda_openblas_clang_clang:
+        # Linux + Python 3.7 and homogeneous runtime nesting.
+        py37_conda_openblas_clang_clang:
           PACKAGER: 'conda'
-          VERSION_PYTHON: '3.6'
+          VERSION_PYTHON: '3.7'
           BLAS: 'openblas'
           CC_OUTER_LOOP: 'clang-10'
           CC_INNER_LOOP: 'clang-10'
@@ -70,11 +70,11 @@ stages:
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
           MKL_THREADING_LAYER: 'INTEL'
-        # Linux + Python 3.7 with numpy / scipy installed with pip from PyPI
+        # Linux + Python 3.8 with numpy / scipy installed with pip from PyPI
         # and heterogeneous OpenMP runtimes.
-        py37_pip_openblas_gcc_clang:
+        py38_pip_openblas_gcc_clang:
           PACKAGER: 'pip'
-          VERSION_PYTHON: '3.7'
+          VERSION_PYTHON: '3.8'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'clang-10'
         # Linux environment with numpy from conda-forge channel
@@ -125,10 +125,10 @@ stages:
       vmImage: macOS-10.14
       matrix:
         # MacOS environment with OpenMP installed through homebrew
-        py35_conda_homebrew_libomp:
+        py36_conda_homebrew_libomp:
           PACKAGER: 'conda'
-          VERSION_PYTHON: '3.5'
-          BLAS: 'mkl'
+          VERSION_PYTHON: '3.6'
+          BLAS: 'openblas'
           CC_OUTER_LOOP: 'clang'
           CC_INNER_LOOP: 'clang'
           INSTALL_LIBOMP: 'homebrew'
@@ -149,7 +149,7 @@ stages:
   - job: 'no_test_always_skipped'
     displayName: 'No test always skipped'
     pool:
-      vmImage: ubuntu-16.04
+      vmImage: ubuntu-20.04
     steps:
       - download: current
       - script: |

@@ -8,8 +8,8 @@ if [[ "$CC_OUTER_LOOP" == "clang-10" || "$CC_INNER_LOOP" == "clang-10" ]]; then
     # Assume Ubuntu: install a recent version of clang and libomp
     wget https://apt.llvm.org/llvm.sh
     chmod +x llvm.sh
-    sudo ./llvm.sh 10
-    # sudo apt-get install libomp-dev
+    sudo ./llvm.sh 11
+    sudo apt-get install libomp-dev
 fi
 
 make_conda() {
@@ -17,7 +17,7 @@ make_conda() {
     if [[ "$UNAMESTR" == "Darwin" ]]; then
         if [[ "$INSTALL_LIBOMP" == "conda-forge" ]]; then
             # Install an OpenMP-enabled clang/llvm from conda-forge
-            TO_INSTALL="$TO_INSTALL conda-forge::compilers conda-forge::llvm-openmp"
+            TO_INSTALL="$TO_INSTALL conda-forge::compilers conda-forge::llvm-openmp==11.1.0"
             export CFLAGS="$CFLAGS -I$CONDA/envs/$VIRTUALENV/include"
             export LDFLAGS="$LDFLAGS -Wl,-rpath,$CONDA/envs/$VIRTUALENV/lib -L$CONDA/envs/$VIRTUALENV/lib"
 

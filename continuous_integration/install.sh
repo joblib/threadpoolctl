@@ -19,8 +19,8 @@ make_conda() {
             # Install an OpenMP-enabled clang/llvm from conda-forge
 
             # temporary pin llvm-openmp version. version 12 + mkl segfaults.
-            TO_INSTALL="$TO_INSTALL conda-forge::compilers conda-forge::llvm-openmp<=11.1.0"
-
+            # TO_INSTALL="$TO_INSTALL conda-forge::compilers conda-forge::llvm-openmp<=11.1.0"
+            TO_INSTALL="$TO_INSTALL conda-forge::compilers conda-forge::llvm-openmp"
             export CFLAGS="$CFLAGS -I$CONDA/envs/$VIRTUALENV/include"
             export LDFLAGS="$LDFLAGS -Wl,-rpath,$CONDA/envs/$VIRTUALENV/lib -L$CONDA/envs/$VIRTUALENV/lib"
 

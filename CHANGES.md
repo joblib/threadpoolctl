@@ -1,6 +1,8 @@
 2.3.0 (in development)
 ======================
 
+- Fixed an attribute error when using old versions of OpenBLAS or BLIS that are
+  missing version query functions.
 
 
 2.2.0 (2021-07-09)

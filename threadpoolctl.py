@@ -550,10 +550,10 @@ class _ThreadpoolInfo():
         """Load the lib-C for unix systems."""
         libc = cls._system_libraries.get("libc")
         if libc is None:
-            libc_name = find_library("llvm-8")
+            libc_name = find_library("c")
             if libc_name is None:  # pragma: no cover
                 return None
-            libc = ctypes.CDLL(libc_name)
+            libc = ctypes.CDLL(libc_name, mode=_RTLD_NOLOAD)
             cls._system_libraries["libc"] = libc
         return libc
 

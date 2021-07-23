@@ -50,7 +50,7 @@ if [[ "$PACKAGER" == "conda" ]]; then
 elif [[ "$PACKAGER" == "conda-forge" ]]; then
     conda config --prepend channels conda-forge
     conda config --set channel_priority strict
-    TO_INSTALL="python=$VERSION_PYTHON numpy scipy"
+    TO_INSTALL="python=$VERSION_PYTHON numpy scipy blas[build=$BLAS]"
     make_conda $TO_INSTALL
 
 elif [[ "$PACKAGER" == "pip" ]]; then

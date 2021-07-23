@@ -641,8 +641,10 @@ class _OpenBLASModule(_Module):
     def get_version(self):
         # None means OpenBLAS is not loaded or version < 0.3.4, since OpenBLAS
         # did not expose its version before that.
-        get_config = getattr(self._dynlib, "openblas_get_config",
-                             lambda: None)
+        get_config = getattr(self._dynlib, "openblas_get_config", None)
+        if get_config is None:
+            return None
+
         get_config.restype = ctypes.c_char_p
         config = get_config().split()
         if config[0] == b"OpenBLAS":
@@ -684,8 +686,10 @@ class _OpenBLASModule(_Module):
 class _BLISModule(_Module):
     """Module class for BLIS"""
     def get_version(self):
-        get_version_ = getattr(self._dynlib, "bli_info_get_version_str",
-                               lambda: None)
+        get_version_ = getattr(self._dynlib, "bli_info_get_version_str", None)
+        if get_version_ is None:
+            return None
+
         get_version_.restype = ctypes.c_char_p
         return get_version_().decode("utf-8")
 

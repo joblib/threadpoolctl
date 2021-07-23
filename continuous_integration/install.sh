@@ -17,7 +17,10 @@ make_conda() {
     if [[ "$UNAMESTR" == "Darwin" ]]; then
         if [[ "$INSTALL_LIBOMP" == "conda-forge" ]]; then
             # Install an OpenMP-enabled clang/llvm from conda-forge
-            TO_INSTALL="$TO_INSTALL conda-forge::compilers conda-forge::llvm-openmp"
+
+            # temporary pin llvm-openmp version. version 12 + mkl segfaults.
+            TO_INSTALL="$TO_INSTALL conda-forge::compilers conda-forge::llvm-openmp<=11.1.0"
+
             export CFLAGS="$CFLAGS -I$CONDA/envs/$VIRTUALENV/include"
             export LDFLAGS="$LDFLAGS -Wl,-rpath,$CONDA/envs/$VIRTUALENV/lib -L$CONDA/envs/$VIRTUALENV/lib"
 

@@ -1,6 +1,9 @@
 2.3.0 (in development)
 ======================
 
+- Fixed an attribute error when using old versions of OpenBLAS or BLIS that are
+  missing version query functions.
+  https://github.com/joblib/threadpoolctl/pull/88
 
 
 2.2.0 (2021-07-09)

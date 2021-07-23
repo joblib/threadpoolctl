@@ -18,8 +18,7 @@ make_conda() {
         if [[ "$INSTALL_LIBOMP" == "conda-forge" ]]; then
             # Install an OpenMP-enabled clang/llvm from conda-forge
 
-            # temporary pin llvm-openmp version. version 12 + mkl segfaults.
-            # TO_INSTALL="$TO_INSTALL conda-forge::compilers conda-forge::llvm-openmp<=11.1.0"
+            # assumes conda-forge is set on priority channel
             TO_INSTALL="$TO_INSTALL compilers llvm-openmp"
 
             export CFLAGS="$CFLAGS -I$CONDA/envs/$VIRTUALENV/include"

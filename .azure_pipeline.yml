@@ -134,7 +134,7 @@ stages:
           INSTALL_LIBOMP: 'homebrew'
         # MacOS environment with OpenMP installed through conda-forge compilers
         pylatest_conda_conda_forge_clang:
-          PACKAGER: 'conda'
+          PACKAGER: 'conda-forge'
           VERSION_PYTHON: '*'
           BLAS: 'mkl'
           CC_OUTER_LOOP: 'clang'

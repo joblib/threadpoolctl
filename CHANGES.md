@@ -5,6 +5,8 @@
   missing version query functions.
   https://github.com/joblib/threadpoolctl/pull/88
 
+- Fixed an attribute error when python is run with -OO.
+  https://github.com/joblib/threadpoolctl/pull/87
 
 2.2.0 (2021-07-09)
 ==================

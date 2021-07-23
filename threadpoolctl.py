@@ -98,7 +98,8 @@ _ALL_OPENMP_LIBRARIES = list(
 
 def _format_docstring(*args, **kwargs):
     def decorator(o):
-        o.__doc__ = o.__doc__.format(*args, **kwargs)
+        if o.__doc__ is not None:
+            o.__doc__ = o.__doc__.format(*args, **kwargs)
         return o
 
     return decorator

@@ -18,8 +18,8 @@ make_conda() {
         if [[ "$INSTALL_LIBOMP" == "conda-forge" ]]; then
             # Install an OpenMP-enabled clang/llvm from conda-forge
 
-            # temporary pin llvm-openmp version. version 12 + mkl segfaults.
-            TO_INSTALL="$TO_INSTALL conda-forge::compilers conda-forge::llvm-openmp<=11.1.0"
+            # assumes conda-forge is set on priority channel
+            TO_INSTALL="$TO_INSTALL compilers llvm-openmp"
 
             export CFLAGS="$CFLAGS -I$CONDA/envs/$VIRTUALENV/include"
             export LDFLAGS="$LDFLAGS -Wl,-rpath,$CONDA/envs/$VIRTUALENV/lib -L$CONDA/envs/$VIRTUALENV/lib"
@@ -49,7 +49,7 @@ if [[ "$PACKAGER" == "conda" ]]; then
 elif [[ "$PACKAGER" == "conda-forge" ]]; then
     conda config --prepend channels conda-forge
     conda config --set channel_priority strict
-    TO_INSTALL="python=$VERSION_PYTHON numpy scipy"
+    TO_INSTALL="python=$VERSION_PYTHON numpy scipy blas[build=$BLAS]"
     make_conda $TO_INSTALL
 
 elif [[ "$PACKAGER" == "pip" ]]; then

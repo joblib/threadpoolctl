@@ -667,7 +667,11 @@ class _OpenBLASModule(_Module):
 
     def get_threading_layer(self):
         """Return the threading layer of OpenBLAS"""
-        threading_layer = self._dynlib.openblas_get_parallel()
+        openblas_get_parallel = getattr(self._dynlib, "openblas_get_parallel",
+                                        None)
+        if openblas_get_parallel is None:
+            return "unknown"
+        threading_layer = openblas_get_parallel
         if threading_layer == 2:
             return "openmp"
         elif threading_layer == 1:

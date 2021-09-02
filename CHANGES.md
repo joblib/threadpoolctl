@@ -4,6 +4,7 @@
 - Fixed an attribute error when using old versions of OpenBLAS or BLIS that are
   missing version query functions.
   https://github.com/joblib/threadpoolctl/pull/88
+  https://github.com/joblib/threadpoolctl/pull/91
 
 - Fixed an attribute error when python is run with -OO.
   https://github.com/joblib/threadpoolctl/pull/87

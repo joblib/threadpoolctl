@@ -81,6 +81,7 @@ stages:
         pylatest_conda_forge:
           PACKAGER: 'conda-forge'
           VERSION_PYTHON: '*'
+          BLAS: 'openblas'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
         # Linux environment with no numpy and heterogeneous OpenMP runtimes.
@@ -133,8 +134,8 @@ stages:
           CC_INNER_LOOP: 'clang'
           INSTALL_LIBOMP: 'homebrew'
         # MacOS environment with OpenMP installed through conda-forge compilers
-        pylatest_conda_conda_forge_clang:
-          PACKAGER: 'conda'
+        pylatest_conda_forge_clang:
+          PACKAGER: 'conda-forge'
           VERSION_PYTHON: '*'
           BLAS: 'mkl'
           CC_OUTER_LOOP: 'clang'

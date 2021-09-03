@@ -671,7 +671,7 @@ class _OpenBLASModule(_Module):
                                         None)
         if openblas_get_parallel is None:
             return "unknown"
-        threading_layer = openblas_get_parallel
+        threading_layer = openblas_get_parallel()
         if threading_layer == 2:
             return "openmp"
         elif threading_layer == 1:

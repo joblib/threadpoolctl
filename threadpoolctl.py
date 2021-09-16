@@ -333,7 +333,7 @@ class ThreadpoolController():
         kwargs can be any number of pair (key, value) where key is a entry
         TODO
         """
-        if not kwargs:
+        if not kwargs or all(val is None for val in kwargs.values()):
             kwargs = {"user_api": _ALL_USER_APIS}
         for key, vals in kwargs.items():
             kwargs[key] = [vals] if not isinstance(vals, list) else vals

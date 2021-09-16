@@ -27,11 +27,6 @@ def effective_num_threads(nthreads, max_threads):
     return nthreads
 
 
-# def _threadpool_info():
-#     # Like threadpool_info but return the object instead of the list of dicts
-#     return ThreadpoolController()
-
-
 def test_threadpool_info():
     # Check consistency between threadpool_info and ThreadpoolController
     function_info = threadpool_info()
@@ -41,7 +36,7 @@ def test_threadpool_info():
         assert libctl1 == libctl2.todict()
 
 
-def test_ThreadpoolController_todicts():
+def test_threadpool_controller_todicts():
     # Check that all keys expected for the private api are in the dicts
     # returned by the todict(s) methods
     controller = ThreadpoolController()
@@ -59,6 +54,25 @@ def test_ThreadpoolController_todicts():
 
         if libctl_dict["internal_api"] in ("mkl", "blis", "openblas"):
             assert "threading_layer" in libctl_dict
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"user_api": "blas"},
+    {"prefix": "libgomp"},
+    {"internal_api": "openblas", "prefix": "libomp"},
+    {"prefix": ["libgomp", "libomp", "libiomp"]}]
+)
+def test_threadpool_controller_select(kwargs):
+    # Check the behior of the select method of ThreadpoolController
+    controller = ThreadpoolController().select(**kwargs)
+    if not controller:
+        pytest.skip(f"Requires at least one of {list(kwargs.values())}.")
+
+    for libctl in controller.lib_controllers:
+        assert any(
+            getattr(libctl, key) in (val if isinstance(val, list) else [val])
+            for key, val in kwargs.items()
+        )
 
 
 @pytest.mark.parametrize("prefix", _ALL_PREFIXES)

@@ -165,6 +165,22 @@ def test_threadpool_limits_manual_unregister():
     assert ThreadpoolController() == original_ctl
 
 
+def test_threadpool_limits_with_controller():
+    # Check that threadpool_limits will only act on the libraries contained in
+    # the controller when provided
+    original_blas_ctl = ThreadpoolController().select(user_api="blas")
+    original_openmp_ctl = ThreadpoolController().select(user_api="openmp")
+
+    with threadpool_limits(1, controller=original_blas_ctl):
+        blas_ctl = ThreadpoolController().select(user_api="blas")
+        openmp_ctl = ThreadpoolController().select(user_api="openmp")
+
+        assert all(libctl.num_threads == 1 for libctl in blas_ctl)
+        # the provided controller contains only blas libraries so no opemp
+        # library should be impacted.
+        assert openmp_ctl == original_openmp_ctl
+
+
 def test_threadpool_limits_bad_input():
     # Check that appropriate errors are raised for invalid arguments
     match = re.escape("user_api must be either in {} or None."

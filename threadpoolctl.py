@@ -294,18 +294,10 @@ class threadpool_limits:
 class ThreadpoolController():
     """Collection of LibController objects for all loaded supported libraries
 
-    Parameters
-    ----------
-    controllers : list of ``LibController`` objects or None (default=None)
-        Wraps a list of library controllers into a ``ThreadpoolController``
-        object. Does not load or reload any shared library.
-
     Attributes
     ----------
-    controllers : list of ``LibController`` objects
-        The list of library controllers of all loaded supported libraries that
-        match the selection from ``user_api`` and ``prefixes`` or provided by
-        ``controllers``.
+    lib_controllers : list of ``LibController`` objects
+        The list of library controllers of all loaded supported libraries.
     """
     # Cache for libc under POSIX and a few system libraries under Windows.
     # We use a class level cache instead of an instance level cache because
@@ -319,13 +311,10 @@ class ThreadpoolController():
     # never change during the lifetime of a program.
     _realpaths = dict()
 
-    def __init__(self, lib_controllers=None):
-        self.lib_controllers = lib_controllers
-
-        if self.lib_controllers is None:
-            self.lib_controllers = []
-            self._load_libraries()
-            self._warn_if_incompatible_openmp()
+    def __init__(self):
+        self.lib_controllers = []
+        self._load_libraries()
+        self._warn_if_incompatible_openmp()
 
     @classmethod
     def _from_controllers(cls, lib_controllers):
@@ -338,9 +327,11 @@ class ThreadpoolController():
         return [libctl.todict() for libctl in self.lib_controllers]
 
     def select(self, **kwargs):
-        """Return a ThreadpoolController containing a subset of its libraries
+        """Return a ThreadpoolController containing a subset of its current
+        library controllers
 
         kwargs can be any number of pair (key, value) where key is a entry
+        TODO
         """
         if not kwargs:
             kwargs = {"user_api": _ALL_USER_APIS}

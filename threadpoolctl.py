@@ -38,16 +38,16 @@ os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "True")
 
 # Structure to cast the info on dynamically loaded library. See
 # https://linux.die.net/man/3/dl_iterate_phdr for more details.
-_SYSTEM_UINT = ctypes.c_uint64 if sys.maxsize > 2**32 else ctypes.c_uint32
-_SYSTEM_UINT_HALF = ctypes.c_uint32 if sys.maxsize > 2**32 else ctypes.c_uint16
+_SYSTEM_UINT = ctypes.c_uint64 if sys.maxsize > 2 ** 32 else ctypes.c_uint32
+_SYSTEM_UINT_HALF = ctypes.c_uint32 if sys.maxsize > 2 ** 32 else ctypes.c_uint16
 
 
 class _dl_phdr_info(ctypes.Structure):
     _fields_ = [
-        ("dlpi_addr",  _SYSTEM_UINT),       # Base address of object
-        ("dlpi_name",  ctypes.c_char_p),    # path to the library
-        ("dlpi_phdr",  ctypes.c_void_p),    # pointer on dlpi_headers
-        ("dlpi_phnum",  _SYSTEM_UINT_HALF)  # number of elements in dlpi_phdr
+        ("dlpi_addr", _SYSTEM_UINT),  # Base address of object
+        ("dlpi_name", ctypes.c_char_p),  # path to the library
+        ("dlpi_phdr", ctypes.c_void_p),  # pointer on dlpi_headers
+        ("dlpi_phnum", _SYSTEM_UINT_HALF),  # number of elements in dlpi_phdr
     ]
 
 
@@ -66,34 +66,35 @@ _SUPPORTED_MODULES = {
     "_OpenMPModule": {
         "user_api": "openmp",
         "internal_api": "openmp",
-        "filename_prefixes": ("libiomp", "libgomp", "libomp", "vcomp")
+        "filename_prefixes": ("libiomp", "libgomp", "libomp", "vcomp"),
     },
     "_OpenBLASModule": {
         "user_api": "blas",
         "internal_api": "openblas",
-        "filename_prefixes": ("libopenblas",)
+        "filename_prefixes": ("libopenblas",),
     },
     "_MKLModule": {
         "user_api": "blas",
         "internal_api": "mkl",
-        "filename_prefixes": ("libmkl_rt", "mkl_rt")
+        "filename_prefixes": ("libmkl_rt", "mkl_rt"),
     },
     "_BLISModule": {
         "user_api": "blas",
         "internal_api": "blis",
-        "filename_prefixes": ("libblis",)
-    }
+        "filename_prefixes": ("libblis",),
+    },
 }
 
 # Helpers for the doc and test names
 _ALL_USER_APIS = list(set(m["user_api"] for m in _SUPPORTED_MODULES.values()))
 _ALL_INTERNAL_APIS = [m["internal_api"] for m in _SUPPORTED_MODULES.values()]
-_ALL_PREFIXES = [prefix for m in _SUPPORTED_MODULES.values()
-                 for prefix in m["filename_prefixes"]]
-_ALL_BLAS_LIBRARIES = [m["internal_api"] for m in _SUPPORTED_MODULES.values()
-                       if m["user_api"] == "blas"]
-_ALL_OPENMP_LIBRARIES = list(
-    _SUPPORTED_MODULES["_OpenMPModule"]["filename_prefixes"])
+_ALL_PREFIXES = [
+    prefix for m in _SUPPORTED_MODULES.values() for prefix in m["filename_prefixes"]
+]
+_ALL_BLAS_LIBRARIES = [
+    m["internal_api"] for m in _SUPPORTED_MODULES.values() if m["user_api"] == "blas"
+]
+_ALL_OPENMP_LIBRARIES = list(_SUPPORTED_MODULES["_OpenMPModule"]["filename_prefixes"])
 
 
 def _format_docstring(*args, **kwargs):
@@ -105,8 +106,7 @@ def _format_docstring(*args, **kwargs):
     return decorator
 
 
-@_format_docstring(USER_APIS=list(_ALL_USER_APIS),
-                   INTERNAL_APIS=_ALL_INTERNAL_APIS)
+@_format_docstring(USER_APIS=list(_ALL_USER_APIS), INTERNAL_APIS=_ALL_INTERNAL_APIS)
 def threadpool_info():
     """Return the maximal number of threads for each detected library.
 
@@ -128,7 +128,8 @@ def threadpool_info():
 @_format_docstring(
     USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
     BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
-    OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES))
+    OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
+)
 class threadpool_limits:
     """Change the maximal number of threads that can be used in thread pools.
 
@@ -165,9 +166,11 @@ class threadpool_limits:
 
         - If None, this function will apply to all supported libraries.
     """
+
     def __init__(self, limits=None, user_api=None):
-        self._limits, self._user_api, self._prefixes = \
-            self._check_params(limits, user_api)
+        self._limits, self._user_api, self._prefixes = self._check_params(
+            limits, user_api
+        )
 
         self._original_info = self._set_threadpool_limits()
 
@@ -196,8 +199,10 @@ class threadpool_limits:
         warning_apis = []
 
         for user_api in self._user_api:
-            limits = [module.num_threads for module in
-                      original_limits.get_modules("user_api", user_api)]
+            limits = [
+                module.num_threads
+                for module in original_limits.get_modules("user_api", user_api)
+            ]
             limits = set(limits)
             n_limits = len(limits)
 
@@ -213,14 +218,15 @@ class threadpool_limits:
 
         if warning_apis:
             warnings.warn(
-                "Multiple value possible for following user apis: " +
-                ", ".join(warning_apis) + ". Returning the minimum.")
+                "Multiple value possible for following user apis: "
+                + ", ".join(warning_apis)
+                + ". Returning the minimum."
+            )
 
         return num_threads
 
     def _check_params(self, limits, user_api):
-        """Suitable values for the _limits, _user_api and _prefixes attributes
-        """
+        """Suitable values for the _limits, _user_api and _prefixes attributes"""
         if limits is None or isinstance(limits, int):
             if user_api is None:
                 user_api = _ALL_USER_APIS
@@ -229,7 +235,8 @@ class threadpool_limits:
             else:
                 raise ValueError(
                     "user_api must be either in {} or None. Got "
-                    "{} instead.".format(_ALL_USER_APIS, user_api))
+                    "{} instead.".format(_ALL_USER_APIS, user_api)
+                )
 
             if limits is not None:
                 limits = {api: limits for api in user_api}
@@ -238,17 +245,17 @@ class threadpool_limits:
             if isinstance(limits, list):
                 # This should be a list of dicts of modules, for compatibility
                 # with the result from threadpool_info.
-                limits = {module["prefix"]: module["num_threads"]
-                          for module in limits}
+                limits = {module["prefix"]: module["num_threads"] for module in limits}
             elif isinstance(limits, _ThreadpoolInfo):
                 # To set the limits from the modules of a _ThreadpoolInfo
                 # object.
-                limits = {module.prefix: module.num_threads
-                          for module in limits}
+                limits = {module.prefix: module.num_threads for module in limits}
 
             if not isinstance(limits, dict):
-                raise TypeError("limits must either be an int, a list or a "
-                                "dict. Got {} instead".format(type(limits)))
+                raise TypeError(
+                    "limits must either be an int, a list or a "
+                    "dict. Got {} instead".format(type(limits))
+                )
 
             # With a dictionary, can set both specific limit for given modules
             # and global limit for user_api. Fetch each separately.
@@ -266,8 +273,7 @@ class threadpool_limits:
         if self._limits is None:
             return None
 
-        modules = _ThreadpoolInfo(prefixes=self._prefixes,
-                                  user_api=self._user_api)
+        modules = _ThreadpoolInfo(prefixes=self._prefixes, user_api=self._user_api)
         for module in modules:
             # self._limits is a dict {key: num_threads} where key is either
             # a prefix or a user_api. If a module matches both, the limit
@@ -289,8 +295,9 @@ class threadpool_limits:
     PREFIXES=", ".join('"{}"'.format(prefix) for prefix in _ALL_PREFIXES),
     USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
     BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
-    OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES))
-class _ThreadpoolInfo():
+    OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
+)
+class _ThreadpoolInfo:
     """Collection of all supported modules that have been found
 
     Parameters
@@ -320,6 +327,7 @@ class _ThreadpoolInfo():
     Is is possible to select libraries both by prefixes and by user_api. All
     libraries matching one or the other will be selected.
     """
+
     # Cache for libc under POSIX and a few system libraries under Windows.
     # We use a class level cache instead of an instance level cache because
     # it's very unlikely that a shared library will be unloaded and reloaded
@@ -332,7 +340,7 @@ class _ThreadpoolInfo():
     # never change during the lifetime of a program.
     _realpaths = dict()
 
-    def __init__(self, user_api=None, prefixes=None,  modules=None):
+    def __init__(self, user_api=None, prefixes=None, modules=None):
         if modules is None:
             self.prefixes = [] if prefixes is None else prefixes
             self.user_api = [] if user_api is None else user_api
@@ -349,8 +357,7 @@ class _ThreadpoolInfo():
             values = list(_ALL_USER_APIS)
         if not isinstance(values, list):
             values = [values]
-        modules = [module for module in self.modules
-                   if getattr(module, key) in values]
+        modules = [module for module in self.modules if getattr(module, key) in values]
         return _ThreadpoolInfo(modules=modules)
 
     def todicts(self):
@@ -403,7 +410,10 @@ class _ThreadpoolInfo():
 
         c_func_signature = ctypes.CFUNCTYPE(
             ctypes.c_int,  # Return type
-            ctypes.POINTER(_dl_phdr_info), ctypes.c_size_t, ctypes.c_char_p)
+            ctypes.POINTER(_dl_phdr_info),
+            ctypes.c_size_t,
+            ctypes.c_char_p,
+        )
         c_match_module_callback = c_func_signature(match_module_callback)
 
         data = ctypes.c_char_p(b"")
@@ -446,8 +456,8 @@ class _ThreadpoolInfo():
         kernel_32 = self._get_windll("kernel32")
 
         h_process = kernel_32.OpenProcess(
-            PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
-            False, os.getpid())
+            PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, os.getpid()
+        )
         if not h_process:  # pragma: no cover
             raise OSError("Could not open PID %s" % os.getpid())
 
@@ -460,8 +470,12 @@ class _ThreadpoolInfo():
                 buf = (HMODULE * buf_count)()
                 buf_size = ctypes.sizeof(buf)
                 if not ps_api.EnumProcessModulesEx(
-                        h_process, ctypes.byref(buf), buf_size,
-                        ctypes.byref(needed), LIST_MODULES_ALL):
+                    h_process,
+                    ctypes.byref(buf),
+                    buf_size,
+                    ctypes.byref(needed),
+                    LIST_MODULES_ALL,
+                ):
                     raise OSError("EnumProcessModulesEx failed")
                 if buf_size >= needed.value:
                     break
@@ -477,8 +491,8 @@ class _ThreadpoolInfo():
 
                 # Get the path of the current module
                 if not ps_api.GetModuleFileNameExW(
-                        h_process, h_module, ctypes.byref(buf),
-                        ctypes.byref(n_size)):
+                    h_process, h_module, ctypes.byref(buf), ctypes.byref(n_size)
+                ):
                     raise OSError("GetModuleFileNameEx failed")
                 filepath = buf.value
 
@@ -499,8 +513,7 @@ class _ThreadpoolInfo():
         # to a supported module.
         for module_class, candidate_module in _SUPPORTED_MODULES.items():
             # check if filename matches a supported prefix
-            prefix = self._check_prefix(filename,
-                                        candidate_module["filename_prefixes"])
+            prefix = self._check_prefix(filename, candidate_module["filename_prefixes"])
 
             # filename does not match any of the prefixes of the candidate
             # module. move to next module.
@@ -528,7 +541,7 @@ class _ThreadpoolInfo():
 
     def _warn_if_incompatible_openmp(self):
         """Raise a warning if llvm-OpenMP and intel-OpenMP are both loaded"""
-        if sys.platform != 'linux':
+        if sys.platform != "linux":
             # Only raise the warning on linux
             return
 
@@ -542,8 +555,9 @@ class _ThreadpoolInfo():
             Using threadpoolctl may cause crashes or deadlocks. For more
             information and possible workarounds, please see
                 https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
-            """)
-        if 'libomp' in prefixes and 'libiomp' in prefixes:
+            """
+        )
+        if "libomp" in prefixes and "libiomp" in prefixes:
             warnings.warn(msg, RuntimeWarning)
 
     @classmethod
@@ -569,8 +583,7 @@ class _ThreadpoolInfo():
 
     @classmethod
     def _realpath(cls, filepath, cache_limit=10000):
-        """Small caching wrapper around os.path.realpath to limit system calls
-        """
+        """Small caching wrapper around os.path.realpath to limit system calls"""
         rpath = cls._realpaths.get(filepath)
         if rpath is None:
             rpath = os.path.realpath(filepath)
@@ -583,7 +596,8 @@ class _ThreadpoolInfo():
 
 @_format_docstring(
     USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
-    INTERNAL_APIS=", ".join('"{}"'.format(api) for api in _ALL_INTERNAL_APIS))
+    INTERNAL_APIS=", ".join('"{}"'.format(api) for api in _ALL_INTERNAL_APIS),
+)
 class _Module(ABC):
     """Abstract base class for the modules
 
@@ -597,8 +611,8 @@ class _Module(ABC):
 
     In addition, each module may contain internal_api specific entries.
     """
-    def __init__(self, filepath=None, prefix=None, user_api=None,
-                 internal_api=None):
+
+    def __init__(self, filepath=None, prefix=None, user_api=None, internal_api=None):
         self.filepath = filepath
         self.prefix = prefix
         self.user_api = user_api
@@ -638,6 +652,7 @@ class _Module(ABC):
 
 class _OpenBLASModule(_Module):
     """Module class for OpenBLAS"""
+
     def get_version(self):
         # None means OpenBLAS is not loaded or version < 0.3.4, since OpenBLAS
         # did not expose its version before that.
@@ -652,13 +667,13 @@ class _OpenBLASModule(_Module):
         return None
 
     def get_num_threads(self):
-        get_func = getattr(self._dynlib, "openblas_get_num_threads",
-                           lambda: None)
+        get_func = getattr(self._dynlib, "openblas_get_num_threads", lambda: None)
         return get_func()
 
     def set_num_threads(self, num_threads):
-        set_func = getattr(self._dynlib, "openblas_set_num_threads",
-                           lambda num_threads: None)
+        set_func = getattr(
+            self._dynlib, "openblas_set_num_threads", lambda num_threads: None
+        )
         return set_func(num_threads)
 
     def _get_extra_info(self):
@@ -667,8 +682,7 @@ class _OpenBLASModule(_Module):
 
     def get_threading_layer(self):
         """Return the threading layer of OpenBLAS"""
-        openblas_get_parallel = getattr(self._dynlib, "openblas_get_parallel",
-                                        None)
+        openblas_get_parallel = getattr(self._dynlib, "openblas_get_parallel", None)
         if openblas_get_parallel is None:
             return "unknown"
         threading_layer = openblas_get_parallel()
@@ -689,6 +703,7 @@ class _OpenBLASModule(_Module):
 
 class _BLISModule(_Module):
     """Module class for BLIS"""
+
     def get_version(self):
         get_version_ = getattr(self._dynlib, "bli_info_get_version_str", None)
         if get_version_ is None:
@@ -698,16 +713,16 @@ class _BLISModule(_Module):
         return get_version_().decode("utf-8")
 
     def get_num_threads(self):
-        get_func = getattr(self._dynlib, "bli_thread_get_num_threads",
-                           lambda: None)
+        get_func = getattr(self._dynlib, "bli_thread_get_num_threads", lambda: None)
         num_threads = get_func()
         # by default BLIS is single-threaded and get_num_threads
         # returns -1. We map it to 1 for consistency with other libraries.
         return 1 if num_threads == -1 else num_threads
 
     def set_num_threads(self, num_threads):
-        set_func = getattr(self._dynlib, "bli_thread_set_num_threads",
-                           lambda num_threads: None)
+        set_func = getattr(
+            self._dynlib, "bli_thread_set_num_threads", lambda num_threads: None
+        )
         return set_func(num_threads)
 
     def _get_extra_info(self):
@@ -737,6 +752,7 @@ class _BLISModule(_Module):
 
 class _MKLModule(_Module):
     """Module class for MKL"""
+
     def get_version(self):
         if not hasattr(self._dynlib, "MKL_Get_Version_String"):
             return None
@@ -755,8 +771,9 @@ class _MKLModule(_Module):
         return get_func()
 
     def set_num_threads(self, num_threads):
-        set_func = getattr(self._dynlib, "MKL_Set_Num_Threads",
-                           lambda num_threads: None)
+        set_func = getattr(
+            self._dynlib, "MKL_Set_Num_Threads", lambda num_threads: None
+        )
         return set_func(num_threads)
 
     def _get_extra_info(self):
@@ -767,15 +784,23 @@ class _MKLModule(_Module):
         # The function mkl_set_threading_layer returns the current threading
         # layer. Calling it with an invalid threading layer allows us to safely
         # get the threading layer
-        set_threading_layer = getattr(self._dynlib, "MKL_Set_Threading_Layer",
-                                      lambda layer: -1)
-        layer_map = {0: "intel", 1: "sequential", 2: "pgi",
-                     3: "gnu", 4: "tbb", -1: "not specified"}
+        set_threading_layer = getattr(
+            self._dynlib, "MKL_Set_Threading_Layer", lambda layer: -1
+        )
+        layer_map = {
+            0: "intel",
+            1: "sequential",
+            2: "pgi",
+            3: "gnu",
+            4: "tbb",
+            -1: "not specified",
+        }
         return layer_map[set_threading_layer(-1)]
 
 
 class _OpenMPModule(_Module):
     """Module class for OpenMP"""
+
     def get_version(self):
         # There is no way to get the version number programmatically in OpenMP.
         return None
@@ -785,8 +810,9 @@ class _OpenMPModule(_Module):
         return get_func()
 
     def set_num_threads(self, num_threads):
-        set_func = getattr(self._dynlib, "omp_set_num_threads",
-                           lambda num_threads: None)
+        set_func = getattr(
+            self._dynlib, "omp_set_num_threads", lambda num_threads: None
+        )
         return set_func(num_threads)
 
     def _get_extra_info(self):
@@ -805,13 +831,18 @@ def _main():
         description="Display thread-pool information and exit.",
     )
     parser.add_argument(
-        "-i", "--import", dest="modules", nargs="*", default=(),
-        help="Python modules to import before introspecting thread-pools."
+        "-i",
+        "--import",
+        dest="modules",
+        nargs="*",
+        default=(),
+        help="Python modules to import before introspecting thread-pools.",
     )
     parser.add_argument(
-        "-c", "--command",
-        help="a Python statement to execute before introspecting"
-             " thread-pools.")
+        "-c",
+        "--command",
+        help="a Python statement to execute before introspecting thread-pools.",
+    )
 
     options = parser.parse_args(sys.argv[1:])
     for module in options.modules:

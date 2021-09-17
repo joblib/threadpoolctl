@@ -12,8 +12,8 @@ try:
     set_cc_variables("CC_OUTER_LOOP")
     openmp_flag = get_openmp_flag()
 
-    use_blis = os.getenv('INSTALL_BLIS', False)
-    libraries = ['blis'] if use_blis else []
+    use_blis = os.getenv("INSTALL_BLIS", False)
+    libraries = ["blis"] if use_blis else []
 
     ext_modules = [
         Extension(
@@ -21,18 +21,21 @@ try:
             ["nested_prange_blas.pyx"],
             extra_compile_args=openmp_flag,
             extra_link_args=openmp_flag,
-            libraries=libraries
-            )
+            libraries=libraries,
+        )
     ]
 
     setup(
-        name='_openmp_test_helper_nested_prange_blas',
+        name="_openmp_test_helper_nested_prange_blas",
         ext_modules=cythonize(
             ext_modules,
-            compile_time_env={'USE_BLIS': use_blis},
-            compiler_directives={'language_level': 3,
-                                 'boundscheck': False,
-                                 'wraparound': False})
+            compile_time_env={"USE_BLIS": use_blis},
+            compiler_directives={
+                "language_level": 3,
+                "boundscheck": False,
+                "wraparound": False,
+            },
+        ),
     )
 
 finally:

@@ -154,23 +154,25 @@ def test_threadpool_limits_manual_unregister():
 
 def test_threadpool_limits_bad_input():
     # Check that appropriate errors are raised for invalid arguments
-    match = re.escape("user_api must be either in {} or None."
-                      .format(_ALL_USER_APIS))
+    match = re.escape("user_api must be either in {} or None.".format(_ALL_USER_APIS))
     with pytest.raises(ValueError, match=match):
         threadpool_limits(limits=1, user_api="wrong")
 
-    with pytest.raises(TypeError,
-                       match="limits must either be an int, a list or a dict"):
+    with pytest.raises(
+        TypeError, match="limits must either be an int, a list or a dict"
+    ):
         threadpool_limits(limits=(1, 2, 3))
 
 
-@pytest.mark.skipif(not cython_extensions_compiled,
-                    reason='Requires cython extensions to be compiled')
-@pytest.mark.parametrize('num_threads', [1, 2, 4])
+@pytest.mark.skipif(
+    not cython_extensions_compiled, reason="Requires cython extensions to be compiled"
+)
+@pytest.mark.parametrize("num_threads", [1, 2, 4])
 def test_openmp_limit_num_threads(num_threads):
     # checks that OpenMP effectively uses the number of threads requested by
     # the context manager
     import tests._openmp_test_helper.openmp_helpers_inner as omp_inner
+
     check_openmp_num_threads = omp_inner.check_openmp_num_threads
 
     old_num_threads = check_openmp_num_threads(100)
@@ -180,24 +182,28 @@ def test_openmp_limit_num_threads(num_threads):
     assert check_openmp_num_threads(100) == old_num_threads
 
 
-@pytest.mark.skipif(not cython_extensions_compiled,
-                    reason="Requires cython extensions to be compiled")
+@pytest.mark.skipif(
+    not cython_extensions_compiled, reason="Requires cython extensions to be compiled"
+)
 @pytest.mark.parametrize("nthreads_outer", [None, 1, 2, 4])
 def test_openmp_nesting(nthreads_outer):
     # checks that OpenMP effectively uses the number of threads requested by
     # the context manager when nested in an outer OpenMP loop.
     import tests._openmp_test_helper.openmp_helpers_outer as omp_outer
+
     check_nested_openmp_loops = omp_outer.check_nested_openmp_loops
 
     # Find which OpenMP lib is used at runtime for inner loop
     inner_info = threadpool_info_from_subprocess(
-        "tests._openmp_test_helper.openmp_helpers_inner")
+        "tests._openmp_test_helper.openmp_helpers_inner"
+    )
     assert len(inner_info) == 1
     inner_omp = inner_info[0]["prefix"]
 
     # Find which OpenMP lib is used at runtime for outer loop
     outer_info = threadpool_info_from_subprocess(
-        "tests._openmp_test_helper.openmp_helpers_outer")
+        "tests._openmp_test_helper.openmp_helpers_outer"
+    )
     if len(outer_info) == 1:
         # Only 1 openmp loaded. It has to be this one.
         outer_omp = outer_info[0]["prefix"]
@@ -222,8 +228,7 @@ def test_openmp_nesting(nthreads_outer):
 
         # Ask outer loop to run on nthreads threads and inner loop run on 1
         # thread
-        outer_num_threads, inner_num_threads = \
-            check_nested_openmp_loops(10, nthreads)
+        outer_num_threads, inner_num_threads = check_nested_openmp_loops(10, nthreads)
 
     # The state of the original state of all threadpools should have been
     # restored.
@@ -239,8 +244,9 @@ def test_openmp_nesting(nthreads_outer):
         if inner_num_threads != 1:
             # XXX: this does not always work when nesting independent openmp
             # implementations. See: https://github.com/jeremiedbb/Nested_OpenMP
-            pytest.xfail("Inner OpenMP num threads was %d instead of 1"
-                         % inner_num_threads)
+            pytest.xfail(
+                "Inner OpenMP num threads was %d instead of 1" % inner_num_threads
+            )
     assert inner_num_threads == 1
 
 
@@ -258,8 +264,9 @@ def test_shipped_openblas():
     assert original_info == _threadpool_info()
 
 
-@pytest.mark.skipif(len(libopenblas_paths) < 2,
-                    reason="need at least 2 shipped openblas library")
+@pytest.mark.skipif(
+    len(libopenblas_paths) < 2, reason="need at least 2 shipped openblas library"
+)
 def test_multiple_shipped_openblas():
     # This redundant test is meant to make it easier to see if the system
     # has 2 or more active openblas runtimes available just be reading the
@@ -268,8 +275,9 @@ def test_multiple_shipped_openblas():
 
 
 @pytest.mark.skipif(scipy is None, reason="requires scipy")
-@pytest.mark.skipif(not cython_extensions_compiled,
-                    reason='Requires cython extensions to be compiled')
+@pytest.mark.skipif(
+    not cython_extensions_compiled, reason="Requires cython extensions to be compiled"
+)
 @pytest.mark.parametrize("nthreads_outer", [None, 1, 2, 4])
 def test_nested_prange_blas(nthreads_outer):
     # Check that the BLAS linked to scipy effectively uses the number of
@@ -277,6 +285,7 @@ def test_nested_prange_blas(nthreads_outer):
     # loop.
     import numpy as np
     import tests._openmp_test_helper.nested_prange_blas as prange_blas
+
     check_nested_prange_blas = prange_blas.check_nested_prange_blas
 
     original_info = _threadpool_info()
@@ -351,8 +360,9 @@ def test_mkl_threading_layer():
     expected_layer = os.getenv("MKL_THREADING_LAYER")
 
     if not (mkl_info and expected_layer):
-        pytest.skip("requires MKL and the environment variable "
-                    "MKL_THREADING_LAYER set")
+        pytest.skip(
+            "requires MKL and the environment variable MKL_THREADING_LAYER set"
+        )
 
     actual_layer = mkl_info.modules[0].threading_layer
     assert actual_layer == expected_layer.lower()
@@ -367,15 +377,17 @@ def test_blis_threading_layer():
         expected_layer = "disabled"
 
     if not (blis_info and expected_layer):
-        pytest.skip("requires BLIS and the environment variable "
-                    "BLIS_ENABLE_THREADING set")
+        pytest.skip(
+            "requires BLIS and the environment variable BLIS_ENABLE_THREADING set"
+        )
 
     actual_layer = blis_info.modules[0].threading_layer
     assert actual_layer == expected_layer
 
 
-@pytest.mark.skipif(not cython_extensions_compiled,
-                    reason='Requires cython extensions to be compiled')
+@pytest.mark.skipif(
+    not cython_extensions_compiled, reason="Requires cython extensions to be compiled"
+)
 def test_libomp_libiomp_warning(recwarn):
     # Trigger the import of a potentially clang-compiled extension:
     import tests._openmp_test_helper.openmp_helpers_outer  # noqa
@@ -388,8 +400,7 @@ def test_libomp_libiomp_warning(recwarn):
     info = _threadpool_info()
     prefixes = [module.prefix for module in info]
 
-    if not ("libomp" in prefixes and "libiomp" in prefixes and
-            sys.platform == "linux"):
+    if not ("libomp" in prefixes and "libiomp" in prefixes and sys.platform == "linux"):
         pytest.skip("Requires both libomp and libiomp loaded, on Linux")
 
     assert len(recwarn) == 1
@@ -401,15 +412,15 @@ def test_libomp_libiomp_warning(recwarn):
 
 
 def test_command_line_empty():
-    output = subprocess.check_output(
-        (sys.executable + " -m threadpoolctl").split())
+    output = subprocess.check_output((sys.executable + " -m threadpoolctl").split())
     assert json.loads(output.decode("utf-8")) == []
 
 
 def test_command_line_command_flag():
     pytest.importorskip("numpy")
     output = subprocess.check_output(
-        [sys.executable, "-m", "threadpoolctl", "-c", "import numpy"])
+        [sys.executable, "-m", "threadpoolctl", "-c", "import numpy"]
+    )
     cli_info = json.loads(output.decode("utf-8"))
 
     this_process_info = threadpool_info()
@@ -417,16 +428,25 @@ def test_command_line_command_flag():
         assert module in this_process_info
 
 
-@pytest.mark.skipif(sys.version_info < (3, 7),
-                    reason="need recent subprocess.run options")
+@pytest.mark.skipif(
+    sys.version_info < (3, 7), reason="need recent subprocess.run options"
+)
 def test_command_line_import_flag():
-    result = subprocess.run([
-        sys.executable, "-m", "threadpoolctl", "-i",
-        "numpy",
-        "scipy.linalg",
-        "invalid_package",
-        "numpy.invalid_sumodule",
-    ], capture_output=True, check=True, encoding="utf-8")
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "threadpoolctl",
+            "-i",
+            "numpy",
+            "scipy.linalg",
+            "invalid_package",
+            "numpy.invalid_sumodule",
+        ],
+        capture_output=True,
+        check=True,
+        encoding="utf-8",
+    )
     cli_info = json.loads(result.stdout)
 
     this_process_info = threadpool_info()

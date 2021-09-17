@@ -255,11 +255,16 @@ class threadpool_limits:
             if isinstance(limits, list):
                 # This should be a list of dicts of library info, for
                 # compatibility with the result from threadpool_info.
-                limits = {lib_info["prefix"]: lib_info["num_threads"] for lib_info in limits}
+                limits = {
+                    lib_info["prefix"]: lib_info["num_threads"] for lib_info in limits
+                }
             elif isinstance(limits, ThreadpoolController):
                 # To set the limits from the library controllers of a
                 # ThreadpoolController object.
-                limits = {lib_controller.prefix: lib_controller.num_threads for lib_controller in limits}
+                limits = {
+                    lib_controller.prefix: lib_controller.num_threads
+                    for lib_controller in limits
+                }
 
             if not isinstance(limits, dict):
                 raise TypeError(
@@ -359,7 +364,10 @@ class ThreadpoolController:
         lib_controllers = [
             lib_controller
             for lib_controller in self.lib_controllers
-            if any(getattr(lib_controller, key, None) in vals for key, vals in kwargs.items())
+            if any(
+                getattr(lib_controller, key, None) in vals
+                for key, vals in kwargs.items()
+            )
         ]
 
         return ThreadpoolController._from_controllers(lib_controllers)
@@ -819,7 +827,6 @@ class OpenMPController(LibController):
     def _get_version(self):
         # There is no way to get the version number programmatically in OpenMP.
         return None
-
 
 
 def _main():

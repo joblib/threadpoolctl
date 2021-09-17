@@ -41,8 +41,12 @@ def test_threadpool_controller_todicts():
     # returned by the todict(s) methods
     controller = ThreadpoolController()
 
-    assert threadpool_info() == [lib_controller.todict() for lib_controller in controller]
-    assert controller.todicts() == [lib_controller.todict() for lib_controller in controller]
+    assert threadpool_info() == [
+        lib_controller.todict() for lib_controller in controller
+    ]
+    assert controller.todicts() == [
+        lib_controller.todict() for lib_controller in controller
+    ]
 
     for lib_controller_dict in controller.todicts():
         assert "user_api" in lib_controller_dict
@@ -181,7 +185,9 @@ def test_threadpool_limits_with_controller():
         blas_controller = ThreadpoolController().select(user_api="blas")
         openmp_controller = ThreadpoolController().select(user_api="openmp")
 
-        assert all(lib_controller.num_threads == 1 for lib_controller in blas_controller)
+        assert all(
+            lib_controller.num_threads == 1 for lib_controller in blas_controller
+        )
         # the provided controller contains only blas libraries so no opemp
         # library should be impacted.
         assert openmp_controller == original_openmp_controller
@@ -379,7 +385,9 @@ def test_get_original_num_threads(limit):
 
             blas_controller = original_controller.select(user_api="blas")
             if blas_controller:
-                expected = min(lib_controller.num_threads for lib_controller in blas_controller)
+                expected = min(
+                    lib_controller.num_threads for lib_controller in blas_controller
+                )
                 assert original_num_threads["blas"] == expected
             else:
                 assert original_num_threads["blas"] is None

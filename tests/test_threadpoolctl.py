@@ -175,23 +175,42 @@ def test_threadpool_limits_manual_unregister():
     assert ThreadpoolController() == original_controller
 
 
-def test_threadpool_limits_with_controller():
-    # Check that threadpool_limits will only act on the libraries contained in
-    # the controller when provided
+def test_threadpool_controller_limit():
+    # Check that using the limit method of ThreadpoolController only impact its
+    # library controllers.
     original_blas_controller = ThreadpoolController().select(user_api="blas")
     original_openmp_controller = ThreadpoolController().select(user_api="openmp")
 
-    with threadpool_limits(1, controller=original_blas_controller):
+    with original_blas_controller.limit(limits=1):
         blas_controller = ThreadpoolController().select(user_api="blas")
         openmp_controller = ThreadpoolController().select(user_api="openmp")
 
         assert all(
             lib_controller.num_threads == 1 for lib_controller in blas_controller
         )
-        # the provided controller contains only blas libraries so no opemp
-        # library should be impacted.
+        # original_blas_controller contains only blas libraries so no opemp library
+        # should be impacted.
         assert openmp_controller == original_openmp_controller
 
+
+def test_threadpool_controller_restore():
+    # Check that the restore_limits method of ThreadpoolController is able to set the
+    # limits back to their original values. Similar to
+    # test_threadpool_limits_function_with_side_effect but with the object api
+    controller = ThreadpoolController()
+
+    controller.limit(limits=1)
+    try:
+        for lib_controller in ThreadpoolController():
+            if is_old_openblas(lib_controller):
+                continue
+            assert lib_controller.num_threads == 1
+    finally:
+        # Restore the original limits so that this test does not have any
+        # side-effect.
+        controller.restore_limits()
+
+    assert ThreadpoolController() == controller
 
 def test_threadpool_limits_bad_input():
     # Check that appropriate errors are raised for invalid arguments

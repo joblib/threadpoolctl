@@ -39,7 +39,6 @@ stages:
           VERSION_PYTHON: '3.8'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
-          LINT: 'true'
         py36_ubuntu_openblas_gcc_gcc:
           PACKAGER: 'ubuntu'
           APT_BLAS: 'libopenblas-base libopenblas-dev'
@@ -84,6 +83,7 @@ stages:
           BLAS: 'openblas'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
+          LINT: 'true'
         # Linux environment with no numpy and heterogeneous OpenMP runtimes.
         pylatest_conda_nonumpy_gcc_clang:
           PACKAGER: 'conda'

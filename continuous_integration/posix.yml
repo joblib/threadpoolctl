@@ -24,7 +24,7 @@ jobs:
         conda create -n tmp -y -c conda-forge python black
         source activate tmp
         black --check .
-        source deactivate
+        conda deactivate
       displayName: Lint
       condition: eq(variables['LINT'], 'true')
     - script: |

@@ -195,10 +195,10 @@ class threadpool_limits:
         self.unregister()
 
     def unregister(self):
-        for libctl in self._controller.lib_controllers:
+        for lib_controller in self._controller.lib_controllers:
             # Since we never call get_num_threads after instanciation of
             # ThreadpoolController, num_threads holds the original value.
-            libctl._set_num_threads(libctl.num_threads)
+            lib_controller._set_num_threads(lib_controller.num_threads)
 
     def get_original_num_threads(self):
         """Original num_threads from before calling threadpool_limits
@@ -210,8 +210,8 @@ class threadpool_limits:
 
         for user_api in self._user_api:
             limits = [
-                libctl.num_threads
-                for libctl in self._controller.select(user_api=user_api)
+                lib_controller.num_threads
+                for lib_controller in self._controller.select(user_api=user_api)
             ]
             limits = set(limits)
             n_limits = len(limits)
@@ -253,13 +253,13 @@ class threadpool_limits:
             prefixes = []
         else:
             if isinstance(limits, list):
-                # This should be a list of dicts of library controllers, for
+                # This should be a list of dicts of library info, for
                 # compatibility with the result from threadpool_info.
-                limits = {ctl["prefix"]: ctl["num_threads"] for ctl in limits}
+                limits = {lib_info["prefix"]: lib_info["num_threads"] for lib_info in limits}
             elif isinstance(limits, ThreadpoolController):
                 # To set the limits from the library controllers of a
                 # ThreadpoolController object.
-                limits = {ctl.prefix: ctl.num_threads for ctl in limits}
+                limits = {lib_controller.prefix: lib_controller.num_threads for lib_controller in limits}
 
             if not isinstance(limits, dict):
                 raise TypeError(
@@ -283,19 +283,19 @@ class threadpool_limits:
         if self._limits is None:
             return None
 
-        for libctl in self._controller.lib_controllers:
+        for lib_controller in self._controller.lib_controllers:
             # self._limits is a dict {key: num_threads} where key is either
             # a prefix or a user_api. If a library matches both, the limit
             # corresponding to the prefix is chosen.
-            if libctl.prefix in self._limits:
-                num_threads = self._limits[libctl.prefix]
-            elif libctl.user_api in self._limits:
-                num_threads = self._limits[libctl.user_api]
+            if lib_controller.prefix in self._limits:
+                num_threads = self._limits[lib_controller.prefix]
+            elif lib_controller.user_api in self._limits:
+                num_threads = self._limits[lib_controller.user_api]
             else:
                 continue
 
             if num_threads is not None:
-                libctl._set_num_threads(num_threads)
+                lib_controller._set_num_threads(num_threads)
 
 
 @_format_docstring(
@@ -338,24 +338,28 @@ class ThreadpoolController:
 
     def todicts(self):
         """Return info as a list of dicts"""
-        return [libctl.todict() for libctl in self.lib_controllers]
+        return [lib_controller.todict() for lib_controller in self.lib_controllers]
 
     def select(self, **kwargs):
         """Return a ThreadpoolController containing a subset of its current
         library controllers
 
-        kwargs can be any number of pair (key, value) where key is a entry
-        TODO
+        It will select all libraries matching at least one pair (key, value) from kwargs
+        where key is an entry of the library info dict (like "user_api", "internal_api",
+        "prefix", ...) and value is the value or a list of acceptable values for that
+        entry.
+
+        For instance, `ThreadpoolController().select(internal_api=["blis", "openblas"])`
+        will select all library controllers whose internal_api is either "blis" or
+        "openblas".
         """
-        if not kwargs or all(val is None for val in kwargs.values()):
-            kwargs = {"user_api": _ALL_USER_APIS}
         for key, vals in kwargs.items():
             kwargs[key] = [vals] if not isinstance(vals, list) else vals
 
         lib_controllers = [
-            libctl
-            for libctl in self.lib_controllers
-            if any(getattr(libctl, key, None) in vals for key, vals in kwargs.items())
+            lib_controller
+            for lib_controller in self.lib_controllers
+            if any(getattr(lib_controller, key, None) in vals for key, vals in kwargs.items())
         ]
 
         return ThreadpoolController._from_controllers(lib_controllers)
@@ -521,14 +525,14 @@ class ThreadpoolController:
             user_api = candidate_lib["user_api"]
             internal_api = candidate_lib["internal_api"]
 
-            libctl_class = globals()[controller_class]
-            libctl = libctl_class(
+            lib_controller_class = globals()[controller_class]
+            lib_controller = lib_controller_class(
                 filepath=filepath,
                 prefix=prefix,
                 user_api=user_api,
                 internal_api=internal_api,
             )
-            self.lib_controllers.append(libctl)
+            self.lib_controllers.append(lib_controller)
 
     def _check_prefix(self, library_basename, filename_prefixes):
         """Return the prefix library_basename starts with
@@ -546,7 +550,7 @@ class ThreadpoolController:
             # Only raise the warning on linux
             return
 
-        prefixes = [libctl.prefix for libctl in self.lib_controllers]
+        prefixes = [lib_controller.prefix for lib_controller in self.lib_controllers]
         msg = textwrap.dedent(
             """
             Found Intel OpenMP ('libiomp') and LLVM OpenMP ('libomp') loaded at

@@ -22,9 +22,9 @@ jobs:
       condition: eq('${{ parameters.name }}', 'macOS')
     - script: |
         conda create -n tmp -y -c conda-forge python black
-        conda activate tmp
+        source activate tmp
         black --check .
-        conda deactivate
+        source deactivate
       displayName: Lint
       condition: eq(variables['LINT'], 'true')
     - script: |

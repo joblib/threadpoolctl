@@ -360,9 +360,7 @@ def test_mkl_threading_layer():
     expected_layer = os.getenv("MKL_THREADING_LAYER")
 
     if not (mkl_info and expected_layer):
-        pytest.skip(
-            "requires MKL and the environment variable MKL_THREADING_LAYER set"
-        )
+        pytest.skip("requires MKL and the environment variable MKL_THREADING_LAYER set")
 
     actual_layer = mkl_info.modules[0].threading_layer
     assert actual_layer == expected_layer.lower()

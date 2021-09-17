@@ -50,7 +50,7 @@ def test_threadpool_controller_todicts():
         assert "prefix" in lib_controller_dict
         assert "filepath" in lib_controller_dict
         assert "version" in lib_controller_dict
-        assert "num_threads" in lib_contoller_dict
+        assert "num_threads" in lib_controller_dict
 
         if lib_controller_dict["internal_api"] in ("mkl", "blis", "openblas"):
             assert "threading_layer" in lib_controller_dict
@@ -94,7 +94,7 @@ def test_threadpool_limits_by_prefix(prefix, limit):
                 continue
             # threadpool_limits only sets an upper bound on the number of
             # threads.
-            assert 0 < lib_controller._get_num_threads() <= limit
+            assert 0 < lib_controller.get_num_threads() <= limit
     assert ThreadpoolController() == original_controller
 
 
@@ -118,7 +118,7 @@ def test_set_threadpool_limits_by_api(user_api, limit):
                 continue
             # threadpool_limits only sets an upper bound on the number of
             # threads.
-            assert 0 < lib_controller._get_num_threads() <= limit
+            assert 0 < lib_controller.get_num_threads() <= limit
 
     assert ThreadpoolController() == original_controller
 
@@ -293,7 +293,7 @@ def test_shipped_openblas():
 
     with threadpool_limits(1):
         for lib_controller in openblas_controllers:
-            assert lib_controller._get_num_threads() == 1
+            assert lib_controller.get_num_threads() == 1
 
     assert original_controller == ThreadpoolController()
 
@@ -369,7 +369,7 @@ def test_get_original_num_threads(limit):
     with threadpool_limits(limits=2, user_api="blas") as ctx:
         # set different blas num threads to start with (when multiple openblas)
         if ctx._controller:
-            ctx._controller.lib_controllers[0]._set_num_threads(1)
+            ctx._controller.lib_controllers[0].set_num_threads(1)
 
         original_controller = ThreadpoolController()
         with threadpool_limits(limits=limit, user_api="blas") as threadpoolctx:

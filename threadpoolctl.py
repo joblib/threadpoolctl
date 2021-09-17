@@ -198,7 +198,7 @@ class threadpool_limits:
         for lib_controller in self._controller.lib_controllers:
             # Since we never call get_num_threads after instanciation of
             # ThreadpoolController, num_threads holds the original value.
-            lib_controller._set_num_threads(lib_controller.num_threads)
+            lib_controller.set_num_threads(lib_controller.num_threads)
 
     def get_original_num_threads(self):
         """Original num_threads from before calling threadpool_limits
@@ -295,7 +295,7 @@ class threadpool_limits:
                 continue
 
             if num_threads is not None:
-                lib_controller._set_num_threads(num_threads)
+                lib_controller.set_num_threads(num_threads)
 
 
 @_format_docstring(
@@ -625,7 +625,7 @@ class LibController(ABC):
         self.filepath = filepath
         self._dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
         self.version = self._get_version()
-        self.num_threads = self._get_num_threads()
+        self.num_threads = self.get_num_threads()
 
     def __eq__(self, other):
         return self.todict() == other.todict()
@@ -635,18 +635,18 @@ class LibController(ABC):
         return {k: v for k, v in vars(self).items() if not k.startswith("_")}
 
     @abstractmethod
-    def _get_version(self):
-        """Return the version of the shared library"""
-        pass  # pragma: no cover
-
-    @abstractmethod
-    def _get_num_threads(self):
+    def get_num_threads(self):
         """Return the maximum number of threads available to use"""
         pass  # pragma: no cover
 
     @abstractmethod
-    def _set_num_threads(self, num_threads):
+    def set_num_threads(self, num_threads):
         """Set the maximum number of threads to use"""
+        pass  # pragma: no cover
+
+    @abstractmethod
+    def _get_version(self):
+        """Return the version of the shared library"""
         pass  # pragma: no cover
 
 
@@ -657,6 +657,16 @@ class OpenBLASController(LibController):
         super().__init__(**kwargs)
         self.threading_layer = self._get_threading_layer()
         self.architecture = self._get_architecture()
+
+    def get_num_threads(self):
+        get_func = getattr(self._dynlib, "openblas_get_num_threads", lambda: None)
+        return get_func()
+
+    def set_num_threads(self, num_threads):
+        set_func = getattr(
+            self._dynlib, "openblas_set_num_threads", lambda num_threads: None
+        )
+        return set_func(num_threads)
 
     def _get_version(self):
         # None means OpenBLAS is not loaded or version < 0.3.4, since OpenBLAS
@@ -670,16 +680,6 @@ class OpenBLASController(LibController):
         if config[0] == b"OpenBLAS":
             return config[1].decode("utf-8")
         return None
-
-    def _get_num_threads(self):
-        get_func = getattr(self._dynlib, "openblas_get_num_threads", lambda: None)
-        return get_func()
-
-    def _set_num_threads(self, num_threads):
-        set_func = getattr(
-            self._dynlib, "openblas_set_num_threads", lambda num_threads: None
-        )
-        return set_func(num_threads)
 
     def _get_threading_layer(self):
         """Return the threading layer of OpenBLAS"""
@@ -711,6 +711,19 @@ class BLISController(LibController):
         self.threading_layer = self._get_threading_layer()
         self.architecture = self._get_architecture()
 
+    def get_num_threads(self):
+        get_func = getattr(self._dynlib, "bli_thread_get_num_threads", lambda: None)
+        num_threads = get_func()
+        # by default BLIS is single-threaded and get_num_threads
+        # returns -1. We map it to 1 for consistency with other libraries.
+        return 1 if num_threads == -1 else num_threads
+
+    def set_num_threads(self, num_threads):
+        set_func = getattr(
+            self._dynlib, "bli_thread_set_num_threads", lambda num_threads: None
+        )
+        return set_func(num_threads)
+
     def _get_version(self):
         get_version_ = getattr(self._dynlib, "bli_info_get_version_str", None)
         if get_version_ is None:
@@ -718,19 +731,6 @@ class BLISController(LibController):
 
         get_version_.restype = ctypes.c_char_p
         return get_version_().decode("utf-8")
-
-    def _get_num_threads(self):
-        get_func = getattr(self._dynlib, "bli_thread_get_num_threads", lambda: None)
-        num_threads = get_func()
-        # by default BLIS is single-threaded and get_num_threads
-        # returns -1. We map it to 1 for consistency with other libraries.
-        return 1 if num_threads == -1 else num_threads
-
-    def _set_num_threads(self, num_threads):
-        set_func = getattr(
-            self._dynlib, "bli_thread_set_num_threads", lambda num_threads: None
-        )
-        return set_func(num_threads)
 
     def _get_threading_layer(self):
         """Return the threading layer of BLIS"""
@@ -761,6 +761,16 @@ class MKLController(LibController):
         super().__init__(**kwargs)
         self.threading_layer = self._get_threading_layer()
 
+    def get_num_threads(self):
+        get_func = getattr(self._dynlib, "MKL_Get_Max_Threads", lambda: None)
+        return get_func()
+
+    def set_num_threads(self, num_threads):
+        set_func = getattr(
+            self._dynlib, "MKL_Set_Num_Threads", lambda num_threads: None
+        )
+        return set_func(num_threads)
+
     def _get_version(self):
         if not hasattr(self._dynlib, "MKL_Get_Version_String"):
             return None
@@ -773,16 +783,6 @@ class MKLController(LibController):
         if group is not None:
             version = group.groups()[0]
         return version.strip()
-
-    def _get_num_threads(self):
-        get_func = getattr(self._dynlib, "MKL_Get_Max_Threads", lambda: None)
-        return get_func()
-
-    def _set_num_threads(self, num_threads):
-        set_func = getattr(
-            self._dynlib, "MKL_Set_Num_Threads", lambda num_threads: None
-        )
-        return set_func(num_threads)
 
     def _get_threading_layer(self):
         """Return the threading layer of MKL"""
@@ -806,19 +806,20 @@ class MKLController(LibController):
 class OpenMPController(LibController):
     """Controller class for OpenMP"""
 
-    def _get_version(self):
-        # There is no way to get the version number programmatically in OpenMP.
-        return None
-
-    def _get_num_threads(self):
+    def get_num_threads(self):
         get_func = getattr(self._dynlib, "omp_get_max_threads", lambda: None)
         return get_func()
 
-    def _set_num_threads(self, num_threads):
+    def set_num_threads(self, num_threads):
         set_func = getattr(
             self._dynlib, "omp_set_num_threads", lambda num_threads: None
         )
         return set_func(num_threads)
+
+    def _get_version(self):
+        # There is no way to get the version number programmatically in OpenMP.
+        return None
+
 
 
 def _main():

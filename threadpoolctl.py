@@ -394,11 +394,11 @@ class ThreadpoolController:
             The maximal number of threads that can be used in thread pools
 
             - If int, sets the maximum number of threads to `limits` for each
-            library selected by `user_api`.
+              library selected by `user_api`.
 
             - If it is a dictionary `{{key: max_threads}}`, this function sets a
-            custom maximum number of threads for each `key` which can be either a
-            `user_api` or a `prefix` for a specific library.
+              custom maximum number of threads for each `key` which can be either a
+              `user_api` or a `prefix` for a specific library.
 
             - If None, this function does not do anything.
 
@@ -408,8 +408,8 @@ class ThreadpoolController:
             - If "blas", it will only limit BLAS supported libraries ({BLAS_LIBS}).
 
             - If "openmp", it will only limit OpenMP supported libraries
-            ({OPENMP_LIBS}). Note that it can affect the number of threads used
-            by the BLAS libraries if they rely on OpenMP.
+              ({OPENMP_LIBS}). Note that it can affect the number of threads used
+              by the BLAS libraries if they rely on OpenMP.
 
             - If None, this function will apply to all supported libraries.
         """

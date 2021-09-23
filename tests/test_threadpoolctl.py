@@ -33,22 +33,22 @@ def test_threadpool_info():
     object_info = ThreadpoolController().lib_controllers
 
     for lib_info, lib_controller in zip(function_info, object_info):
-        assert lib_info == lib_controller.todict()
+        assert lib_info == lib_controller.info()
 
 
-def test_threadpool_controller_todicts():
+def test_threadpool_controller_info():
     # Check that all keys expected for the private api are in the dicts
-    # returned by the todict(s) methods
+    # returned by the `info` methods
     controller = ThreadpoolController()
 
     assert threadpool_info() == [
-        lib_controller.todict() for lib_controller in controller
+        lib_controller.info() for lib_controller in controller.lib_controllers
     ]
-    assert controller.todicts() == [
-        lib_controller.todict() for lib_controller in controller
+    assert controller.info() == [
+        lib_controller.info() for lib_controller in controller.lib_controllers
     ]
 
-    for lib_controller_dict in controller.todicts():
+    for lib_controller_dict in controller.info():
         assert "user_api" in lib_controller_dict
         assert "internal_api" in lib_controller_dict
         assert "prefix" in lib_controller_dict
@@ -88,18 +88,18 @@ def test_threadpool_limits_by_prefix(prefix, limit):
     # Check that the maximum number of threads can be set by prefix
     original_controller = ThreadpoolController()
 
-    lib_controller_matching_prefix = original_controller.select(prefix=prefix)
-    if not lib_controller_matching_prefix:
+    controller_matching_prefix = original_controller.select(prefix=prefix)
+    if not controller_matching_prefix:
         pytest.skip(f"Requires {prefix} runtime")
 
     with threadpool_limits(limits={prefix: limit}):
-        for lib_controller in lib_controller_matching_prefix:
+        for lib_controller in controller_matching_prefix.lib_controllers:
             if is_old_openblas(lib_controller):
                 continue
             # threadpool_limits only sets an upper bound on the number of
             # threads.
             assert 0 < lib_controller.get_num_threads() <= limit
-    assert ThreadpoolController() == original_controller
+    assert ThreadpoolController().info() == original_controller.info()
 
 
 @pytest.mark.parametrize("user_api", (None, "blas", "openmp"))
@@ -109,22 +109,22 @@ def test_set_threadpool_limits_by_api(user_api, limit):
     original_controller = ThreadpoolController()
 
     if user_api is None:
-        lib_controller_matching_api = original_controller
+        controller_matching_api = original_controller
     else:
-        lib_controller_matching_api = original_controller.select(user_api=user_api)
-    if not lib_controller_matching_api:
+        controller_matching_api = original_controller.select(user_api=user_api)
+    if not controller_matching_api:
         user_apis = _ALL_USER_APIS if user_api is None else [user_api]
         pytest.skip(f"Requires a library which api is in {user_apis}")
 
     with threadpool_limits(limits=limit, user_api=user_api):
-        for lib_controller in lib_controller_matching_api:
+        for lib_controller in controller_matching_api.lib_controllers:
             if is_old_openblas(lib_controller):
                 continue
             # threadpool_limits only sets an upper bound on the number of
             # threads.
             assert 0 < lib_controller.get_num_threads() <= limit
 
-    assert ThreadpoolController() == original_controller
+    assert ThreadpoolController().info() == original_controller.info()
 
 
 def test_threadpool_limits_function_with_side_effect():
@@ -134,7 +134,7 @@ def test_threadpool_limits_function_with_side_effect():
 
     threadpool_limits(limits=1)
     try:
-        for lib_controller in ThreadpoolController():
+        for lib_controller in ThreadpoolController().lib_controllers:
             if is_old_openblas(lib_controller):
                 continue
             assert lib_controller.num_threads == 1
@@ -143,16 +143,16 @@ def test_threadpool_limits_function_with_side_effect():
         # side-effect.
         threadpool_limits(limits=original_controller)
 
-    assert ThreadpoolController() == original_controller
+    assert ThreadpoolController().info() == original_controller.info()
 
 
 def test_set_threadpool_limits_no_limit():
     # Check that limits=None does nothing.
     original_controller = ThreadpoolController()
     with threadpool_limits(limits=None):
-        assert ThreadpoolController() == original_controller
+        assert ThreadpoolController().info() == original_controller.info()
 
-    assert ThreadpoolController() == original_controller
+    assert ThreadpoolController().info() == original_controller.info()
 
 
 def test_threadpool_limits_manual_unregister():
@@ -163,7 +163,7 @@ def test_threadpool_limits_manual_unregister():
 
     limits = threadpool_limits(limits=1)
     try:
-        for lib_controller in ThreadpoolController():
+        for lib_controller in ThreadpoolController().lib_controllers:
             if is_old_openblas(lib_controller):
                 continue
             assert lib_controller.num_threads == 1
@@ -172,7 +172,7 @@ def test_threadpool_limits_manual_unregister():
         # side-effect.
         limits.unregister()
 
-    assert ThreadpoolController() == original_controller
+    assert ThreadpoolController().info() == original_controller.info()
 
 
 def test_threadpool_controller_limit():
@@ -186,11 +186,11 @@ def test_threadpool_controller_limit():
         openmp_controller = ThreadpoolController().select(user_api="openmp")
 
         assert all(
-            lib_controller.num_threads == 1 for lib_controller in blas_controller
+            lib_controller.num_threads == 1 for lib_controller in blas_controller.lib_controllers
         )
         # original_blas_controller contains only blas libraries so no opemp library
         # should be impacted.
-        assert openmp_controller == original_openmp_controller
+        assert openmp_controller.info() == original_openmp_controller.info()
 
 
 def test_threadpool_controller_restore():
@@ -201,7 +201,7 @@ def test_threadpool_controller_restore():
 
     controller.limit(limits=1)
     try:
-        for lib_controller in ThreadpoolController():
+        for lib_controller in ThreadpoolController().lib_controllers:
             if is_old_openblas(lib_controller):
                 continue
             assert lib_controller.num_threads == 1
@@ -210,7 +210,8 @@ def test_threadpool_controller_restore():
         # side-effect.
         controller.restore_limits()
 
-    assert ThreadpoolController() == controller
+    assert ThreadpoolController().info() == controller.info()
+
 
 def test_threadpool_limits_bad_input():
     # Check that appropriate errors are raised for invalid arguments
@@ -291,7 +292,7 @@ def test_openmp_nesting(nthreads_outer):
 
     # The state of the original state of all threadpools should have been
     # restored.
-    assert ThreadpoolController() == original_controller
+    assert ThreadpoolController().info() == original_controller.info()
 
     # The number of threads available in the outer loop should not have been
     # decreased:
@@ -317,10 +318,10 @@ def test_shipped_openblas():
     openblas_controllers = original_controller.select(internal_api="openblas")
 
     with threadpool_limits(1):
-        for lib_controller in openblas_controllers:
+        for lib_controller in openblas_controllers.lib_controllers:
             assert lib_controller.get_num_threads() == 1
 
-    assert original_controller == ThreadpoolController()
+    assert original_controller.info() == ThreadpoolController().info()
 
 
 @pytest.mark.skipif(
@@ -358,7 +359,7 @@ def test_nested_prange_blas(nthreads_outer):
     # numpy can be linked to BLIS for CBLAS and OpenBLAS for LAPACK. In that
     # case this test will run BLIS gemm so no need to skip.
     if not blis_controllers and any(
-        is_old_openblas(lib_controller) for lib_controller in blas_controllers
+        is_old_openblas(lib_controller) for lib_controller in blas_controllers.lib_controllers
     ):
         pytest.skip("Old OpenBLAS: skipping test to avoid deadlock")
 
@@ -376,11 +377,11 @@ def test_nested_prange_blas(nthreads_outer):
     assert prange_num_threads == nthreads
 
     nested_blas_controllers = inner_controller.select(user_api="blas")
-    assert len(nested_blas_controllers) == len(blas_controllers)
-    for lib_controller in nested_blas_controllers:
+    assert len(nested_blas_controllers.lib_controllers) == len(blas_controllers.lib_controllers)
+    for lib_controller in nested_blas_controllers.lib_controllers:
         assert lib_controller.num_threads == 1
 
-    assert original_controller == ThreadpoolController()
+    assert original_controller.info() == ThreadpoolController().info()
 
 
 # the method `get_original_num_threads` raises a UserWarning due to different
@@ -405,7 +406,7 @@ def test_get_original_num_threads(limit):
             blas_controller = original_controller.select(user_api="blas")
             if blas_controller:
                 expected = min(
-                    lib_controller.num_threads for lib_controller in blas_controller
+                    lib_controller.num_threads for lib_controller in blas_controller.lib_controllers
                 )
                 assert original_num_threads["blas"] == expected
             else:
@@ -459,7 +460,7 @@ def test_libomp_libiomp_warning(recwarn):
     # Check that a warning is raised when both libomp and libiomp are loaded
     # It should happen in one CI job (pylatest_conda_mkl_clang_gcc).
     controller = ThreadpoolController()
-    prefixes = [lib_controller.prefix for lib_controller in controller]
+    prefixes = [lib_controller.prefix for lib_controller in controller.lib_controllers]
 
     if not ("libomp" in prefixes and "libiomp" in prefixes and sys.platform == "linux"):
         pytest.skip("Requires both libomp and libiomp loaded, on Linux")

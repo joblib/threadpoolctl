@@ -136,7 +136,7 @@ def threadpool_info():
 
     In addition, each library may contain internal_api specific entries.
     """
-    return ThreadpoolController().todicts()
+    return ThreadpoolController().info()
 
 
 @_format_docstring(
@@ -220,7 +220,7 @@ class _threadpool_limits:
         for user_api in self._user_api:
             limits = [
                 lib_controller.num_threads
-                for lib_controller in self._controller.select(user_api=user_api)
+                for lib_controller in self._controller.select(user_api=user_api).lib_controllers
             ]
             limits = set(limits)
             n_limits = len(limits)
@@ -272,7 +272,7 @@ class _threadpool_limits:
                 # ThreadpoolController object.
                 limits = {
                     lib_controller.prefix: lib_controller.num_threads
-                    for lib_controller in limits
+                    for lib_controller in limits.lib_controllers
                 }
 
             if not isinstance(limits, dict):
@@ -343,9 +343,9 @@ class ThreadpoolController:
         new_controller.lib_controllers = lib_controllers
         return new_controller
 
-    def todicts(self):
-        """Return info as a list of dicts"""
-        return [lib_controller.todict() for lib_controller in self.lib_controllers]
+    def info(self):
+        """Return lib_controllers info as a list of dicts"""
+        return [lib_controller.info() for lib_controller in self.lib_controllers]
 
     def select(self, **kwargs):
         """Return a ThreadpoolController containing a subset of its current
@@ -427,12 +427,6 @@ class ThreadpoolController:
 
     def __len__(self):
         return len(self.lib_controllers)
-
-    def __iter__(self):
-        yield from self.lib_controllers
-
-    def __eq__(self, other):
-        return self.lib_controllers == other.lib_controllers
 
     def _load_libraries(self):
         """Loop through loaded shared libraries and store the supported ones"""
@@ -673,13 +667,10 @@ class LibController(ABC):
         self.prefix = prefix
         self.filepath = filepath
         self._dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
-        self.version = self._get_version()
+        self.version = self.get_version()
         self.num_threads = self.get_num_threads()
 
-    def __eq__(self, other):
-        return self.todict() == other.todict()
-
-    def todict(self):
+    def info(self):
         """Return relevant info wrapped in a dict"""
         return {k: v for k, v in vars(self).items() if not k.startswith("_")}
 
@@ -694,7 +685,7 @@ class LibController(ABC):
         pass  # pragma: no cover
 
     @abstractmethod
-    def _get_version(self):
+    def get_version(self):
         """Return the version of the shared library"""
         pass  # pragma: no cover
 
@@ -717,7 +708,7 @@ class OpenBLASController(LibController):
         )
         return set_func(num_threads)
 
-    def _get_version(self):
+    def get_version(self):
         # None means OpenBLAS is not loaded or version < 0.3.4, since OpenBLAS
         # did not expose its version before that.
         get_config = getattr(self._dynlib, "openblas_get_config", None)
@@ -773,7 +764,7 @@ class BLISController(LibController):
         )
         return set_func(num_threads)
 
-    def _get_version(self):
+    def get_version(self):
         get_version_ = getattr(self._dynlib, "bli_info_get_version_str", None)
         if get_version_ is None:
             return None
@@ -820,7 +811,7 @@ class MKLController(LibController):
         )
         return set_func(num_threads)
 
-    def _get_version(self):
+    def get_version(self):
         if not hasattr(self._dynlib, "MKL_Get_Version_String"):
             return None
 
@@ -865,7 +856,7 @@ class OpenMPController(LibController):
         )
         return set_func(num_threads)
 
-    def _get_version(self):
+    def get_version(self):
         # There is no way to get the version number programmatically in OpenMP.
         return None
 

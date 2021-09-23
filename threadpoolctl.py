@@ -240,8 +240,9 @@ class threadpool_limits:
                 user_api = [user_api]
             else:
                 raise ValueError(
-                    "user_api must be either in {} or None. Got "
-                    "{} instead.".format(_ALL_USER_APIS, user_api)
+                    "user_api must be either in {} or None. Got {} instead.".format(
+                        _ALL_USER_APIS, user_api
+                    )
                 )
 
             if limits is not None:

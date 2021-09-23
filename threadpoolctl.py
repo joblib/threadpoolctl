@@ -18,6 +18,7 @@ import textwrap
 import warnings
 from ctypes.util import find_library
 from abc import ABC, abstractmethod
+from functools import lru_cache
 
 __version__ = "2.3.0.dev0"
 __all__ = ["threadpool_limits", "threadpool_info", "ThreadpoolController"]
@@ -112,7 +113,14 @@ def _format_docstring(*args, **kwargs):
     return decorator
 
 
-@_format_docstring(USER_APIS=list(_ALL_USER_APIS), INTERNAL_APIS=_ALL_INTERNAL_APIS)
+@lru_cache(maxsize=10000)
+def _realpath(filepath):
+    """Small caching wrapper around os.path.realpath to limit system calls"""
+    return os.path.realpath(filepath)
+
+
+@_format_docstring(USER_APIS=list(_ALL_USER_APIS),
+                   INTERNAL_APIS=_ALL_INTERNAL_APIS)
 def threadpool_info():
     """Return the maximal number of threads for each detected library.
 
@@ -323,12 +331,6 @@ class ThreadpoolController:
     # it's very unlikely that a shared library will be unloaded and reloaded
     # during the lifetime of a program.
     _system_libraries = dict()
-    # Cache for calls to os.path.realpath on system libraries to reduce the
-    # impact of slow system calls (e.g. stat) on slow filesystem.
-    # We use a class level cache instead of an instance level cache because
-    # we can safely assume that the filepath of loaded shared libraries will
-    # never change during the lifetime of a program.
-    _realpaths = dict()
 
     def __init__(self):
         self.lib_controllers = []
@@ -563,7 +565,7 @@ class ThreadpoolController:
     def _make_controller_from_path(self, filepath):
         """Store a library controller if it is supported and selected"""
         # Required to resolve symlinks
-        filepath = self._realpath(filepath)
+        filepath = _realpath(filepath)
         # `lower` required to take account of OpenMP dll case on Windows
         # (vcomp, VCOMP, Vcomp, ...)
         filename = os.path.basename(filepath).lower()
@@ -644,18 +646,6 @@ class ThreadpoolController:
             dll = ctypes.WinDLL("{}.dll".format(dll_name))
             cls._system_libraries[dll_name] = dll
         return dll
-
-    @classmethod
-    def _realpath(cls, filepath, cache_limit=10000):
-        """Small caching wrapper around os.path.realpath to limit system calls"""
-        rpath = cls._realpaths.get(filepath)
-        if rpath is None:
-            rpath = os.path.realpath(filepath)
-            if len(cls._realpaths) < cache_limit:
-                # If we drop support for Python 2.7, we could use
-                # functools.lru_cache with maxsize=10000 instead.
-                cls._realpaths[filepath] = rpath
-        return rpath
 
 
 @_format_docstring(

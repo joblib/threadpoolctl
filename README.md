@@ -113,10 +113,28 @@ that are loaded when importing Python packages:
   'version': None}]
 ```
 
-In the above example, `numpy` was installed from the default anaconda channel and
-comes with the MKL and its Intel OpenMP (`libiomp5`) implementation while
-`xgboost` was installed from pypi.org and links against GNU OpenMP (`libgomp`)
-so both OpenMP runtimes are loaded in the same Python program.
+In the above example, `numpy` was installed from the default anaconda channel and comes
+with MKL and its Intel OpenMP (`libiomp5`) implementation while `xgboost` was installed
+from pypi.org and links against GNU OpenMP (`libgomp`) so both OpenMP runtimes are
+loaded in the same Python program.
+
+The state of these libraries is also accessible through the object oriented API:
+
+```python
+>>> from threadpoolctl import threadpool_info
+>>> from pprint import pprint
+>>> import numpy
+>>> controller = ThreadpoolController()
+>>> pprint(controller.info())
+[{'architecture': 'Haswell',
+  'filepath': '/home/jeremie/miniconda/envs/dev/lib/libopenblasp-r0.3.17.so',
+  'internal_api': 'openblas',
+  'num_threads': 4,
+  'prefix': 'libopenblas',
+  'threading_layer': 'pthreads',
+  'user_api': 'blas',
+  'version': '0.3.17'}]
+```
 
 ### Setting the Maximum Size of Thread-Pools
 
@@ -124,16 +142,30 @@ Control the number of threads used by the underlying runtime libraries
 in specific sections of your Python program:
 
 ```python
-from threadpoolctl import threadpool_limits
-import numpy as np
+>>> from threadpoolctl import threadpool_limits
+>>> import numpy as np
 
+>>> with threadpool_limits(limits=1, user_api='blas'):
+...     # In this block, calls to blas implementation (like openblas or MKL)
+...     # will be limited to use only one thread. They can thus be used jointly
+...     # with thread-parallelism.
+...     a = np.random.randn(1000, 1000)
+...     a_squared = a @ a
+```
 
-with threadpool_limits(limits=1, user_api='blas'):
-    # In this block, calls to blas implementation (like openblas or MKL)
-    # will be limited to use only one thread. They can thus be used jointly
-    # with thread-parallelism.
-    a = np.random.randn(1000, 1000)
-    a_squared = a @ a
+The threadpools can also be controlled via the object oriented API, which is especially
+useful to avoid searching through all the loaded shared libraries each time. It will
+however not act on libraries loaded after the instanciation of the
+``ThreadpoolController``:
+
+```python
+>>> from threadpoolctl import ThreadpoolController
+>>> import numpy as np
+>>> controller = ThreadpoolController()
+
+>>> with controller.limit(limits=1, user_api='blas'):
+...     a = np.random.randn(1000, 1000)
+...     a_squared = a @ a
 ```
 
 ### Known Limitations

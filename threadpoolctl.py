@@ -147,9 +147,10 @@ def threadpool_info():
 def threadpool_limits(limits=None, user_api=None):
     """Change the maximal number of threads that can be used in thread pools.
 
-    This function returns a class that can be used either as a function (the
+    This function returns an object that can be used either as a callable (the
     construction of this object limits the number of threads) or as a context manager,
-    in a `with` block.
+    in a `with` block to automatically restore the original state of the controlled
+    libraries when exiting the block.
 
     Set the maximal number of threads that can be used in thread pools used in
     the supported libraries to `limit`. This function works for libraries that
@@ -382,9 +383,10 @@ class ThreadpoolController:
     def limit(self, *, limits=None, user_api=None):
         """Change the maximal number of threads that can be used in thread pools.
 
-        This function returns a class that can be used either as a function (the
+        This function returns an object that can be used either as a callable (the
         construction of this object limits the number of threads) or as a context
-        manager, in a `with` block.
+        manager, in a `with` block to automatically restore the original state of the
+        controlled libraries when exiting the block.
 
         Set the maximal number of threads that can be used in thread pools used in
         the supported libraries to `limits`. This function works for libraries that

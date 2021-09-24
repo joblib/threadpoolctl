@@ -7,6 +7,9 @@
   threads can be limited with the `limit` method which can be used as a context
   manager (equivalent to `threadpoolctl.threadpool_limits()`). This is especially useful
   to avoid searching through all loaded shared libraries each time.
+  https://github.com/joblib/threadpoolctl/pull/95
+
+- Added support for OpenBLAS built for 64bit integers in Fortran.
 
 - Fixed an attribute error when using old versions of OpenBLAS or BLIS that are
   missing version query functions.

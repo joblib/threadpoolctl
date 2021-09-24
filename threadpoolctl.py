@@ -704,19 +704,34 @@ class OpenBLASController(LibController):
         self.architecture = self._get_architecture()
 
     def get_num_threads(self):
-        get_func = getattr(self._dynlib, "openblas_get_num_threads", lambda: None)
+        get_func = getattr(
+            self._dynlib,
+            "openblas_get_num_threads",
+            # Symbols differ when built for 64bit integers in Fortran
+            getattr(self._dynlib, "openblas_get_num_threads64_", lambda: None),
+        )
+
         return get_func()
 
     def set_num_threads(self, num_threads):
         set_func = getattr(
-            self._dynlib, "openblas_set_num_threads", lambda num_threads: None
+            self._dynlib,
+            "openblas_set_num_threads",
+            # Symbols differ when built for 64bit integers in Fortran
+            getattr(
+                self._dynlib, "openblas_set_num_threads64_", lambda num_threads: None
+            ),
         )
         return set_func(num_threads)
 
     def get_version(self):
         # None means OpenBLAS is not loaded or version < 0.3.4, since OpenBLAS
         # did not expose its version before that.
-        get_config = getattr(self._dynlib, "openblas_get_config", None)
+        get_config = getattr(
+            self._dynlib,
+            "openblas_get_config",
+            getattr(self._dynlib, "openblas_get_config64_", None),
+        )
         if get_config is None:
             return None
 
@@ -728,7 +743,11 @@ class OpenBLASController(LibController):
 
     def _get_threading_layer(self):
         """Return the threading layer of OpenBLAS"""
-        openblas_get_parallel = getattr(self._dynlib, "openblas_get_parallel", None)
+        openblas_get_parallel = getattr(
+            self._dynlib,
+            "openblas_get_parallel",
+            getattr(self._dynlib, "openblas_get_parallel64_", None),
+        )
         if openblas_get_parallel is None:
             return "unknown"
         threading_layer = openblas_get_parallel()
@@ -740,7 +759,11 @@ class OpenBLASController(LibController):
 
     def _get_architecture(self):
         """Return the architecture detected by OpenBLAS"""
-        get_corename = getattr(self._dynlib, "openblas_get_corename", None)
+        get_corename = getattr(
+            self._dynlib,
+            "openblas_get_corename",
+            getattr(self._dynlib, "openblas_get_corename64_", None),
+        )
         if get_corename is None:
             return None
 

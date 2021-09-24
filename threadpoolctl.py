@@ -21,7 +21,7 @@ from abc import ABC, abstractmethod
 from functools import lru_cache
 
 __version__ = "2.3.0.dev0"
-__all__ = ["threadpool_limits", "threadpool_info"]
+__all__ = ["threadpool_limits", "threadpool_info", "ThreadpoolController"]
 
 
 # One can get runtime errors or even segfaults due to multiple OpenMP libraries
@@ -60,26 +60,26 @@ except AttributeError:
 
 
 # List of the supported libraries. The items are indexed by the name of the
-# class to instanciate to create the module objects. The items hold the
-# possible prefixes of loaded shared objects, the name of the internal_api to
-# call and the name of the user_api.
-_SUPPORTED_MODULES = {
-    "_OpenMPModule": {
+# class to instanciate to create the library controller objects. The items hold
+# the possible prefixes of loaded shared objects, the name of the internal_api
+# to call and the name of the user_api.
+_SUPPORTED_LIBRARIES = {
+    "OpenMPController": {
         "user_api": "openmp",
         "internal_api": "openmp",
         "filename_prefixes": ("libiomp", "libgomp", "libomp", "vcomp"),
     },
-    "_OpenBLASModule": {
+    "OpenBLASController": {
         "user_api": "blas",
         "internal_api": "openblas",
         "filename_prefixes": ("libopenblas",),
     },
-    "_MKLModule": {
+    "MKLController": {
         "user_api": "blas",
         "internal_api": "mkl",
         "filename_prefixes": ("libmkl_rt", "mkl_rt"),
     },
-    "_BLISModule": {
+    "BLISController": {
         "user_api": "blas",
         "internal_api": "blis",
         "filename_prefixes": ("libblis",),
@@ -87,15 +87,21 @@ _SUPPORTED_MODULES = {
 }
 
 # Helpers for the doc and test names
-_ALL_USER_APIS = list(set(m["user_api"] for m in _SUPPORTED_MODULES.values()))
-_ALL_INTERNAL_APIS = [m["internal_api"] for m in _SUPPORTED_MODULES.values()]
+_ALL_USER_APIS = list(set(lib["user_api"] for lib in _SUPPORTED_LIBRARIES.values()))
+_ALL_INTERNAL_APIS = [lib["internal_api"] for lib in _SUPPORTED_LIBRARIES.values()]
 _ALL_PREFIXES = [
-    prefix for m in _SUPPORTED_MODULES.values() for prefix in m["filename_prefixes"]
+    prefix
+    for lib in _SUPPORTED_LIBRARIES.values()
+    for prefix in lib["filename_prefixes"]
 ]
 _ALL_BLAS_LIBRARIES = [
-    m["internal_api"] for m in _SUPPORTED_MODULES.values() if m["user_api"] == "blas"
+    lib["internal_api"]
+    for lib in _SUPPORTED_LIBRARIES.values()
+    if lib["user_api"] == "blas"
 ]
-_ALL_OPENMP_LIBRARIES = list(_SUPPORTED_MODULES["_OpenMPModule"]["filename_prefixes"])
+_ALL_OPENMP_LIBRARIES = list(
+    _SUPPORTED_LIBRARIES["OpenMPController"]["filename_prefixes"]
+)
 
 
 def _format_docstring(*args, **kwargs):
@@ -117,19 +123,19 @@ def _realpath(filepath):
 def threadpool_info():
     """Return the maximal number of threads for each detected library.
 
-    Return a list with all the supported modules that have been found. Each
-    module is represented by a dict with the following information:
+    Return a list with all the supported libraries that have been found. Each
+    library is represented by a dict with the following information:
 
       - "user_api" : user API. Possible values are {USER_APIS}.
       - "internal_api": internal API. Possible values are {INTERNAL_APIS}.
       - "prefix" : filename prefix of the specific implementation.
-      - "filepath": path to the loaded module.
+      - "filepath": path to the loaded library.
       - "version": version of the library (if available).
       - "num_threads": the current thread limit.
 
-    In addition, each module may contain internal_api specific entries.
+    In addition, each library may contain internal_api specific entries.
     """
-    return _ThreadpoolInfo(user_api=_ALL_USER_APIS).todicts()
+    return ThreadpoolController().info()
 
 
 @_format_docstring(
@@ -137,12 +143,13 @@ def threadpool_info():
     BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
     OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
 )
-class threadpool_limits:
+def threadpool_limits(limits=None, user_api=None):
     """Change the maximal number of threads that can be used in thread pools.
 
-    This class can be used either as a function (the construction of this
-    object limits the number of threads) or as a context manager, in a `with`
-    block.
+    This function returns an object that can be used either as a callable (the
+    construction of this object limits the number of threads) or as a context manager,
+    in a `with` block to automatically restore the original state of the controlled
+    libraries when exiting the block.
 
     Set the maximal number of threads that can be used in thread pools used in
     the supported libraries to `limit`. This function works for libraries that
@@ -173,13 +180,23 @@ class threadpool_limits:
 
         - If None, this function will apply to all supported libraries.
     """
+    return ThreadpoolController().limit(limits=limits, user_api=user_api)
 
-    def __init__(self, limits=None, user_api=None):
+
+class _threadpool_limits:
+    """The guts of ThreadpoolController.limit
+
+    Refer to the docstring of ThreadpoolController.limit for more details.
+
+    It will only act on the library controllers held by the provided `controller`.
+    """
+
+    def __init__(self, controller, *, limits=None, user_api=None):
         self._limits, self._user_api, self._prefixes = self._check_params(
             limits, user_api
         )
-
-        self._original_info = self._set_threadpool_limits()
+        self._controller = controller
+        self._set_threadpool_limits()
 
     def __enter__(self):
         return self
@@ -188,27 +205,25 @@ class threadpool_limits:
         self.unregister()
 
     def unregister(self):
-        if self._original_info is not None:
-            for module in self._original_info:
-                module.set_num_threads(module.num_threads)
+        for lib_controller in self._controller.lib_controllers:
+            # Since we never call get_num_threads after instanciation of
+            # ThreadpoolController, num_threads holds the original value.
+            lib_controller.set_num_threads(lib_controller.num_threads)
 
     def get_original_num_threads(self):
         """Original num_threads from before calling threadpool_limits
 
         Return a dict `{user_api: num_threads}`.
         """
-        if self._original_info is not None:
-            original_limits = self._original_info
-        else:
-            original_limits = _ThreadpoolInfo(user_api=self._user_api)
-
         num_threads = {}
         warning_apis = []
 
         for user_api in self._user_api:
             limits = [
-                module.num_threads
-                for module in original_limits.get_modules("user_api", user_api)
+                lib_controller.num_threads
+                for lib_controller in self._controller.select(
+                    user_api=user_api
+                ).lib_controllers
             ]
             limits = set(limits)
             n_limits = len(limits)
@@ -250,22 +265,27 @@ class threadpool_limits:
             prefixes = []
         else:
             if isinstance(limits, list):
-                # This should be a list of dicts of modules, for compatibility
-                # with the result from threadpool_info.
-                limits = {module["prefix"]: module["num_threads"] for module in limits}
-            elif isinstance(limits, _ThreadpoolInfo):
-                # To set the limits from the modules of a _ThreadpoolInfo
-                # object.
-                limits = {module.prefix: module.num_threads for module in limits}
+                # This should be a list of dicts of library info, for
+                # compatibility with the result from threadpool_info.
+                limits = {
+                    lib_info["prefix"]: lib_info["num_threads"] for lib_info in limits
+                }
+            elif isinstance(limits, ThreadpoolController):
+                # To set the limits from the library controllers of a
+                # ThreadpoolController object.
+                limits = {
+                    lib_controller.prefix: lib_controller.num_threads
+                    for lib_controller in limits.lib_controllers
+                }
 
             if not isinstance(limits, dict):
                 raise TypeError(
                     "limits must either be an int, a list or a "
-                    f"dict. Got {type(limits)} instead."
+                    f"dict. Got {type(limits)} instead"
                 )
 
-            # With a dictionary, can set both specific limit for given modules
-            # and global limit for user_api. Fetch each separately.
+            # With a dictionary, can set both specific limit for given
+            # libraries and global limit for user_api. Fetch each separately.
             prefixes = [prefix for prefix in limits if prefix in _ALL_PREFIXES]
             user_api = [api for api in limits if api in _ALL_USER_APIS]
 
@@ -274,65 +294,40 @@ class threadpool_limits:
     def _set_threadpool_limits(self):
         """Change the maximal number of threads in selected thread pools.
 
-        Return a list with all the supported modules that have been found
+        Return a list with all the supported libraries that have been found
         matching `self._prefixes` and `self._user_api`.
         """
         if self._limits is None:
             return None
 
-        modules = _ThreadpoolInfo(prefixes=self._prefixes, user_api=self._user_api)
-        for module in modules:
+        for lib_controller in self._controller.lib_controllers:
             # self._limits is a dict {key: num_threads} where key is either
-            # a prefix or a user_api. If a module matches both, the limit
-            # corresponding to the prefix is chosed.
-            if module.prefix in self._limits:
-                num_threads = self._limits[module.prefix]
+            # a prefix or a user_api. If a library matches both, the limit
+            # corresponding to the prefix is chosen.
+            if lib_controller.prefix in self._limits:
+                num_threads = self._limits[lib_controller.prefix]
+            elif lib_controller.user_api in self._limits:
+                num_threads = self._limits[lib_controller.user_api]
             else:
-                num_threads = self._limits[module.user_api]
+                continue
 
             if num_threads is not None:
-                module.set_num_threads(num_threads)
-        return modules
+                lib_controller.set_num_threads(num_threads)
 
 
-# The object oriented API of _ThreadpoolInfo and its modules is private.
-# The public API (i.e. the "threadpool_info" function) only exposes the
-# "list of dicts" representation returned by the .todicts method.
 @_format_docstring(
     PREFIXES=", ".join(f'"{prefix}"' for prefix in _ALL_PREFIXES),
     USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),
     BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
     OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
 )
-class _ThreadpoolInfo:
-    """Collection of all supported modules that have been found
+class ThreadpoolController:
+    """Collection of LibController objects for all loaded supported libraries
 
-    Parameters
+    Attributes
     ----------
-    user_api : list of user APIs or None (default=None)
-        Select libraries matching the requested API. Ignored if `modules` is
-        not None. Supported user APIs are {USER_APIS}.
-
-        - "blas" selects all BLAS supported libraries ({BLAS_LIBS})
-        - "openmp" selects all OpenMP supported libraries ({OPENMP_LIBS})
-
-        If None, libraries are not selected by their `user_api`.
-
-    prefixes : list of prefixes or None (default=None)
-        Select libraries matching the requested prefixes. Supported prefixes
-        are {PREFIXES}.
-        If None, libraries are not selected by their prefix. Ignored if
-        `modules` is not None.
-
-    modules : list of _Module objects or None (default=None)
-        Wraps a list of _Module objects into a _ThreapoolInfo object. Does not
-        load or reload any shared library. If it is not None, `prefixes` and
-        `user_api` are ignored.
-
-    Note
-    ----
-    Is is possible to select libraries both by prefixes and by user_api. All
-    libraries matching one or the other will be selected.
+    lib_controllers : list of `LibController` objects
+        The list of library controllers of all loaded supported libraries.
     """
 
     # Cache for libc under POSIX and a few system libraries under Windows.
@@ -341,49 +336,113 @@ class _ThreadpoolInfo:
     # during the lifetime of a program.
     _system_libraries = dict()
 
-    def __init__(self, user_api=None, prefixes=None, modules=None):
-        if modules is None:
-            self.prefixes = [] if prefixes is None else prefixes
-            self.user_api = [] if user_api is None else user_api
+    def __init__(self):
+        self.lib_controllers = []
+        self._load_libraries()
+        self._warn_if_incompatible_openmp()
 
-            self.modules = []
-            self._load_modules()
-            self._warn_if_incompatible_openmp()
-        else:
-            self.modules = modules
+    @classmethod
+    def _from_controllers(cls, lib_controllers):
+        new_controller = cls.__new__(cls)
+        new_controller.lib_controllers = lib_controllers
+        return new_controller
 
-    def get_modules(self, key, values):
-        """Return all modules such that values contains module[key]"""
-        if key == "user_api" and values is None:
-            values = list(_ALL_USER_APIS)
-        if not isinstance(values, list):
-            values = [values]
-        modules = [module for module in self.modules if getattr(module, key) in values]
-        return _ThreadpoolInfo(modules=modules)
+    def info(self):
+        """Return lib_controllers info as a list of dicts"""
+        return [lib_controller.info() for lib_controller in self.lib_controllers]
 
-    def todicts(self):
-        """Return info as a list of dicts"""
-        return [module.todict() for module in self.modules]
+    def select(self, **kwargs):
+        """Return a ThreadpoolController containing a subset of its current
+        library controllers
+
+        It will select all libraries matching at least one pair (key, value) from kwargs
+        where key is an entry of the library info dict (like "user_api", "internal_api",
+        "prefix", ...) and value is the value or a list of acceptable values for that
+        entry.
+
+        For instance, `ThreadpoolController().select(internal_api=["blis", "openblas"])`
+        will select all library controllers whose internal_api is either "blis" or
+        "openblas".
+        """
+        for key, vals in kwargs.items():
+            kwargs[key] = [vals] if not isinstance(vals, list) else vals
+
+        lib_controllers = [
+            lib_controller
+            for lib_controller in self.lib_controllers
+            if any(
+                getattr(lib_controller, key, None) in vals
+                for key, vals in kwargs.items()
+            )
+        ]
+
+        return ThreadpoolController._from_controllers(lib_controllers)
+
+    @_format_docstring(
+        USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
+        BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
+        OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
+    )
+    def limit(self, *, limits=None, user_api=None):
+        """Change the maximal number of threads that can be used in thread pools.
+
+        This function returns an object that can be used either as a callable (the
+        construction of this object limits the number of threads) or as a context
+        manager, in a `with` block to automatically restore the original state of the
+        controlled libraries when exiting the block.
+
+        Set the maximal number of threads that can be used in thread pools used in
+        the supported libraries to `limits`. This function works for libraries that
+        are already loaded in the interpreter and can be changed dynamically.
+
+        Parameters
+        ----------
+        limits : int, dict or None (default=None)
+            The maximal number of threads that can be used in thread pools
+
+            - If int, sets the maximum number of threads to `limits` for each
+              library selected by `user_api`.
+
+            - If it is a dictionary `{{key: max_threads}}`, this function sets a
+              custom maximum number of threads for each `key` which can be either a
+              `user_api` or a `prefix` for a specific library.
+
+            - If None, this function does not do anything.
+
+        user_api : {USER_APIS} or None (default=None)
+            APIs of libraries to limit. Used only if `limits` is an int.
+
+            - If "blas", it will only limit BLAS supported libraries ({BLAS_LIBS}).
+
+            - If "openmp", it will only limit OpenMP supported libraries
+              ({OPENMP_LIBS}). Note that it can affect the number of threads used
+              by the BLAS libraries if they rely on OpenMP.
+
+            - If None, this function will apply to all supported libraries.
+        """
+        return _threadpool_limits(self, limits=limits, user_api=user_api)
+
+    def restore_limits(self):
+        """Set the limits back to their original values
+
+        Since get_num_threads is only called once at initialization, the instance keeps
+        the original num_threads during its whole lifetime.
+        """
+        self.limit(limits=self)
 
     def __len__(self):
-        return len(self.modules)
+        return len(self.lib_controllers)
 
-    def __iter__(self):
-        yield from self.modules
-
-    def __eq__(self, other):
-        return self.modules == other.modules
-
-    def _load_modules(self):
-        """Loop through loaded libraries and store supported ones"""
+    def _load_libraries(self):
+        """Loop through loaded shared libraries and store the supported ones"""
         if sys.platform == "darwin":
-            self._find_modules_with_dyld()
+            self._find_libraries_with_dyld()
         elif sys.platform == "win32":
-            self._find_modules_with_enum_process_module_ex()
+            self._find_libraries_with_enum_process_module_ex()
         else:
-            self._find_modules_with_dl_iterate_phdr()
+            self._find_libraries_with_dl_iterate_phdr()
 
-    def _find_modules_with_dl_iterate_phdr(self):
+    def _find_libraries_with_dl_iterate_phdr(self):
         """Loop through loaded libraries and return binders on supported ones
 
         This function is expected to work on POSIX system only.
@@ -398,15 +457,15 @@ class _ThreadpoolInfo:
             return []
 
         # Callback function for `dl_iterate_phdr` which is called for every
-        # module loaded in the current process until it returns 1.
-        def match_module_callback(info, size, data):
-            # Get the path of the current module
+        # library loaded in the current process until it returns 1.
+        def match_library_callback(info, size, data):
+            # Get the path of the current library
             filepath = info.contents.dlpi_name
             if filepath:
                 filepath = filepath.decode("utf-8")
 
-                # Store the module if it is supported and selected
-                self._make_module_from_path(filepath)
+                # Store the library controller if it is supported and selected
+                self._make_controller_from_path(filepath)
             return 0
 
         c_func_signature = ctypes.CFUNCTYPE(
@@ -415,12 +474,12 @@ class _ThreadpoolInfo:
             ctypes.c_size_t,
             ctypes.c_char_p,
         )
-        c_match_module_callback = c_func_signature(match_module_callback)
+        c_match_library_callback = c_func_signature(match_library_callback)
 
         data = ctypes.c_char_p(b"")
-        libc.dl_iterate_phdr(c_match_module_callback, data)
+        libc.dl_iterate_phdr(c_match_library_callback, data)
 
-    def _find_modules_with_dyld(self):
+    def _find_libraries_with_dyld(self):
         """Loop through loaded libraries and return binders on supported ones
 
         This function is expected to work on OSX system only
@@ -436,10 +495,10 @@ class _ThreadpoolInfo:
             filepath = ctypes.string_at(libc._dyld_get_image_name(i))
             filepath = filepath.decode("utf-8")
 
-            # Store the module if it is supported and selected
-            self._make_module_from_path(filepath)
+            # Store the library controller if it is supported and selected
+            self._make_controller_from_path(filepath)
 
-    def _find_modules_with_enum_process_module_ex(self):
+    def _find_libraries_with_enum_process_module_ex(self):
         """Loop through loaded libraries and return binders on supported ones
 
         This function is expected to work on windows system only.
@@ -451,7 +510,7 @@ class _ThreadpoolInfo:
         PROCESS_QUERY_INFORMATION = 0x0400
         PROCESS_VM_READ = 0x0010
 
-        LIST_MODULES_ALL = 0x03
+        LIST_LIBRARIES_ALL = 0x03
 
         ps_api = self._get_windll("Psapi")
         kernel_32 = self._get_windll("kernel32")
@@ -460,7 +519,7 @@ class _ThreadpoolInfo:
             PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, os.getpid()
         )
         if not h_process:  # pragma: no cover
-            raise OSError("Could not open PID %s" % os.getpid())
+            raise OSError(f"Could not open PID {os.getpid()}")
 
         try:
             buf_count = 256
@@ -475,7 +534,7 @@ class _ThreadpoolInfo:
                     ctypes.byref(buf),
                     buf_size,
                     ctypes.byref(needed),
-                    LIST_MODULES_ALL,
+                    LIST_LIBRARIES_ALL,
                 ):
                     raise OSError("EnumProcessModulesEx failed")
                 if buf_size >= needed.value:
@@ -485,7 +544,7 @@ class _ThreadpoolInfo:
             count = needed.value // (buf_size // buf_count)
             h_modules = map(HMODULE, buf[:count])
 
-            # Loop through all the module headers and get the module path
+            # Loop through all the module headers and get the library path
             buf = ctypes.create_unicode_buffer(MAX_PATH)
             n_size = DWORD()
             for h_module in h_modules:
@@ -497,38 +556,43 @@ class _ThreadpoolInfo:
                     raise OSError("GetModuleFileNameEx failed")
                 filepath = buf.value
 
-                # Store the module if it is supported and selected
-                self._make_module_from_path(filepath)
+                # Store the library controller if it is supported and selected
+                self._make_controller_from_path(filepath)
         finally:
             kernel_32.CloseHandle(h_process)
 
-    def _make_module_from_path(self, filepath):
-        """Store a module if it is supported and selected"""
+    def _make_controller_from_path(self, filepath):
+        """Store a library controller if it is supported and selected"""
         # Required to resolve symlinks
         filepath = _realpath(filepath)
         # `lower` required to take account of OpenMP dll case on Windows
         # (vcomp, VCOMP, Vcomp, ...)
         filename = os.path.basename(filepath).lower()
 
-        # Loop through supported modules to find if this filename corresponds
-        # to a supported module.
-        for module_class, candidate_module in _SUPPORTED_MODULES.items():
+        # Loop through supported libraries to find if this filename corresponds
+        # to a supported one.
+        for controller_class, candidate_lib in _SUPPORTED_LIBRARIES.items():
             # check if filename matches a supported prefix
-            prefix = self._check_prefix(filename, candidate_module["filename_prefixes"])
+            prefix = self._check_prefix(filename, candidate_lib["filename_prefixes"])
 
             # filename does not match any of the prefixes of the candidate
-            # module. move to next module.
+            # library. move to next library.
             if prefix is None:
                 continue
 
-            # filename matches a prefix. Check if it matches the request. If
-            # so, create and store the module.
-            user_api = candidate_module["user_api"]
-            internal_api = candidate_module["internal_api"]
-            if prefix in self.prefixes or user_api in self.user_api:
-                module_class = globals()[module_class]
-                module = module_class(filepath, prefix, user_api, internal_api)
-                self.modules.append(module)
+            # filename matches a prefix. Create and store the library
+            # controller.
+            user_api = candidate_lib["user_api"]
+            internal_api = candidate_lib["internal_api"]
+
+            lib_controller_class = globals()[controller_class]
+            lib_controller = lib_controller_class(
+                filepath=filepath,
+                prefix=prefix,
+                user_api=user_api,
+                internal_api=internal_api,
+            )
+            self.lib_controllers.append(lib_controller)
 
     def _check_prefix(self, library_basename, filename_prefixes):
         """Return the prefix library_basename starts with
@@ -546,7 +610,7 @@ class _ThreadpoolInfo:
             # Only raise the warning on linux
             return
 
-        prefixes = [module.prefix for module in self.modules]
+        prefixes = [lib_controller.prefix for lib_controller in self.lib_controllers]
         msg = textwrap.dedent(
             """
             Found Intel OpenMP ('libiomp') and LLVM OpenMP ('libomp') loaded at
@@ -587,41 +651,33 @@ class _ThreadpoolInfo:
     USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
     INTERNAL_APIS=", ".join('"{}"'.format(api) for api in _ALL_INTERNAL_APIS),
 )
-class _Module(ABC):
-    """Abstract base class for the modules
+class LibController(ABC):
+    """Abstract base class for the individual library controllers
 
-    A module is represented by the following information:
+    A library controller is represented by the following information:
       - "user_api" : user API. Possible values are {USER_APIS}.
       - "internal_api" : internal API. Possible values are {INTERNAL_APIS}.
       - "prefix" : prefix of the shared library's name.
-      - "filepath" : path to the loaded module.
+      - "filepath" : path to the loaded library.
       - "version" : version of the library (if available).
       - "num_threads" : the current thread limit.
 
-    In addition, each module may contain internal_api specific entries.
+    In addition, each library controller may contain internal_api specific
+    entries.
     """
 
-    def __init__(self, filepath=None, prefix=None, user_api=None, internal_api=None):
-        self.filepath = filepath
-        self.prefix = prefix
+    def __init__(self, *, filepath=None, prefix=None, user_api=None, internal_api=None):
         self.user_api = user_api
         self.internal_api = internal_api
+        self.prefix = prefix
+        self.filepath = filepath
         self._dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
         self.version = self.get_version()
         self.num_threads = self.get_num_threads()
-        self._get_extra_info()
 
-    def __eq__(self, other):
-        return self.todict() == other.todict()
-
-    def todict(self):
+    def info(self):
         """Return relevant info wrapped in a dict"""
         return {k: v for k, v in vars(self).items() if not k.startswith("_")}
-
-    @abstractmethod
-    def get_version(self):
-        """Return the version of the shared library"""
-        pass  # pragma: no cover
 
     @abstractmethod
     def get_num_threads(self):
@@ -634,13 +690,28 @@ class _Module(ABC):
         pass  # pragma: no cover
 
     @abstractmethod
-    def _get_extra_info(self):
-        """Add additional module specific information"""
+    def get_version(self):
+        """Return the version of the shared library"""
         pass  # pragma: no cover
 
 
-class _OpenBLASModule(_Module):
-    """Module class for OpenBLAS"""
+class OpenBLASController(LibController):
+    """Controller class for OpenBLAS"""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.threading_layer = self._get_threading_layer()
+        self.architecture = self._get_architecture()
+
+    def get_num_threads(self):
+        get_func = getattr(self._dynlib, "openblas_get_num_threads", lambda: None)
+        return get_func()
+
+    def set_num_threads(self, num_threads):
+        set_func = getattr(
+            self._dynlib, "openblas_set_num_threads", lambda num_threads: None
+        )
+        return set_func(num_threads)
 
     def get_version(self):
         # None means OpenBLAS is not loaded or version < 0.3.4, since OpenBLAS
@@ -655,21 +726,7 @@ class _OpenBLASModule(_Module):
             return config[1].decode("utf-8")
         return None
 
-    def get_num_threads(self):
-        get_func = getattr(self._dynlib, "openblas_get_num_threads", lambda: None)
-        return get_func()
-
-    def set_num_threads(self, num_threads):
-        set_func = getattr(
-            self._dynlib, "openblas_set_num_threads", lambda num_threads: None
-        )
-        return set_func(num_threads)
-
-    def _get_extra_info(self):
-        self.threading_layer = self.get_threading_layer()
-        self.architecture = self.get_architecture()
-
-    def get_threading_layer(self):
+    def _get_threading_layer(self):
         """Return the threading layer of OpenBLAS"""
         openblas_get_parallel = getattr(self._dynlib, "openblas_get_parallel", None)
         if openblas_get_parallel is None:
@@ -681,7 +738,8 @@ class _OpenBLASModule(_Module):
             return "pthreads"
         return "disabled"
 
-    def get_architecture(self):
+    def _get_architecture(self):
+        """Return the architecture detected by OpenBLAS"""
         get_corename = getattr(self._dynlib, "openblas_get_corename", None)
         if get_corename is None:
             return None
@@ -690,16 +748,13 @@ class _OpenBLASModule(_Module):
         return get_corename().decode("utf-8")
 
 
-class _BLISModule(_Module):
-    """Module class for BLIS"""
+class BLISController(LibController):
+    """Controller class for BLIS"""
 
-    def get_version(self):
-        get_version_ = getattr(self._dynlib, "bli_info_get_version_str", None)
-        if get_version_ is None:
-            return None
-
-        get_version_.restype = ctypes.c_char_p
-        return get_version_().decode("utf-8")
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.threading_layer = self._get_threading_layer()
+        self.architecture = self._get_architecture()
 
     def get_num_threads(self):
         get_func = getattr(self._dynlib, "bli_thread_get_num_threads", lambda: None)
@@ -714,11 +769,15 @@ class _BLISModule(_Module):
         )
         return set_func(num_threads)
 
-    def _get_extra_info(self):
-        self.threading_layer = self.get_threading_layer()
-        self.architecture = self.get_architecture()
+    def get_version(self):
+        get_version_ = getattr(self._dynlib, "bli_info_get_version_str", None)
+        if get_version_ is None:
+            return None
 
-    def get_threading_layer(self):
+        get_version_.restype = ctypes.c_char_p
+        return get_version_().decode("utf-8")
+
+    def _get_threading_layer(self):
         """Return the threading layer of BLIS"""
         if self._dynlib.bli_info_get_enable_openmp():
             return "openmp"
@@ -726,7 +785,8 @@ class _BLISModule(_Module):
             return "pthreads"
         return "disabled"
 
-    def get_architecture(self):
+    def _get_architecture(self):
+        """Return the architecture detected by BLIS"""
         bli_arch_query_id = getattr(self._dynlib, "bli_arch_query_id", None)
         bli_arch_string = getattr(self._dynlib, "bli_arch_string", None)
         if bli_arch_query_id is None or bli_arch_string is None:
@@ -739,8 +799,22 @@ class _BLISModule(_Module):
         return bli_arch_string(bli_arch_query_id()).decode("utf-8")
 
 
-class _MKLModule(_Module):
-    """Module class for MKL"""
+class MKLController(LibController):
+    """Controller class for MKL"""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.threading_layer = self._get_threading_layer()
+
+    def get_num_threads(self):
+        get_func = getattr(self._dynlib, "MKL_Get_Max_Threads", lambda: None)
+        return get_func()
+
+    def set_num_threads(self, num_threads):
+        set_func = getattr(
+            self._dynlib, "MKL_Set_Num_Threads", lambda num_threads: None
+        )
+        return set_func(num_threads)
 
     def get_version(self):
         if not hasattr(self._dynlib, "MKL_Get_Version_String"):
@@ -755,20 +829,7 @@ class _MKLModule(_Module):
             version = group.groups()[0]
         return version.strip()
 
-    def get_num_threads(self):
-        get_func = getattr(self._dynlib, "MKL_Get_Max_Threads", lambda: None)
-        return get_func()
-
-    def set_num_threads(self, num_threads):
-        set_func = getattr(
-            self._dynlib, "MKL_Set_Num_Threads", lambda num_threads: None
-        )
-        return set_func(num_threads)
-
-    def _get_extra_info(self):
-        self.threading_layer = self.get_threading_layer()
-
-    def get_threading_layer(self):
+    def _get_threading_layer(self):
         """Return the threading layer of MKL"""
         # The function mkl_set_threading_layer returns the current threading
         # layer. Calling it with an invalid threading layer allows us to safely
@@ -787,12 +848,8 @@ class _MKLModule(_Module):
         return layer_map[set_threading_layer(-1)]
 
 
-class _OpenMPModule(_Module):
-    """Module class for OpenMP"""
-
-    def get_version(self):
-        # There is no way to get the version number programmatically in OpenMP.
-        return None
+class OpenMPController(LibController):
+    """Controller class for OpenMP"""
 
     def get_num_threads(self):
         get_func = getattr(self._dynlib, "omp_get_max_threads", lambda: None)
@@ -804,8 +861,9 @@ class _OpenMPModule(_Module):
         )
         return set_func(num_threads)
 
-    def _get_extra_info(self):
-        pass
+    def get_version(self):
+        # There is no way to get the version number programmatically in OpenMP.
+        return None
 
 
 def _main():

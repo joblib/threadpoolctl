@@ -51,7 +51,7 @@ CFLAGS=-I$ABS_PATH/BLIS_install/include/blis LDFLAGS=-L$ABS_PATH/BLIS_install/li
     bash ./continuous_integration/build_test_ext.sh
 
 python --version
-python -c "import numpy; print('numpy %s' % numpy.__version__)" || echo "no numpy"
-python -c "import scipy; print('scipy %s' % scipy.__version__)" || echo "no scipy"
+python -c "import numpy; print(f'numpy {numpy.__version__}')" || echo "no numpy"
+python -c "import scipy; print(f'scipy {scipy.__version__}')" || echo "no scipy"
 
 python -m flit install --symlink

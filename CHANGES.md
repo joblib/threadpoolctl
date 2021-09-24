@@ -1,5 +1,12 @@
-2.3.0 (in development)
+3.0.0 (in development)
 ======================
+
+- New object `threadpooctl.ThreadpoolController` which holds controllers for all the
+  supported native libraries. The states of these libraries is accessible through the
+  `info` method (equivalent to `threadpoolctl.threadpool_info()`) and their number of
+  threads can be limited with the `limit` method which can be used as a context
+  manager (equivalent to `threadpoolctl.threadpool_limits()`). This is especially useful
+  to avoid searching through all loaded shared libraries each time.
 
 - Fixed an attribute error when using old versions of OpenBLAS or BLIS that are
   missing version query functions.

@@ -133,7 +133,7 @@ def threadpool_info():
 
 
 @_format_docstring(
-    USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
+    USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),
     BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
     OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
 )
@@ -241,9 +241,8 @@ class threadpool_limits:
                 user_api = [user_api]
             else:
                 raise ValueError(
-                    "user_api must be either in {} or None. Got {} instead.".format(
-                        _ALL_USER_APIS, user_api
-                    )
+                    f"user_api must be either in {_ALL_USER_APIS} or None. Got "
+                    f"{user_api} instead."
                 )
 
             if limits is not None:
@@ -262,7 +261,7 @@ class threadpool_limits:
             if not isinstance(limits, dict):
                 raise TypeError(
                     "limits must either be an int, a list or a "
-                    "dict. Got {} instead".format(type(limits))
+                    f"dict. Got {type(limits)} instead."
                 )
 
             # With a dictionary, can set both specific limit for given modules
@@ -300,8 +299,8 @@ class threadpool_limits:
 # The public API (i.e. the "threadpool_info" function) only exposes the
 # "list of dicts" representation returned by the .todicts method.
 @_format_docstring(
-    PREFIXES=", ".join('"{}"'.format(prefix) for prefix in _ALL_PREFIXES),
-    USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
+    PREFIXES=", ".join(f'"{prefix}"' for prefix in _ALL_PREFIXES),
+    USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),
     BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
     OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
 )
@@ -579,7 +578,7 @@ class _ThreadpoolInfo:
         """Load a windows DLL"""
         dll = cls._system_libraries.get(dll_name)
         if dll is None:
-            dll = ctypes.WinDLL("{}.dll".format(dll_name))
+            dll = ctypes.WinDLL(f"{dll_name}.dll")
             cls._system_libraries[dll_name] = dll
         return dll
 

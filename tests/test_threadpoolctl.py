@@ -70,7 +70,7 @@ def test_threadpool_limits_by_prefix(prefix, limit):
 
     modules_matching_prefix = original_info.get_modules("prefix", prefix)
     if not modules_matching_prefix:
-        pytest.skip("Requires {} runtime".format(prefix))
+        pytest.skip(f"Requires {prefix} runtime")
 
     with threadpool_limits(limits={prefix: limit}):
         for module in modules_matching_prefix:
@@ -91,7 +91,7 @@ def test_set_threadpool_limits_by_api(user_api, limit):
     modules_matching_api = original_info.get_modules("user_api", user_api)
     if not modules_matching_api:
         user_apis = _ALL_USER_APIS if user_api is None else [user_api]
-        pytest.skip("Requires a library which api is in {}".format(user_apis))
+        pytest.skip(f"Requires a library which api is in {user_apis}")
 
     with threadpool_limits(limits=limit, user_api=user_api):
         for module in modules_matching_api:
@@ -154,7 +154,7 @@ def test_threadpool_limits_manual_unregister():
 
 def test_threadpool_limits_bad_input():
     # Check that appropriate errors are raised for invalid arguments
-    match = re.escape("user_api must be either in {} or None.".format(_ALL_USER_APIS))
+    match = re.escape(f"user_api must be either in {_ALL_USER_APIS} or None.")
     with pytest.raises(ValueError, match=match):
         threadpool_limits(limits=1, user_api="wrong")
 

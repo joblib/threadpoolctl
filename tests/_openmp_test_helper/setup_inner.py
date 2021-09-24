@@ -19,18 +19,21 @@ try:
             "openmp_helpers_inner",
             ["openmp_helpers_inner.pyx"],
             extra_compile_args=openmp_flag,
-            extra_link_args=openmp_flag
-            )
+            extra_link_args=openmp_flag,
+        )
     ]
 
     setup(
-        name='_openmp_test_helper_inner',
+        name="_openmp_test_helper_inner",
         ext_modules=cythonize(
             ext_modules,
-            compiler_directives={'language_level': 3,
-                                 'boundscheck': False,
-                                 'wraparound': False},
-            compile_time_env={"CC_INNER_LOOP": inner_loop_cc_var or "unknown"})
+            compiler_directives={
+                "language_level": 3,
+                "boundscheck": False,
+                "wraparound": False,
+            },
+            compile_time_env={"CC_INNER_LOOP": inner_loop_cc_var or "unknown"},
+        ),
     )
 
 finally:

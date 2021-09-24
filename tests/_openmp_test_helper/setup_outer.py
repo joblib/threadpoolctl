@@ -19,18 +19,21 @@ try:
             "openmp_helpers_outer",
             ["openmp_helpers_outer.pyx"],
             extra_compile_args=openmp_flag,
-            extra_link_args=openmp_flag
-            )
+            extra_link_args=openmp_flag,
+        )
     ]
 
     setup(
         name="_openmp_test_helper_outer",
         ext_modules=cythonize(
             ext_modules,
-            compiler_directives={'language_level': 3,
-                                 'boundscheck': False,
-                                 'wraparound': False},
-            compile_time_env={"CC_OUTER_LOOP": outer_loop_cc_var or "unknown"})
+            compiler_directives={
+                "language_level": 3,
+                "boundscheck": False,
+                "wraparound": False,
+            },
+            compile_time_env={"CC_OUTER_LOOP": outer_loop_cc_var or "unknown"},
+        ),
     )
 
 finally:

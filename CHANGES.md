@@ -10,6 +10,7 @@
   https://github.com/joblib/threadpoolctl/pull/95
 
 - Added support for OpenBLAS built for 64bit integers in Fortran.
+  https://github.com/joblib/threadpoolctl/pull/101
 
 - Fixed an attribute error when using old versions of OpenBLAS or BLIS that are
   missing version query functions.

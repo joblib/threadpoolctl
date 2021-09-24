@@ -119,8 +119,7 @@ def _realpath(filepath):
     return os.path.realpath(filepath)
 
 
-@_format_docstring(USER_APIS=list(_ALL_USER_APIS),
-                   INTERNAL_APIS=_ALL_INTERNAL_APIS)
+@_format_docstring(USER_APIS=list(_ALL_USER_APIS), INTERNAL_APIS=_ALL_INTERNAL_APIS)
 def threadpool_info():
     """Return the maximal number of threads for each detected library.
 
@@ -186,11 +185,12 @@ def threadpool_limits(limits=None, user_api=None):
 
 class _threadpool_limits:
     """The guts of ThreadpoolController.limit
-    
+
     Refer to the docstring of ThreadpoolController.limit for more details.
 
     It will only act on the library controllers held by the provided `controller`.
     """
+
     def __init__(self, controller, *, limits=None, user_api=None):
         self._limits, self._user_api, self._prefixes = self._check_params(
             limits, user_api
@@ -221,7 +221,9 @@ class _threadpool_limits:
         for user_api in self._user_api:
             limits = [
                 lib_controller.num_threads
-                for lib_controller in self._controller.select(user_api=user_api).lib_controllers
+                for lib_controller in self._controller.select(
+                    user_api=user_api
+                ).lib_controllers
             ]
             limits = set(limits)
             n_limits = len(limits)
@@ -327,6 +329,7 @@ class ThreadpoolController:
     lib_controllers : list of `LibController` objects
         The list of library controllers of all loaded supported libraries.
     """
+
     # Cache for libc under POSIX and a few system libraries under Windows.
     # We use a class level cache instead of an instance level cache because
     # it's very unlikely that a shared library will be unloaded and reloaded
@@ -421,7 +424,7 @@ class ThreadpoolController:
 
     def restore_limits(self):
         """Set the limits back to their original values
-        
+
         Since get_num_threads is only called once at initialization, the instance keeps
         the original num_threads during its whole lifetime.
         """

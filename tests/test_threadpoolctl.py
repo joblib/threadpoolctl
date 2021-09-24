@@ -186,7 +186,8 @@ def test_threadpool_controller_limit():
         openmp_controller = ThreadpoolController().select(user_api="openmp")
 
         assert all(
-            lib_controller.num_threads == 1 for lib_controller in blas_controller.lib_controllers
+            lib_controller.num_threads == 1
+            for lib_controller in blas_controller.lib_controllers
         )
         # original_blas_controller contains only blas libraries so no opemp library
         # should be impacted.
@@ -359,7 +360,8 @@ def test_nested_prange_blas(nthreads_outer):
     # numpy can be linked to BLIS for CBLAS and OpenBLAS for LAPACK. In that
     # case this test will run BLIS gemm so no need to skip.
     if not blis_controllers and any(
-        is_old_openblas(lib_controller) for lib_controller in blas_controllers.lib_controllers
+        is_old_openblas(lib_controller)
+        for lib_controller in blas_controllers.lib_controllers
     ):
         pytest.skip("Old OpenBLAS: skipping test to avoid deadlock")
 
@@ -377,7 +379,9 @@ def test_nested_prange_blas(nthreads_outer):
     assert prange_num_threads == nthreads
 
     nested_blas_controllers = inner_controller.select(user_api="blas")
-    assert len(nested_blas_controllers.lib_controllers) == len(blas_controllers.lib_controllers)
+    assert len(nested_blas_controllers.lib_controllers) == len(
+        blas_controllers.lib_controllers
+    )
     for lib_controller in nested_blas_controllers.lib_controllers:
         assert lib_controller.num_threads == 1
 
@@ -406,7 +410,8 @@ def test_get_original_num_threads(limit):
             blas_controller = original_controller.select(user_api="blas")
             if blas_controller:
                 expected = min(
-                    lib_controller.num_threads for lib_controller in blas_controller.lib_controllers
+                    lib_controller.num_threads
+                    for lib_controller in blas_controller.lib_controllers
                 )
                 assert original_num_threads["blas"] == expected
             else:

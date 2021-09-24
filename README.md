@@ -121,7 +121,7 @@ loaded in the same Python program.
 The state of these libraries is also accessible through the object oriented API:
 
 ```python
->>> from threadpoolctl import threadpool_info
+>>> from threadpoolctl import ThreadpoolController
 >>> from pprint import pprint
 >>> import numpy
 >>> controller = ThreadpoolController()

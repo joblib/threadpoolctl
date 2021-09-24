@@ -20,3 +20,8 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+
+[tool.black]
+line-length = 88
+target_version = ['py36', 'py37', 'py38', 'py39']
+experimental_string_processing = true

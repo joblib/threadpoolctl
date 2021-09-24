@@ -107,6 +107,7 @@ def _format_docstring(*args, **kwargs):
     return decorator
 
 
+@lru_cache(maxsize=10000)
 def _realpath(filepath):
     """Small caching wrapper around os.path.realpath to limit system calls"""
     return os.path.realpath(filepath)

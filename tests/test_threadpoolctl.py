@@ -220,8 +220,9 @@ def test_threadpool_limits_bad_input():
     with pytest.raises(ValueError, match=match):
         threadpool_limits(limits=1, user_api="wrong")
 
-    match = "limits must either be an int, a list or a dict"
-    with pytest.raises(TypeError, match=match):
+    with pytest.raises(
+        TypeError, match="limits must either be an int, a list or a dict"
+    ):
         threadpool_limits(limits=(1, 2, 3))
 
 

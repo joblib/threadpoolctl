@@ -139,7 +139,7 @@ def threadpool_info():
 
 
 @_format_docstring(
-    USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
+    USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),
     BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
     OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
 )
@@ -316,8 +316,8 @@ class _threadpool_limits:
 
 
 @_format_docstring(
-    PREFIXES=", ".join('"{}"'.format(prefix) for prefix in _ALL_PREFIXES),
-    USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
+    PREFIXES=", ".join(f'"{prefix}"' for prefix in _ALL_PREFIXES),
+    USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),
     BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
     OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
 )
@@ -519,7 +519,7 @@ class ThreadpoolController:
             PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, os.getpid()
         )
         if not h_process:  # pragma: no cover
-            raise OSError("Could not open PID %s" % os.getpid())
+            raise OSError(f"Could not open PID {os.getpid()}")
 
         try:
             buf_count = 256
@@ -642,7 +642,7 @@ class ThreadpoolController:
         """Load a windows DLL"""
         dll = cls._system_libraries.get(dll_name)
         if dll is None:
-            dll = ctypes.WinDLL("{}.dll".format(dll_name))
+            dll = ctypes.WinDLL(f"{dll_name}.dll")
             cls._system_libraries[dll_name] = dll
         return dll
 
@@ -888,7 +888,7 @@ def _main():
     parser.add_argument(
         "-c",
         "--command",
-        help="a Python statement to execute before introspecting" " thread-pools.",
+        help="a Python statement to execute before introspecting thread-pools.",
     )
 
     options = parser.parse_args(sys.argv[1:])

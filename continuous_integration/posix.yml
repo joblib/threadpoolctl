@@ -12,11 +12,6 @@ jobs:
       ${{ insert }}: ${{ parameters.matrix }}
 
   steps:
-    - script: |
-        sudo apt-get install python3-flake8
-        python3 -m flake8 .
-      displayName: Lint
-      condition: eq(variables['LINT'], 'true')
     - bash: echo "##vso[task.prependpath]$CONDA/bin"
       displayName: Add conda to PATH
       condition: or(startsWith(variables['PACKAGER'], 'conda'), eq(variables['PACKAGER'], 'pip'))
@@ -25,6 +20,13 @@ jobs:
       # We need to take ownership if we want to update conda or install packages globally
       displayName: Take ownership of conda installation
       condition: eq('${{ parameters.name }}', 'macOS')
+    - script: |
+        conda create -n tmp -y -c conda-forge python black
+        source activate tmp
+        black --check .
+        conda deactivate
+      displayName: Lint
+      condition: eq(variables['LINT'], 'true')
     - script: |
         continuous_integration/install.sh
       displayName: 'Install without BLIS'

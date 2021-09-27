@@ -155,9 +155,6 @@ class _threadpool_limits:
         self._set_threadpool_limits()
 
     def __enter__(self):
-        if not hasattr(self, "_limits_set"):
-            # Set the limits here if the instance was not created via __init__.
-            self._set_threadpool_limits()
         return self
 
     def __exit__(self, type, value, traceback):
@@ -166,17 +163,7 @@ class _threadpool_limits:
     @classmethod
     def wrap(cls, controller, *, limits=None, user_api=None):
         """Return an instance of this class that can be used as a decorator"""
-        obj = type(cls.__name__, (ContextDecorator,), dict(cls.__dict__))
-
-        # we need to create an instance without calling __init__ because we want the
-        # limits to be set when calling the decorated function, not when creating the
-        # decorator.
-        new_ctx = obj.__new__(obj)
-        new_ctx._limits, new_ctx._user_api, new_ctx._prefixes = cls._check_params(
-            limits, user_api
-        )
-        new_ctx._controller = controller
-        return new_ctx
+        return _threadpool_limits_decorator(controller=controller, limits=limits, user_api=user_api)
 
     def unregister(self):
         for lib_controller in self._controller.lib_controllers:
@@ -289,7 +276,21 @@ class _threadpool_limits:
             if num_threads is not None:
                 lib_controller.set_num_threads(num_threads)
 
-        self._limits_set = True
+
+class _threadpool_limits_decorator(_threadpool_limits, ContextDecorator):
+    """Same as _threadpool_limits but to be used as a decorator"""
+    def __init__(self, controller, *, limits=None, user_api=None):
+        self._limits, self._user_api, self._prefixes = self._check_params(
+            limits, user_api
+        )
+        self._controller = controller
+
+    def __enter__(self):
+        # we need to set the limits here and not in the __init__ because we want the
+        # limits to be set when calling the decorated function, not when creating the
+        # decorator.
+        self._set_threadpool_limits()
+        return self
 
 
 @_format_docstring(

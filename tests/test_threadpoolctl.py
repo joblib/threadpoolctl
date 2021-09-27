@@ -551,3 +551,22 @@ def test_architecture():
         else:
             # Not supported for other libraries
             assert "architecture" not in lib_info
+
+
+def test_openblas_threading_layer():
+    # Check that threadpool_info correctly recovers the threading layer used by openblas
+    openblas_controller = ThreadpoolController().select(internal_api="openblas")
+
+    if not (openblas_controller):
+        pytest.skip("requires OpenBLAS.")
+
+    expected_openblas_threading_layers = ("openmp", "pthreads", "disabled")
+
+    threading_layer = openblas_controller.lib_controllers[0].threading_layer
+
+    if threading_layer == "unknown":
+        # If we never recover an acceptable value for the threading layer, it will be
+        # always skipped and caught by check_no_test_always_skipped.
+        pytest.skip("Unknown OpenBLAS threading layer.")
+
+    assert threading_layer in expected_openblas_threading_layers

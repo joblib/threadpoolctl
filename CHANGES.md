@@ -14,6 +14,7 @@
 
 - Added the possibility to use `threadpoolctl.threadpool_limits` and
   `threadpooctl.ThreadpoolController` as decorators through their `wrap` method.
+  https://github.com/joblib/threadpoolctl/pull/102
 
 - Fixed an attribute error when using old versions of OpenBLAS or BLIS that are
   missing version query functions.

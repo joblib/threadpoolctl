@@ -163,7 +163,9 @@ class _threadpool_limits:
     @classmethod
     def wrap(cls, controller, *, limits=None, user_api=None):
         """Return an instance of this class that can be used as a decorator"""
-        return _threadpool_limits_decorator(controller=controller, limits=limits, user_api=user_api)
+        return _threadpool_limits_decorator(
+            controller=controller, limits=limits, user_api=user_api
+        )
 
     def unregister(self):
         for lib_controller in self._controller.lib_controllers:
@@ -279,6 +281,7 @@ class _threadpool_limits:
 
 class _threadpool_limits_decorator(_threadpool_limits, ContextDecorator):
     """Same as _threadpool_limits but to be used as a decorator"""
+
     def __init__(self, controller, *, limits=None, user_api=None):
         self._limits, self._user_api, self._prefixes = self._check_params(
             limits, user_api

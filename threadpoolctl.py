@@ -337,10 +337,12 @@ class threadpool_limits(_threadpool_limits):
 
     def __init__(self, limits=None, user_api=None):
         super().__init__(ThreadpoolController(), limits=limits, user_api=user_api)
-    
+
     @classmethod
     def wrap(cls, limits=None, user_api=None):
-        return _threadpool_limits.wrap(ThreadpoolController(), limits=limits, user_api=user_api)
+        return _threadpool_limits.wrap(
+            ThreadpoolController(), limits=limits, user_api=user_api
+        )
 
 
 @_format_docstring(

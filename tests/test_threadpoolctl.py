@@ -551,3 +551,34 @@ def test_architecture():
         else:
             # Not supported for other libraries
             assert "architecture" not in lib_info
+
+
+def test_threadpool_controller_as_decorator():
+    # Check that using the decorator can be nested and is restricted to the scope of
+    # the decorated function.
+    controller = ThreadpoolController()
+
+    if not controller.select(user_api="blas"):
+        pytest.skip(f"Requires a blas runtime.")
+
+    @controller.wrap(limits=1, user_api="blas")
+    def func1():
+        blas_controller = ThreadpoolController().select(user_api="blas")
+        assert all(
+            lib_controller.num_threads == 1
+            for lib_controller in blas_controller.lib_controllers
+        )
+
+        func2()
+
+    @controller.wrap(limits=2, user_api="blas")
+    def func2():
+        blas_controller = ThreadpoolController().select(user_api="blas")
+        assert all(
+            lib_controller.num_threads == 2
+            for lib_controller in blas_controller.lib_controllers
+        )
+
+    func1()
+
+    assert controller.info() == ThreadpoolController().info()

@@ -214,6 +214,11 @@ decorators are accessible through their `wrap` method:
   and workarounds:
   https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
 
+- Setting the maximum number of threads of the OpenMP and BLAS libraries has a global
+  effect and impacts the whole Python process. There is no thread level isolation as
+  these libraries do not offer thread-local APIs to configure the number of threads to
+  use in nested parallel calls.
+
 
 ## Maintainers
 

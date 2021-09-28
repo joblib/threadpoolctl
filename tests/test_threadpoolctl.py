@@ -580,24 +580,21 @@ def test_threadpool_controller_as_decorator():
     if not controller.select(user_api="blas"):
         pytest.skip(f"Requires a blas runtime.")
 
-    @controller.wrap(limits=1, user_api="blas")
-    def func1():
+    def check_blas_num_threads(expected_num_threads):
         blas_controller = ThreadpoolController().select(user_api="blas")
         assert all(
-            lib_controller.num_threads == 1
+            lib_controller.num_threads == expected_num_threads
             for lib_controller in blas_controller.lib_controllers
         )
 
-        func2()
+    @controller.wrap(limits=1, user_api="blas")
+    def outer_func():
+        _check_blas_num_threads(1)
+        inner_func()
+        _check_blas_num_threads(1)
 
     @controller.wrap(limits=2, user_api="blas")
-    def func2():
-        blas_controller = ThreadpoolController().select(user_api="blas")
-        assert all(
-            lib_controller.num_threads == 2
-            for lib_controller in blas_controller.lib_controllers
-        )
-
-    func1()
+    def inner_func():
+        _check_blas_num_threads(2)
 
     assert controller.info() == ThreadpoolController().info()

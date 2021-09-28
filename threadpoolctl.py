@@ -145,6 +145,9 @@ class _ThreadpoolLimiter:
     Refer to the docstring of ThreadpoolController.limit for more details.
 
     It will only act on the library controllers held by the provided `controller`.
+    Using the default constructor sets the limits right away such that it can be used as
+    a callable. Setting the limits can be delayed by using the `wrap` class method such
+    that it can be used as a decorator.
     """
 
     def __init__(self, controller, *, limits=None, user_api=None):

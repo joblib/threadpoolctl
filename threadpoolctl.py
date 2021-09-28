@@ -213,8 +213,7 @@ class _ThreadpoolLimiter:
 
         return num_threads
 
-    @classmethod
-    def _check_params(cls, limits, user_api):
+    def _check_params(self, limits, user_api):
         """Suitable values for the _limits, _user_api and _prefixes attributes"""
         if limits is None or isinstance(limits, int):
             if user_api is None:
@@ -347,9 +346,7 @@ class threadpool_limits(_ThreadpoolLimiter):
 
     @classmethod
     def wrap(cls, limits=None, user_api=None):
-        return super().wrap(
-            ThreadpoolController(), limits=limits, user_api=user_api
-        )
+        return super().wrap(ThreadpoolController(), limits=limits, user_api=user_api)
 
 
 @_format_docstring(

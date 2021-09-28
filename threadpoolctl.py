@@ -139,7 +139,7 @@ def threadpool_info():
     return ThreadpoolController().info()
 
 
-class _threadpool_limits:
+class _ThreadpoolLimiter:
     """The guts of ThreadpoolController.limit
 
     Refer to the docstring of ThreadpoolController.limit for more details.
@@ -163,7 +163,7 @@ class _threadpool_limits:
     @classmethod
     def wrap(cls, controller, *, limits=None, user_api=None):
         """Return an instance of this class that can be used as a decorator"""
-        return _threadpool_limits_decorator(
+        return _ThreadpoolLimiterDecorator(
             controller=controller, limits=limits, user_api=user_api
         )
 
@@ -279,8 +279,8 @@ class _threadpool_limits:
                 lib_controller.set_num_threads(num_threads)
 
 
-class _threadpool_limits_decorator(_threadpool_limits, ContextDecorator):
-    """Same as _threadpool_limits but to be used as a decorator"""
+class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
+    """Same as _ThreadpoolLimiter but to be used as a decorator"""
 
     def __init__(self, controller, *, limits=None, user_api=None):
         self._limits, self._user_api, self._prefixes = self._check_params(
@@ -301,7 +301,7 @@ class _threadpool_limits_decorator(_threadpool_limits, ContextDecorator):
     BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
     OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
 )
-class threadpool_limits(_threadpool_limits):
+class threadpool_limits(_ThreadpoolLimiter):
     """Change the maximal number of threads that can be used in thread pools.
 
     This object can be used either as a callable (the construction of this object
@@ -344,7 +344,7 @@ class threadpool_limits(_threadpool_limits):
 
     @classmethod
     def wrap(cls, limits=None, user_api=None):
-        return _threadpool_limits.wrap(
+        return super().wrap(
             ThreadpoolController(), limits=limits, user_api=user_api
         )
 
@@ -454,7 +454,7 @@ class ThreadpoolController:
 
             - If None, this function will apply to all supported libraries.
         """
-        return _threadpool_limits(self, limits=limits, user_api=user_api)
+        return _ThreadpoolLimiter(self, limits=limits, user_api=user_api)
 
     def wrap(self, *, limits=None, user_api=None):
         """Change the maximal number of threads that can be used in thread pools.
@@ -490,7 +490,7 @@ class ThreadpoolController:
 
             - If None, this function will apply to all supported libraries.
         """
-        return _threadpool_limits.wrap(self, limits=limits, user_api=user_api)
+        return _ThreadpoolLimiter.wrap(self, limits=limits, user_api=user_api)
 
     def restore_limits(self):
         """Set the limits back to their original values

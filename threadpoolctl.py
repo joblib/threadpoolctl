@@ -464,6 +464,11 @@ class ThreadpoolController:
         """
         return _ThreadpoolLimiter(self, limits=limits, user_api=user_api)
 
+    @_format_docstring(
+        USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
+        BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
+        OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
+    )
     def wrap(self, *, limits=None, user_api=None):
         """Change the maximal number of threads that can be used in thread pools.
 

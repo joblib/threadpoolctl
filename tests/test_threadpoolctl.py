@@ -576,6 +576,7 @@ def test_threadpool_controller_as_decorator():
     # Check that using the decorator can be nested and is restricted to the scope of
     # the decorated function.
     controller = ThreadpoolController()
+    original_info = controller.info()
 
     if not controller.select(user_api="blas"):
         pytest.skip(f"Requires a blas runtime.")
@@ -589,12 +590,14 @@ def test_threadpool_controller_as_decorator():
 
     @controller.wrap(limits=1, user_api="blas")
     def outer_func():
-        _check_blas_num_threads(1)
+        check_blas_num_threads(1)
         inner_func()
-        _check_blas_num_threads(1)
+        check_blas_num_threads(1)
 
     @controller.wrap(limits=2, user_api="blas")
     def inner_func():
-        _check_blas_num_threads(2)
+        check_blas_num_threads(2)
 
-    assert controller.info() == ThreadpoolController().info()
+    outer_func()
+
+    assert ThreadpoolController().info() == original_info

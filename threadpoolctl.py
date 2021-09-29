@@ -203,14 +203,18 @@ class _threadpool_limits:
         return self
 
     def __exit__(self, type, value, traceback):
-        self.unregister()
+        self.restore_original_limits()
 
-    def unregister(self):
+    def restore_original_limits(self):
         """Set the limits back to their original values"""
         for lib_controller, original_info in zip(
             self._controller.lib_controllers, self._original_info
         ):
             lib_controller.set_num_threads(original_info["num_threads"])
+
+    def unregister(self):
+        """Alias of `restore_original_limits` for backward compatibility"""
+        self.restore_original_limits()
 
     def get_original_num_threads(self):
         """Original num_threads from before calling threadpool_limits

@@ -173,10 +173,10 @@ def test_set_threadpool_limits_no_limit():
     assert ThreadpoolController().info() == original_info
 
 
-def test_threadpool_limits_manual_unregister():
+def test_threadpool_limits_manual_restore():
     # Check that threadpool_limits can be used as an object which holds the
     # original state of the threadpools and that can be restored thanks to the
-    # dedicated unregister method
+    # dedicated restore_original_limits method
     original_info = ThreadpoolController().info()
 
     limits = threadpool_limits(limits=1)
@@ -188,7 +188,7 @@ def test_threadpool_limits_manual_unregister():
     finally:
         # Restore the original limits so that this test does not have any
         # side-effect.
-        limits.unregister()
+        limits.restore_original_limits()
 
     assert ThreadpoolController().info() == original_info
 
@@ -217,6 +217,9 @@ def test_nested_limits():
     # when nested.
     controller = ThreadpoolController()
     original_info = controller.info()
+
+    if any(info["num_threads"] < 2 for info in original_info):
+        pytest.skip("Test requires at least 2 CPUs on host machine")
 
     def check_num_threads(expected_num_threads):
         assert all(

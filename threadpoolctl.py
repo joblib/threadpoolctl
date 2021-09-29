@@ -196,6 +196,7 @@ class _threadpool_limits:
             limits, user_api
         )
         self._controller = controller
+        self._original_info = self._controller.info()
         self._set_threadpool_limits()
 
     def __enter__(self):
@@ -205,10 +206,11 @@ class _threadpool_limits:
         self.unregister()
 
     def unregister(self):
-        for lib_controller in self._controller.lib_controllers:
-            # Since we never call get_num_threads after instanciation of
-            # ThreadpoolController, num_threads holds the original value.
-            lib_controller.set_num_threads(lib_controller.num_threads)
+        """Set the limits back to their original values"""
+        for lib_controller, original_info in zip(
+            self._controller.lib_controllers, self._original_info
+        ):
+            lib_controller.set_num_threads(original_info["num_threads"])
 
     def get_original_num_threads(self):
         """Original num_threads from before calling threadpool_limits
@@ -220,10 +222,9 @@ class _threadpool_limits:
 
         for user_api in self._user_api:
             limits = [
-                lib_controller.num_threads
-                for lib_controller in self._controller.select(
-                    user_api=user_api
-                ).lib_controllers
+                lib_info["num_threads"]
+                for lib_info in self._original_info
+                if lib_info["user_api"] == user_api
             ]
             limits = set(limits)
             n_limits = len(limits)
@@ -421,14 +422,6 @@ class ThreadpoolController:
             - If None, this function will apply to all supported libraries.
         """
         return _threadpool_limits(self, limits=limits, user_api=user_api)
-
-    def restore_limits(self):
-        """Set the limits back to their original values
-
-        Since get_num_threads is only called once at initialization, the instance keeps
-        the original num_threads during its whole lifetime.
-        """
-        self.limit(limits=self)
 
     def __len__(self):
         return len(self.lib_controllers)
@@ -673,11 +666,15 @@ class LibController(ABC):
         self.filepath = filepath
         self._dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
         self.version = self.get_version()
-        self.num_threads = self.get_num_threads()
 
     def info(self):
         """Return relevant info wrapped in a dict"""
-        return {k: v for k, v in vars(self).items() if not k.startswith("_")}
+        all_attrs = dict(vars(self), **{"num_threads": self.num_threads})
+        return {k: v for k, v in all_attrs.items() if not k.startswith("_")}
+
+    @property
+    def num_threads(self):
+        return self.get_num_threads()
 
     @abstractmethod
     def get_num_threads(self):

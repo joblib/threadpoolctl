@@ -212,9 +212,8 @@ class _threadpool_limits:
         ):
             lib_controller.set_num_threads(original_info["num_threads"])
 
-    def unregister(self):
-        """Alias of `restore_original_limits` for backward compatibility"""
-        self.restore_original_limits()
+    # Alias of `restore_original_limits` for backward compatibility
+    unregister = restore_original_limits
 
     def get_original_num_threads(self):
         """Original num_threads from before calling threadpool_limits

@@ -65,3 +65,19 @@ def threadpool_info_from_subprocess(module):
     cmd = [sys.executable, "-m", "threadpoolctl", "-i", module]
     out = check_output(cmd, env=env).decode("utf-8")
     return json.loads(out)
+
+
+def select(info, **kwargs):
+    """Select a subset of the list of library info matching the request"""
+    # It's just a utility function to avoid repeating the pattern
+    # [lib_info for lib_info in info if lib_info["<key>"] == key]
+    for key, vals in kwargs.items():
+        kwargs[key] = [vals] if not isinstance(vals, list) else vals
+
+    selected_info = [
+        lib_info
+        for lib_info in info
+        if any(lib_info.get(key, None) in vals for key, vals in kwargs.items())
+    ]
+
+    return selected_info

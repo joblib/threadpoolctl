@@ -587,3 +587,36 @@ def test_openblas_threading_layer():
         pytest.skip("Unknown OpenBLAS threading layer.")
 
     assert threading_layer in expected_openblas_threading_layers
+
+
+def test_threadpool_controller_as_decorator():
+    # Check that using the decorator can be nested and is restricted to the scope of
+    # the decorated function.
+    controller = ThreadpoolController()
+    original_info = controller.info()
+
+    if any(info["num_threads"] < 2 for info in original_info):
+        pytest.skip("Test requires at least 2 CPUs on host machine")
+    if not controller.select(user_api="blas"):
+        pytest.skip("Requires a blas runtime.")
+
+    def check_blas_num_threads(expected_num_threads):
+        blas_controller = ThreadpoolController().select(user_api="blas")
+        assert all(
+            lib_controller.num_threads == expected_num_threads
+            for lib_controller in blas_controller.lib_controllers
+        )
+
+    @controller.wrap(limits=1, user_api="blas")
+    def outer_func():
+        check_blas_num_threads(expected_num_threads=1)
+        inner_func()
+        check_blas_num_threads(expected_num_threads=1)
+
+    @controller.wrap(limits=2, user_api="blas")
+    def inner_func():
+        check_blas_num_threads(expected_num_threads=2)
+
+    outer_func()
+
+    assert ThreadpoolController().info() == original_info

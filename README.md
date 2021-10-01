@@ -159,7 +159,7 @@ in specific sections of your Python program:
 The threadpools can also be controlled via the object oriented API, which is especially
 useful to avoid searching through all the loaded shared libraries each time. It will
 however not act on libraries loaded after the instanciation of the
-``ThreadpoolController``:
+`ThreadpoolController`:
 
 ```python
 >>> from threadpoolctl import ThreadpoolController
@@ -169,6 +169,27 @@ however not act on libraries loaded after the instanciation of the
 >>> with controller.limit(limits=1, user_api='blas'):
 ...     a = np.random.randn(1000, 1000)
 ...     a_squared = a @ a
+```
+
+### Restricting the limits to the scope of a function
+
+`threadpool_limits` and `ThreadpoolController` can also be used as decorators to set
+the maximum number of threads used by the supported libraries at a function level. The
+decorators are accessible through their `wrap` method:
+
+```python
+>>> from threadpoolctl import ThreadpoolController, threadpool_limits
+>>> import numpy as np
+>>> controller = ThreadpoolController()
+
+>>> @controller.wrap(limits=1, user_api='blas')
+... # or @threadpool_limits.wrap(limits=1, user_api='blas')
+... def my_func():
+...     # Inside this function, calls to blas implementation (like openblas or MKL)
+...     # will be limited to use only one thread.
+...     a = np.random.randn(1000, 1000)
+...     a_squared = a @ a
+...
 ```
 
 ### Known Limitations
@@ -192,6 +213,11 @@ however not act on libraries loaded after the instanciation of the
   under Linux is known to cause problems. See the following guide for more details
   and workarounds:
   https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
+
+- Setting the maximum number of threads of the OpenMP and BLAS libraries has a global
+  effect and impacts the whole Python process. There is no thread level isolation as
+  these libraries do not offer thread-local APIs to configure the number of threads to
+  use in nested parallel calls.
 
 
 ## Maintainers

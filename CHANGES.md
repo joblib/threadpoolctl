@@ -1,5 +1,5 @@
-3.0.0 (in development)
-======================
+3.0.0 (2021-10-01)
+==================
 
 - New object `threadpooctl.ThreadpoolController` which holds controllers for all the
   supported native libraries. The states of these libraries is accessible through the

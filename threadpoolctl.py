@@ -20,7 +20,7 @@ from ctypes.util import find_library
 from abc import ABC, abstractmethod
 from functools import lru_cache
 
-__version__ = "2.3.0.dev0"
+__version__ = "3.0.0"
 __all__ = ["threadpool_limits", "threadpool_info", "ThreadpoolController"]
 
 

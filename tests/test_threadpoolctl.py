@@ -595,8 +595,10 @@ def test_threadpool_controller_as_decorator():
     controller = ThreadpoolController()
     original_info = controller.info()
 
+    if any(info["num_threads"] < 2 for info in original_info):
+        pytest.skip("Test requires at least 2 CPUs on host machine")
     if not controller.select(user_api="blas"):
-        pytest.skip(f"Requires a blas runtime.")
+        pytest.skip("Requires a blas runtime.")
 
     def check_blas_num_threads(expected_num_threads):
         blas_controller = ThreadpoolController().select(user_api="blas")

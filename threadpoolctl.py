@@ -19,6 +19,7 @@ import warnings
 from ctypes.util import find_library
 from abc import ABC, abstractmethod
 from functools import lru_cache
+from contextlib import ContextDecorator
 
 __version__ = "3.0.0"
 __all__ = ["threadpool_limits", "threadpool_info", "ThreadpoolController"]
@@ -138,57 +139,15 @@ def threadpool_info():
     return ThreadpoolController().info()
 
 
-@_format_docstring(
-    USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),
-    BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
-    OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
-)
-def threadpool_limits(limits=None, user_api=None):
-    """Change the maximal number of threads that can be used in thread pools.
-
-    This function returns an object that can be used either as a callable (the
-    construction of this object limits the number of threads) or as a context manager,
-    in a `with` block to automatically restore the original state of the controlled
-    libraries when exiting the block.
-
-    Set the maximal number of threads that can be used in thread pools used in
-    the supported libraries to `limit`. This function works for libraries that
-    are already loaded in the interpreter and can be changed dynamically.
-
-    Parameters
-    ----------
-    limits : int, dict or None (default=None)
-        The maximal number of threads that can be used in thread pools
-
-        - If int, sets the maximum number of threads to `limits` for each
-          library selected by `user_api`.
-
-        - If it is a dictionary `{{key: max_threads}}`, this function sets a
-          custom maximum number of threads for each `key` which can be either a
-          `user_api` or a `prefix` for a specific library.
-
-        - If None, this function does not do anything.
-
-    user_api : {USER_APIS} or None (default=None)
-        APIs of libraries to limit. Used only if `limits` is an int.
-
-        - If "blas", it will only limit BLAS supported libraries ({BLAS_LIBS}).
-
-        - If "openmp", it will only limit OpenMP supported libraries
-          ({OPENMP_LIBS}). Note that it can affect the number of threads used
-          by the BLAS libraries if they rely on OpenMP.
-
-        - If None, this function will apply to all supported libraries.
-    """
-    return ThreadpoolController().limit(limits=limits, user_api=user_api)
-
-
-class _threadpool_limits:
+class _ThreadpoolLimiter:
     """The guts of ThreadpoolController.limit
 
     Refer to the docstring of ThreadpoolController.limit for more details.
 
     It will only act on the library controllers held by the provided `controller`.
+    Using the default constructor sets the limits right away such that it can be used as
+    a callable. Setting the limits can be delayed by using the `wrap` class method such
+    that it can be used as a decorator.
     """
 
     def __init__(self, controller, *, limits=None, user_api=None):
@@ -204,6 +163,13 @@ class _threadpool_limits:
 
     def __exit__(self, type, value, traceback):
         self.restore_original_limits()
+
+    @classmethod
+    def wrap(cls, controller, *, limits=None, user_api=None):
+        """Return an instance of this class that can be used as a decorator"""
+        return _ThreadpoolLimiterDecorator(
+            controller=controller, limits=limits, user_api=user_api
+        )
 
     def restore_original_limits(self):
         """Set the limits back to their original values"""
@@ -302,7 +268,7 @@ class _threadpool_limits:
         matching `self._prefixes` and `self._user_api`.
         """
         if self._limits is None:
-            return None
+            return
 
         for lib_controller in self._controller.lib_controllers:
             # self._limits is a dict {key: num_threads} where key is either
@@ -317,6 +283,79 @@ class _threadpool_limits:
 
             if num_threads is not None:
                 lib_controller.set_num_threads(num_threads)
+
+
+class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
+    """Same as _ThreadpoolLimiter but to be used as a decorator"""
+
+    def __init__(self, controller, *, limits=None, user_api=None):
+        self._limits, self._user_api, self._prefixes = self._check_params(
+            limits, user_api
+        )
+        self._controller = controller
+
+    def __enter__(self):
+        # we need to set the limits here and not in the __init__ because we want the
+        # limits to be set when calling the decorated function, not when creating the
+        # decorator.
+        self._original_info = self._controller.info()
+        self._set_threadpool_limits()
+        return self
+
+
+@_format_docstring(
+    USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),
+    BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
+    OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
+)
+class threadpool_limits(_ThreadpoolLimiter):
+    """Change the maximal number of threads that can be used in thread pools.
+
+    This object can be used either as a callable (the construction of this object
+    limits the number of threads), as a context manager in a `with` block to
+    automatically restore the original state of the controlled libraries when exiting
+    the block, or as a decorator through its `wrap` method.
+
+    Set the maximal number of threads that can be used in thread pools used in
+    the supported libraries to `limit`. This function works for libraries that
+    are already loaded in the interpreter and can be changed dynamically.
+
+    This effect is global and impacts the whole Python process. There is no thread level
+    isolation as these libraries do not offer thread-local APIs to configure the number
+    of threads to use in nested parallel calls.
+
+    Parameters
+    ----------
+    limits : int, dict or None (default=None)
+        The maximal number of threads that can be used in thread pools
+
+        - If int, sets the maximum number of threads to `limits` for each
+          library selected by `user_api`.
+
+        - If it is a dictionary `{{key: max_threads}}`, this function sets a
+          custom maximum number of threads for each `key` which can be either a
+          `user_api` or a `prefix` for a specific library.
+
+        - If None, this function does not do anything.
+
+    user_api : {USER_APIS} or None (default=None)
+        APIs of libraries to limit. Used only if `limits` is an int.
+
+        - If "blas", it will only limit BLAS supported libraries ({BLAS_LIBS}).
+
+        - If "openmp", it will only limit OpenMP supported libraries
+          ({OPENMP_LIBS}). Note that it can affect the number of threads used
+          by the BLAS libraries if they rely on OpenMP.
+
+        - If None, this function will apply to all supported libraries.
+    """
+
+    def __init__(self, limits=None, user_api=None):
+        super().__init__(ThreadpoolController(), limits=limits, user_api=user_api)
+
+    @classmethod
+    def wrap(cls, limits=None, user_api=None):
+        return super().wrap(ThreadpoolController(), limits=limits, user_api=user_api)
 
 
 @_format_docstring(
@@ -399,6 +438,10 @@ class ThreadpoolController:
         the supported libraries to `limits`. This function works for libraries that
         are already loaded in the interpreter and can be changed dynamically.
 
+        This effect is global and impacts the whole Python process. There is no thread
+        level isolation as these libraries do not offer thread-local APIs to configure
+        the number of threads to use in nested parallel calls.
+
         Parameters
         ----------
         limits : int, dict or None (default=None)
@@ -424,7 +467,48 @@ class ThreadpoolController:
 
             - If None, this function will apply to all supported libraries.
         """
-        return _threadpool_limits(self, limits=limits, user_api=user_api)
+        return _ThreadpoolLimiter(self, limits=limits, user_api=user_api)
+
+    @_format_docstring(
+        USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
+        BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
+        OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
+    )
+    def wrap(self, *, limits=None, user_api=None):
+        """Change the maximal number of threads that can be used in thread pools.
+
+        This function returns an object that can be used as a decorator.
+
+        Set the maximal number of threads that can be used in thread pools used in
+        the supported libraries to `limits`. This function works for libraries that
+        are already loaded in the interpreter and can be changed dynamically.
+
+        Parameters
+        ----------
+        limits : int, dict or None (default=None)
+            The maximal number of threads that can be used in thread pools
+
+            - If int, sets the maximum number of threads to `limits` for each
+              library selected by `user_api`.
+
+            - If it is a dictionary `{{key: max_threads}}`, this function sets a
+              custom maximum number of threads for each `key` which can be either a
+              `user_api` or a `prefix` for a specific library.
+
+            - If None, this function does not do anything.
+
+        user_api : {USER_APIS} or None (default=None)
+            APIs of libraries to limit. Used only if `limits` is an int.
+
+            - If "blas", it will only limit BLAS supported libraries ({BLAS_LIBS}).
+
+            - If "openmp", it will only limit OpenMP supported libraries
+              ({OPENMP_LIBS}). Note that it can affect the number of threads used
+              by the BLAS libraries if they rely on OpenMP.
+
+            - If None, this function will apply to all supported libraries.
+        """
+        return _ThreadpoolLimiter.wrap(self, limits=limits, user_api=user_api)
 
     def __len__(self):
         return len(self.lib_controllers)

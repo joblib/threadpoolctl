@@ -22,7 +22,7 @@ cdef int inner_openmp_loop(int n) nogil:
     OpenMP runtime.
 
     This function is expected to run without the GIL and can be called
-    by an outer OpenMP / prange loop written in Cython in anoter file.
+    by an outer OpenMP / prange loop written in Cython in another file.
     """
     cdef long n_sum = 0
     cdef int i, num_threads

@@ -50,7 +50,7 @@
 2.0.0 (2019-12-05)
 ==================
 
-- Expose MKL, BLIS and OpenBLAS threading layer in informations displayed by
+- Expose MKL, BLIS and OpenBLAS threading layer in information displayed by
   `threadpool_info`. This information is referenced in the `threading_layer`
   field.
   https://github.com/joblib/threadpoolctl/pull/48

@@ -158,7 +158,7 @@ in specific sections of your Python program:
 
 The threadpools can also be controlled via the object oriented API, which is especially
 useful to avoid searching through all the loaded shared libraries each time. It will
-however not act on libraries loaded after the instanciation of the
+however not act on libraries loaded after the instantiation of the
 `ThreadpoolController`:
 
 ```python

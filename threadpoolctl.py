@@ -7,7 +7,7 @@ maximal number of threads they can use.
 # License: BSD 3-Clause
 
 # The code to introspect dynamically loaded libraries on POSIX systems is
-# adapted from code by Intel developper @anton-malakhov available at
+# adapted from code by Intel developer @anton-malakhov available at
 # https://github.com/IntelPython/smp (Copyright (c) 2017, Intel Corporation)
 # and also published under the BSD 3-Clause license
 import os
@@ -61,7 +61,7 @@ except AttributeError:
 
 
 # List of the supported libraries. The items are indexed by the name of the
-# class to instanciate to create the library controller objects. The items hold
+# class to instantiate to create the library controller objects. The items hold
 # the possible prefixes of loaded shared objects, the name of the internal_api
 # to call and the name of the user_api.
 _SUPPORTED_LIBRARIES = {
@@ -526,7 +526,7 @@ class ThreadpoolController:
         """Loop through loaded libraries and return binders on supported ones
 
         This function is expected to work on POSIX system only.
-        This code is adapted from code by Intel developper @anton-malakhov
+        This code is adapted from code by Intel developer @anton-malakhov
         available at https://github.com/IntelPython/smp
 
         Copyright (c) 2017, Intel Corporation published under the BSD 3-Clause

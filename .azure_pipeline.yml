@@ -16,7 +16,7 @@ stages:
       vmImage: windows-latest
       matrix:
         pylatest_conda:
-          VERSION_PYTHON: '*'
+          VERSION_PYTHON: '3.9'
           PACKAGER: 'conda'
         py37_conda:
           VERSION_PYTHON: '3.7'

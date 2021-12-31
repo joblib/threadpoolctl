@@ -35,6 +35,7 @@ popd
 # build & install numpy
 git clone https://github.com/numpy/numpy.git
 pushd numpy
+git submodule update --init
 echo "[blis]
 libraries = blis
 library_dirs = $ABS_PATH/BLIS_install/lib

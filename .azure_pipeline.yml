@@ -13,7 +13,7 @@ stages:
   - template: continuous_integration/windows.yml
     parameters:
       name: Windows
-      vmImage: vs2017-win2016
+      vmImage: windows-latest
       matrix:
         pylatest_conda:
           VERSION_PYTHON: '*'

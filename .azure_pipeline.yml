@@ -18,7 +18,7 @@ stages:
         pylatest_conda:
           VERSION_PYTHON: '*'
           PACKAGER: 'conda-forge'
-          BLAS: 'mkl'
+          BLAS: 'openblas'
         py37_conda:
           VERSION_PYTHON: '3.7'
           PACKAGER: 'conda'

@@ -670,11 +670,14 @@ class ThreadpoolController:
             # workaround for blas install from conda-forge on windows. They rename all
             # blas libs into "libblas.dll". We then have to check to which blas
             # implementation it corresponds.
-            if prefix == "libblas" and filename.endswith(".dll"):
-                libblas = ctypes.CDLL(filepath, _RTLD_NOLOAD)
-                if not any(
-                    hasattr(libblas, func) for func in candidate_lib["check_funcs"]
-                ):
+            if prefix == "libblas":
+                if filename.endswith(".dll"):
+                    libblas = ctypes.CDLL(filepath, _RTLD_NOLOAD)
+                    if not any(
+                        hasattr(libblas, func) for func in candidate_lib["check_funcs"]
+                    ):
+                        continue
+                else:
                     continue
 
             # filename matches a prefix. Create and store the library

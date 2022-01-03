@@ -17,7 +17,6 @@ python -m pip install -U pip
 python --version
 pip --version
 
-
 @rem Install dependencies with either conda or pip.
 set TO_INSTALL=numpy scipy cython pytest
 

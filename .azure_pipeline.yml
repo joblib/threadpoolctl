@@ -17,16 +17,14 @@ stages:
       matrix:
         pylatest_conda:
           VERSION_PYTHON: '*'
-          PACKAGER: 'conda'
-          BLAS: 'mkl'
+          PACKAGER: 'conda-forge'
+          BLAS: 'openblas'
         py37_conda:
           VERSION_PYTHON: '3.7'
           PACKAGER: 'conda'
-          BLAS: 'openblas'
         py36_pip:
           VERSION_PYTHON: '3.6'
           PACKAGER: 'pip'
-          BLAS: 'openblas'
 
 
   - template: continuous_integration/posix.yml

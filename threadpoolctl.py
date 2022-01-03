@@ -63,7 +63,9 @@ except AttributeError:
 # List of the supported libraries. The items are indexed by the name of the
 # class to instantiate to create the library controller objects. The items hold
 # the possible prefixes of loaded shared objects, the name of the internal_api
-# to call and the name of the user_api.
+# to call, the name of the user_api and potentially some symbols that the library is
+# expected to have (this is necessary to distinguish between the blas implementations
+# when they are all renamed "libblas.dll" on conda-forge on windows).
 _SUPPORTED_LIBRARIES = {
     "OpenMPController": {
         "user_api": "openmp",
@@ -73,17 +75,20 @@ _SUPPORTED_LIBRARIES = {
     "OpenBLASController": {
         "user_api": "blas",
         "internal_api": "openblas",
-        "filename_prefixes": ("libopenblas",),
+        "filename_prefixes": ("libopenblas", "libblas"),
+        "check_funcs": ("openblas_get_num_threads", "openblas_get_num_threads64_"),
     },
     "MKLController": {
         "user_api": "blas",
         "internal_api": "mkl",
-        "filename_prefixes": ("libmkl_rt", "mkl_rt"),
+        "filename_prefixes": ("libmkl_rt", "mkl_rt", "libblas"),
+        "check_funcs": ("MKL_Get_Max_Threads",),
     },
     "BLISController": {
         "user_api": "blas",
         "internal_api": "blis",
-        "filename_prefixes": ("libblis",),
+        "filename_prefixes": ("libblis", "libblas"),
+        "check_funcs": ("bli_thread_get_num_threads",),
     },
 }
 
@@ -659,6 +664,16 @@ class ThreadpoolController:
             # library. move to next library.
             if prefix is None:
                 continue
+
+            # workaround for blas install from conda-forge on windows. They rename all
+            # blas libs into "libblas.dll". We then have to check to which blas
+            # implementation it corresponds.
+            if prefix == "libblas":
+                libblas = ctypes.CDLL(filepath, _RTLD_NOLOAD)
+                if not any(
+                    hasattr(libblas, func) for func in candidate_lib["check_funcs"]
+                ):
+                    continue
 
             # filename matches a prefix. Create and store the library
             # controller.

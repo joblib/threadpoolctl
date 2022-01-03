@@ -95,11 +95,13 @@ _SUPPORTED_LIBRARIES = {
 # Helpers for the doc and test names
 _ALL_USER_APIS = list(set(lib["user_api"] for lib in _SUPPORTED_LIBRARIES.values()))
 _ALL_INTERNAL_APIS = [lib["internal_api"] for lib in _SUPPORTED_LIBRARIES.values()]
-_ALL_PREFIXES = [
-    prefix
-    for lib in _SUPPORTED_LIBRARIES.values()
-    for prefix in lib["filename_prefixes"]
-]
+_ALL_PREFIXES = list(
+    set(
+        prefix
+        for lib in _SUPPORTED_LIBRARIES.values()
+        for prefix in lib["filename_prefixes"]
+    )
+)
 _ALL_BLAS_LIBRARIES = [
     lib["internal_api"]
     for lib in _SUPPORTED_LIBRARIES.values()

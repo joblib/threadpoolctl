@@ -668,7 +668,7 @@ class ThreadpoolController:
                 continue
 
             # workaround for blas install from conda-forge on windows. They rename all
-            # blas libs into "libblas.dll". We then have to check to which blas
+            # blas libs to "libblas.dll". We then have to check to which blas
             # implementation it corresponds.
             if prefix == "libblas":
                 if filename.endswith(".dll"):

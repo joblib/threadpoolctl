@@ -554,6 +554,7 @@ def test_architecture():
         "Haswell",
         "SkylakeX",
         "Sandybridge",
+        "VORTEX",
         "Zen",
     )
     expected_blis_architectures = (

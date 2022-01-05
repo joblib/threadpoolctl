@@ -76,19 +76,19 @@ _SUPPORTED_LIBRARIES = {
         "user_api": "blas",
         "internal_api": "openblas",
         "filename_prefixes": ("libopenblas", "libblas"),
-        "check_funcs": ("openblas_get_num_threads", "openblas_get_num_threads64_"),
+        "check_symbols": ("openblas_get_num_threads", "openblas_get_num_threads64_"),
     },
     "MKLController": {
         "user_api": "blas",
         "internal_api": "mkl",
         "filename_prefixes": ("libmkl_rt", "mkl_rt", "libblas"),
-        "check_funcs": ("MKL_Get_Max_Threads",),
+        "check_symbols": ("MKL_Get_Max_Threads",),
     },
     "BLISController": {
         "user_api": "blas",
         "internal_api": "blis",
         "filename_prefixes": ("libblis", "libblas"),
-        "check_funcs": ("bli_thread_get_num_threads",),
+        "check_symbols": ("bli_thread_get_num_threads",),
     },
 }
 
@@ -667,17 +667,24 @@ class ThreadpoolController:
             if prefix is None:
                 continue
 
-            # workaround for blas install from conda-forge on windows. They rename all
-            # blas libs into "libblas.dll". We then have to check to which blas
-            # implementation it corresponds.
+            # workaround for BLAS libraries packaged by conda-forge on windows, which
+            # are all renamed "libblas.dll". We thus have to check to which BLAS
+            # implementation it actually corresponds looking for implementation
+            # specific symbols.
             if prefix == "libblas":
                 if filename.endswith(".dll"):
                     libblas = ctypes.CDLL(filepath, _RTLD_NOLOAD)
                     if not any(
-                        hasattr(libblas, func) for func in candidate_lib["check_funcs"]
+                        hasattr(libblas, func)
+                        for func in candidate_lib["check_symbols"]
                     ):
                         continue
                 else:
+                    # We ignore libblas on other platforms than windows because there
+                    # might be a libblas dso comming with openblas for instance that
+                    # can't be used to instantiate a pertinent LibController (many
+                    # symbols are missing) and would create confusion by making a
+                    # duplicate entry in threadpool_info.
                     continue
 
             # filename matches a prefix. Create and store the library

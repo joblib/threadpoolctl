@@ -63,7 +63,9 @@ except AttributeError:
 # List of the supported libraries. The items are indexed by the name of the
 # class to instantiate to create the library controller objects. The items hold
 # the possible prefixes of loaded shared objects, the name of the internal_api
-# to call and the name of the user_api.
+# to call, the name of the user_api and potentially some symbols that the library is
+# expected to have (this is necessary to distinguish between the blas implementations
+# when they are all renamed "libblas.dll" on conda-forge on windows).
 _SUPPORTED_LIBRARIES = {
     "OpenMPController": {
         "user_api": "openmp",
@@ -73,28 +75,33 @@ _SUPPORTED_LIBRARIES = {
     "OpenBLASController": {
         "user_api": "blas",
         "internal_api": "openblas",
-        "filename_prefixes": ("libopenblas",),
+        "filename_prefixes": ("libopenblas", "libblas"),
+        "check_symbols": ("openblas_get_num_threads", "openblas_get_num_threads64_"),
     },
     "MKLController": {
         "user_api": "blas",
         "internal_api": "mkl",
-        "filename_prefixes": ("libmkl_rt", "mkl_rt"),
+        "filename_prefixes": ("libmkl_rt", "mkl_rt", "libblas"),
+        "check_symbols": ("MKL_Get_Max_Threads",),
     },
     "BLISController": {
         "user_api": "blas",
         "internal_api": "blis",
-        "filename_prefixes": ("libblis",),
+        "filename_prefixes": ("libblis", "libblas"),
+        "check_symbols": ("bli_thread_get_num_threads",),
     },
 }
 
 # Helpers for the doc and test names
 _ALL_USER_APIS = list(set(lib["user_api"] for lib in _SUPPORTED_LIBRARIES.values()))
 _ALL_INTERNAL_APIS = [lib["internal_api"] for lib in _SUPPORTED_LIBRARIES.values()]
-_ALL_PREFIXES = [
-    prefix
-    for lib in _SUPPORTED_LIBRARIES.values()
-    for prefix in lib["filename_prefixes"]
-]
+_ALL_PREFIXES = list(
+    set(
+        prefix
+        for lib in _SUPPORTED_LIBRARIES.values()
+        for prefix in lib["filename_prefixes"]
+    )
+)
 _ALL_BLAS_LIBRARIES = [
     lib["internal_api"]
     for lib in _SUPPORTED_LIBRARIES.values()
@@ -659,6 +666,26 @@ class ThreadpoolController:
             # library. move to next library.
             if prefix is None:
                 continue
+
+            # workaround for BLAS libraries packaged by conda-forge on windows, which
+            # are all renamed "libblas.dll". We thus have to check to which BLAS
+            # implementation it actually corresponds looking for implementation
+            # specific symbols.
+            if prefix == "libblas":
+                if filename.endswith(".dll"):
+                    libblas = ctypes.CDLL(filepath, _RTLD_NOLOAD)
+                    if not any(
+                        hasattr(libblas, func)
+                        for func in candidate_lib["check_symbols"]
+                    ):
+                        continue
+                else:
+                    # We ignore libblas on other platforms than windows because there
+                    # might be a libblas dso comming with openblas for instance that
+                    # can't be used to instantiate a pertinent LibController (many
+                    # symbols are missing) and would create confusion by making a
+                    # duplicate entry in threadpool_info.
+                    continue
 
             # filename matches a prefix. Create and store the library
             # controller.

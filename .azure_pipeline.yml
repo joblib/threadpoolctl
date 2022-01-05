@@ -13,11 +13,16 @@ stages:
   - template: continuous_integration/windows.yml
     parameters:
       name: Windows
-      vmImage: vs2017-win2016
+      vmImage: windows-latest
       matrix:
-        pylatest_conda:
+        pylatest_conda_forge_mkl:
           VERSION_PYTHON: '*'
-          PACKAGER: 'conda'
+          PACKAGER: 'conda-forge'
+          BLAS: 'mkl'
+        py39_conda_forge_openblas:
+          VERSION_PYTHON: '3.9'
+          PACKAGER: 'conda-forge'
+          BLAS: 'openblas'
         py37_conda:
           VERSION_PYTHON: '3.7'
           PACKAGER: 'conda'

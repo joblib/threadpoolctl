@@ -1,3 +1,9 @@
+3.1.0 (TBD)
+===========
+
+- Fixed a detection issue of the BLAS libraires packaged by conda-forge on Windows.
+  https://github.com/joblib/threadpoolctl/pull/112
+
 3.0.0 (2021-10-01)
 ==================
 

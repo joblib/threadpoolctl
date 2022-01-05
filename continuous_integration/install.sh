@@ -50,6 +50,9 @@ elif [[ "$PACKAGER" == "conda-forge" ]]; then
     conda config --prepend channels conda-forge
     conda config --set channel_priority strict
     TO_INSTALL="python=$VERSION_PYTHON numpy scipy blas[build=$BLAS]"
+    if [[ "$BLAS" == "openblas" ]]; then
+        TO_INSTALL="$TO_INSTALL libopenblas=*=*openmp*"
+    fi
     make_conda $TO_INSTALL
 
 elif [[ "$PACKAGER" == "pip" ]]; then

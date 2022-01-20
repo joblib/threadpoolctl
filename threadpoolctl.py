@@ -311,7 +311,7 @@ class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
 
 
 def get_params_for_sequential_blas_under_openmp():
-    """Return appropriate limits to use for a sequential BLAS call in an OpenMP loop
+    """Return appropriate params to use for a sequential BLAS call in an OpenMP loop
 
     This function takes into account the unexpected behavior of OpenBLAS with the
     OpenMP threading layer.
@@ -438,7 +438,7 @@ class ThreadpoolController:
         return ThreadpoolController._from_controllers(lib_controllers)
 
     def get_params_for_sequential_blas_under_openmp(self):
-        """Return appropriate limits to use for a sequential BLAS call in an OpenMP loop
+        """Return appropriate params to use for a sequential BLAS call in an OpenMP loop
 
         This function takes into account the unexpected behavior of OpenBLAS with the
         OpenMP threading layer.

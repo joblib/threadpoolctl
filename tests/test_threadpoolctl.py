@@ -213,7 +213,7 @@ def test_threadpool_controller_limit():
         if not any(
             lib_controller.internal_api == "openblas"
             and lib_controller.threading_layer == "openmp"
-            for lib_controller in controller.lib_controllers
+            for lib_controller in blas_controller.lib_controllers
         ):
             assert openmp_info == original_openmp_info
 

@@ -291,22 +291,6 @@ class _ThreadpoolLimiter:
             if num_threads is not None:
                 lib_controller.set_num_threads(num_threads)
 
-        # Workaround for openblas with openmp threading layer. Setting a limit on
-        # openblas changes the internal state of openmp
-        # (see https://github.com/xianyi/OpenBLAS/issues/2985). This is not what we want
-        # when we set the limits to the "blas" user_api only. Thus in that case we check
-        # if the state of openmp has changed and if so set it back to it's
-        # original state.
-        if "blas" in self._limits and not "openmp" in self._limits:
-            for lib_controller, lib_original_info in zip(
-                self._controller.lib_controllers, self._original_info
-            ):
-                if (
-                    lib_controller.user_api == "openmp"
-                    and lib_controller.num_threads != lib_original_info["num_threads"]
-                ):
-                    lib_controller.set_num_threads(lib_original_info["num_threads"])
-
 
 class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
     """Same as _ThreadpoolLimiter but to be used as a decorator"""
@@ -324,6 +308,15 @@ class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
         self._original_info = self._controller.info()
         self._set_threadpool_limits()
         return self
+
+
+def get_params_for_sequential_blas_under_openmp():
+    """Return appropriate limits to use for a sequential BLAS call in an OpenMP loop
+
+    This function takes into account the unexpected behavior of OpenBLAS with the
+    OpenMP threading layer.
+    """
+    return ThreadpoolController().get_params_for_sequential_blas_under_openmp()
 
 
 @_format_docstring(
@@ -443,6 +436,18 @@ class ThreadpoolController:
         ]
 
         return ThreadpoolController._from_controllers(lib_controllers)
+
+    def get_params_for_sequential_blas_under_openmp(self):
+        """Return appropriate limits to use for a sequential BLAS call in an OpenMP loop
+
+        This function takes into account the unexpected behavior of OpenBLAS with the
+        OpenMP threading layer.
+        """
+        if self.select(
+            internal_api="openblas", threading_layer="openmp"
+        ).lib_controllers:
+            return {"limits": None}
+        return {"limits": 1, "user_api": "blas"}
 
     @_format_docstring(
         USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),

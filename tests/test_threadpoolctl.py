@@ -196,10 +196,10 @@ def test_threadpool_limits_manual_restore():
 def test_threadpool_controller_limit():
     # Check that using the limit method of ThreadpoolController only impact its
     # library controllers.
-    blas_controller = ThreadpoolController().select(user_api="blas")
+    controller = ThreadpoolController()
     original_openmp_info = ThreadpoolController().select(user_api="openmp").info()
 
-    with blas_controller.limit(limits=1):
+    with controller.limit(limits=1, user_api="blas"):
         blas_controller = ThreadpoolController().select(user_api="blas")
         openmp_info = ThreadpoolController().select(user_api="openmp").info()
 

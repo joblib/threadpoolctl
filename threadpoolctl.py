@@ -284,6 +284,22 @@ class _ThreadpoolLimiter:
             if num_threads is not None:
                 lib_controller.set_num_threads(num_threads)
 
+        # Workaround for openblas with openmp threading layer. Setting a limit on
+        # openblas changes the internal state of openmp
+        # (see https://github.com/xianyi/OpenBLAS/issues/2985). This is not what we want
+        # when we set the limits to the "blas" user_api only. Thus in that case we check
+        # if the state of openmp has changed and if so set it back to it's
+        # original state.
+        if "blas" in self._limits and not "openmp" in self._limits:
+            for lib_controller, lib_original_info in zip(
+                self._controller.lib_controllers, self._original_info
+            ):
+                if (
+                    lib_controller.user_api == "openmp"
+                    and lib_controller.num_threads != lib_original_info["num_threads"]
+                ):
+                    lib_controller.set_num_threads(lib_original_info["num_threads"])
+
 
 class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
     """Same as _ThreadpoolLimiter but to be used as a decorator"""

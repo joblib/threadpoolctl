@@ -192,6 +192,10 @@ decorators are accessible through their `wrap` method:
 ...
 ```
 
+### Sequential BLAS within OpenMP parallel region
+
+TODO 
+
 ### Known Limitations
 
 - `threadpool_limits` can fail to limit the number of inner threads when nesting

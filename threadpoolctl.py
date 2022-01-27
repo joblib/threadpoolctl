@@ -158,10 +158,10 @@ class _ThreadpoolLimiter:
     """
 
     def __init__(self, controller, *, limits=None, user_api=None):
+        self._controller = controller
         self._limits, self._user_api, self._prefixes = self._check_params(
             limits, user_api
         )
-        self._controller = controller
         self._original_info = self._controller.info()
         self._set_threadpool_limits()
 
@@ -226,6 +226,13 @@ class _ThreadpoolLimiter:
 
     def _check_params(self, limits, user_api):
         """Suitable values for the _limits, _user_api and _prefixes attributes"""
+
+        if isinstance(limits, str) and limits == "sequential_blas_under_openmp":
+            (
+                limits,
+                user_api,
+            ) = self._controller.get_params_for_sequential_blas_under_openmp().values()
+
         if limits is None or isinstance(limits, int):
             if user_api is None:
                 user_api = _ALL_USER_APIS
@@ -257,8 +264,8 @@ class _ThreadpoolLimiter:
 
             if not isinstance(limits, dict):
                 raise TypeError(
-                    "limits must either be an int, a list or a "
-                    f"dict. Got {type(limits)} instead"
+                    "limits must either be an int, a list, a dict, or "
+                    f"'sequential_blas_under_openmp'. Got {type(limits)} instead"
                 )
 
             # With a dictionary, can set both specific limit for given
@@ -446,7 +453,7 @@ class ThreadpoolController:
         if self.select(
             internal_api="openblas", threading_layer="openmp"
         ).lib_controllers:
-            return {"limits": None}
+            return {"limits": None, "user_api": None}
         return {"limits": 1, "user_api": "blas"}
 
     @_format_docstring(
@@ -472,7 +479,7 @@ class ThreadpoolController:
 
         Parameters
         ----------
-        limits : int, dict or None (default=None)
+        limits : int, dict, 'sequential_blas_under_openmp' or None (default=None)
             The maximal number of threads that can be used in thread pools
 
             - If int, sets the maximum number of threads to `limits` for each
@@ -481,6 +488,11 @@ class ThreadpoolController:
             - If it is a dictionary `{{key: max_threads}}`, this function sets a
               custom maximum number of threads for each `key` which can be either a
               `user_api` or a `prefix` for a specific library.
+
+            - If 'sequential_blas_under_openmp', it will chose the appropriate `limits`
+              and `user_api` parameters for the specific use case of sequential BLAS
+              calls within an OpenMP parallel region. The `user_api` parameter is
+              ignored.
 
             - If None, this function does not do anything.
 

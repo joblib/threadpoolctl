@@ -219,6 +219,7 @@ def test_threadpool_controller_limit():
 
 
 def test_get_params_for_sequential_blas_under_openmp():
+    # Test for the behavior of get_params_for_sequential_blas_under_openmp.
     controller = ThreadpoolController()
     original_info = controller.info()
 
@@ -228,10 +229,21 @@ def test_get_params_for_sequential_blas_under_openmp():
         internal_api="openblas", threading_layer="openmp"
     ).lib_controllers:
         assert params["limits"] is None
-        assert "user_api" not in params
+        assert params["user_api"] is None
+
+        with controller.limit(limits="sequential_blas_under_openmp"):
+            assert controller.info() == original_info
+
     else:
         assert params["limits"] == 1
         assert params["user_api"] == "blas"
+
+        with controller.limit(limits="sequential_blas_under_openmp"):
+            assert all(
+                lib_info["num_threads"] == 1
+                for lib_info in controller.info()
+                if lib_info["user_api"] == "openmp"
+            )
 
 
 def test_nested_limits():
@@ -267,7 +279,7 @@ def test_threadpool_limits_bad_input():
         threadpool_limits(limits=1, user_api="wrong")
 
     with pytest.raises(
-        TypeError, match="limits must either be an int, a list or a dict"
+        TypeError, match="limits must either be an int, a list, a dict, or"
     ):
         threadpool_limits(limits=(1, 2, 3))
 

@@ -242,7 +242,7 @@ def test_get_params_for_sequential_blas_under_openmp():
             assert all(
                 lib_info["num_threads"] == 1
                 for lib_info in controller.info()
-                if lib_info["user_api"] == "openmp"
+                if lib_info["user_api"] == "blas"
             )
 
 

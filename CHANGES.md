@@ -4,12 +4,11 @@
 - Fixed a detection issue of the BLAS libraires packaged by conda-forge on Windows.
   https://github.com/joblib/threadpoolctl/pull/112
 
-- New helper function `threadpoolctl.get_params_for_sequential_blas_under_openmp` and
-  new method `ThreadpoolController.get_params_for_sequential_blas_under_openmp` that
-  returns the appropriate params to pass to `threadpool_info` or
-  `ThreadpoolController.limit` for the specific case when one wants to have sequential
-  BLAS calls within an OpenMP parallel region. This helper function takes into account
-  the unexpected behavior of OpenBLAS with the OpenMP threading layer.
+- `threadpool_info` and `ThreadpoolController.limit` accept a new value for the `limits`
+  parameter: the string "sequential_blas_under_openmp". It should only be used for the
+  specific case when one wants to have sequential BLAS calls within an OpenMP parallel
+  region. It takes into account the unexpected behavior of OpenBLAS with the OpenMP
+  threading layer.
   https://github.com/joblib/threadpoolctl/pull/114
 
 3.0.0 (2021-10-01)

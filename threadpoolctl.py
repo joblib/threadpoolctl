@@ -231,7 +231,7 @@ class _ThreadpoolLimiter:
             (
                 limits,
                 user_api,
-            ) = self._controller.get_params_for_sequential_blas_under_openmp().values()
+            ) = self._controller._get_params_for_sequential_blas_under_openmp().values()
 
         if limits is None or isinstance(limits, int):
             if user_api is None:
@@ -317,15 +317,6 @@ class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
         return self
 
 
-def get_params_for_sequential_blas_under_openmp():
-    """Return appropriate params to use for a sequential BLAS call in an OpenMP loop
-
-    This function takes into account the unexpected behavior of OpenBLAS with the
-    OpenMP threading layer.
-    """
-    return ThreadpoolController().get_params_for_sequential_blas_under_openmp()
-
-
 @_format_docstring(
     USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),
     BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
@@ -349,7 +340,7 @@ class threadpool_limits(_ThreadpoolLimiter):
 
     Parameters
     ----------
-    limits : int, dict or None (default=None)
+    limits : int, dict, 'sequential_blas_under_openmp' or None (default=None)
         The maximal number of threads that can be used in thread pools
 
         - If int, sets the maximum number of threads to `limits` for each
@@ -358,6 +349,11 @@ class threadpool_limits(_ThreadpoolLimiter):
         - If it is a dictionary `{{key: max_threads}}`, this function sets a
           custom maximum number of threads for each `key` which can be either a
           `user_api` or a `prefix` for a specific library.
+
+        - If 'sequential_blas_under_openmp', it will chose the appropriate `limits`
+          and `user_api` parameters for the specific use case of sequential BLAS
+          calls within an OpenMP parallel region. The `user_api` parameter is
+          ignored.
 
         - If None, this function does not do anything.
 
@@ -444,7 +440,7 @@ class ThreadpoolController:
 
         return ThreadpoolController._from_controllers(lib_controllers)
 
-    def get_params_for_sequential_blas_under_openmp(self):
+    def _get_params_for_sequential_blas_under_openmp(self):
         """Return appropriate params to use for a sequential BLAS call in an OpenMP loop
 
         This function takes into account the unexpected behavior of OpenBLAS with the

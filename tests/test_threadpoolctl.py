@@ -223,7 +223,7 @@ def test_get_params_for_sequential_blas_under_openmp():
     controller = ThreadpoolController()
     original_info = controller.info()
 
-    params = controller.get_params_for_sequential_blas_under_openmp()
+    params = controller._get_params_for_sequential_blas_under_openmp()
 
     if controller.select(
         internal_api="openblas", threading_layer="openmp"

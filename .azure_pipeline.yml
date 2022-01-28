@@ -6,6 +6,14 @@ variables:
   JUNITXML: 'test-data.xml'
   CODECOV_TOKEN: 'cee0e505-c12e-4139-aa43-621fb16a2347'
 
+schedules:
+- cron: "0 1 * * *"  # 1am UTC
+  displayName: Run nightly build
+  branches:
+    include:
+    - master
+  always: true
+
 stages:
 - stage:
   jobs:

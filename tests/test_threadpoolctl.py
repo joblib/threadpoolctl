@@ -208,8 +208,42 @@ def test_threadpool_controller_limit():
             for lib_controller in blas_controller.lib_controllers
         )
         # original_blas_controller contains only blas libraries so no opemp library
-        # should be impacted.
-        assert openmp_info == original_openmp_info
+        # should be impacted. This is not True for OpenBLAS with the OpenMP threading
+        # layer.
+        if not any(
+            lib_controller.internal_api == "openblas"
+            and lib_controller.threading_layer == "openmp"
+            for lib_controller in blas_controller.lib_controllers
+        ):
+            assert openmp_info == original_openmp_info
+
+
+def test_get_params_for_sequential_blas_under_openmp():
+    # Test for the behavior of get_params_for_sequential_blas_under_openmp.
+    controller = ThreadpoolController()
+    original_info = controller.info()
+
+    params = controller._get_params_for_sequential_blas_under_openmp()
+
+    if controller.select(
+        internal_api="openblas", threading_layer="openmp"
+    ).lib_controllers:
+        assert params["limits"] is None
+        assert params["user_api"] is None
+
+        with controller.limit(limits="sequential_blas_under_openmp"):
+            assert controller.info() == original_info
+
+    else:
+        assert params["limits"] == 1
+        assert params["user_api"] == "blas"
+
+        with controller.limit(limits="sequential_blas_under_openmp"):
+            assert all(
+                lib_info["num_threads"] == 1
+                for lib_info in controller.info()
+                if lib_info["user_api"] == "blas"
+            )
 
 
 def test_nested_limits():
@@ -245,7 +279,7 @@ def test_threadpool_limits_bad_input():
         threadpool_limits(limits=1, user_api="wrong")
 
     with pytest.raises(
-        TypeError, match="limits must either be an int, a list or a dict"
+        TypeError, match="limits must either be an int, a list, a dict, or"
     ):
         threadpool_limits(limits=(1, 2, 3))
 

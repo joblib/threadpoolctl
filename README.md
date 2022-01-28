@@ -192,6 +192,13 @@ decorators are accessible through their `wrap` method:
 ...
 ```
 
+### Sequential BLAS within OpenMP parallel region
+
+When one wants to have sequential BLAS calls within an OpenMP parallel region, it's
+safer to set `limits="sequential_blas_under_openmp"` since setting `limits=1` and `user_api="blas"` might not lead to the expected behavior in some configurations
+(e.g. OpenBLAS with the OpenMP threading layer
+https://github.com/xianyi/OpenBLAS/issues/2985).
+
 ### Known Limitations
 
 - `threadpool_limits` can fail to limit the number of inner threads when nesting

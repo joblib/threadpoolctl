@@ -89,11 +89,12 @@ stages:
           VERSION_PYTHON: '3.8'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'clang-10'
-        # Linux environment with numpy from conda-forge channel
+        # Linux environment with numpy from conda-forge channel and openblas-openmp
         pylatest_conda_forge:
           PACKAGER: 'conda-forge'
           VERSION_PYTHON: '*'
           BLAS: 'openblas'
+          OPENBLAS_THREADING_LAYER: 'openmp'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
           LINT: 'true'

@@ -552,6 +552,7 @@ def test_architecture():
         # XXX: add more as needed by CI or developer laptops
         "armv8",
         "Haswell",
+        "Prescott",  # see: https://github.com/xianyi/OpenBLAS/pull/3485
         "SkylakeX",
         "Sandybridge",
         "VORTEX",

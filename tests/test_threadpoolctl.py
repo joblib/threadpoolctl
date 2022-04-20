@@ -22,6 +22,21 @@ def is_old_openblas(lib_controller):
     return lib_controller.internal_api == "openblas" and lib_controller.version is None
 
 
+def skip_if_openblas_openmp():
+    """Helper to skip tests with side effects when OpenBLAS has the OpenMP
+    threading layer.
+    """
+    if any(
+        lib_controller.internal_api == "openblas"
+        and lib_controller.threading_layer == "openmp"
+        for lib_controller in ThreadpoolController().lib_controllers
+    ):
+        pytest.skip(
+            "Setting a limit on OpenBLAS when using the OpenMP threading layer also "
+            "impact the OpenMP library. They can't be controlled independently."
+        )
+
+
 def effective_num_threads(nthreads, max_threads):
     if nthreads is None or nthreads > max_threads:
         return max_threads
@@ -196,6 +211,10 @@ def test_threadpool_limits_manual_restore():
 def test_threadpool_controller_limit():
     # Check that using the limit method of ThreadpoolController only impact its
     # library controllers.
+
+    # This is not True for OpenBLAS with the OpenMP threading layer.
+    skip_if_openblas_openmp()
+
     blas_controller = ThreadpoolController().select(user_api="blas")
     original_openmp_info = ThreadpoolController().select(user_api="openmp").info()
 
@@ -208,14 +227,8 @@ def test_threadpool_controller_limit():
             for lib_controller in blas_controller.lib_controllers
         )
         # original_blas_controller contains only blas libraries so no opemp library
-        # should be impacted. This is not True for OpenBLAS with the OpenMP threading
-        # layer.
-        if not any(
-            lib_controller.internal_api == "openblas"
-            and lib_controller.threading_layer == "openmp"
-            for lib_controller in blas_controller.lib_controllers
-        ):
-            assert openmp_info == original_openmp_info
+        # should be impacted.
+        assert openmp_info == original_openmp_info
 
 
 def test_get_params_for_sequential_blas_under_openmp():
@@ -406,6 +419,8 @@ def test_nested_prange_blas(nthreads_outer):
     import tests._openmp_test_helper.nested_prange_blas as prange_blas
 
     check_nested_prange_blas = prange_blas.check_nested_prange_blas
+
+    skip_if_openblas_openmp()
 
     original_info = ThreadpoolController().info()
 

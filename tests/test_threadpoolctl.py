@@ -548,15 +548,9 @@ def test_command_line_command_flag():
         [sys.executable, "-m", "threadpoolctl", "-c", "import numpy"]
     )
     cli_info = json.loads(output.decode("utf-8"))
+
     this_process_info = threadpool_info()
-
-    from pprint import pprint
-    pprint(this_process_info)
-
     for lib_info in cli_info:
-        pprint(lib_info)
-        print(lib_info["internal_api"], lib_info in this_process_info)
-
         assert lib_info in this_process_info
 
 

@@ -441,7 +441,6 @@ def test_nested_prange_blas(nthreads_outer):
     A = np.ones((1000, 10))
     B = np.ones((100, 10))
 
-
     with threadpool_limits(limits=1) as threadpoolctx:
         max_threads = threadpoolctx.get_original_num_threads()["openmp"]
         nthreads = effective_num_threads(nthreads_outer, max_threads)

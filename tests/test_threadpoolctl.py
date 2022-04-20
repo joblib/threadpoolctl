@@ -196,6 +196,19 @@ def test_threadpool_limits_manual_restore():
 def test_threadpool_controller_limit():
     # Check that using the limit method of ThreadpoolController only impact its
     # library controllers.
+    controller = ThreadpoolController()
+
+    # This is not True for OpenBLAS with the OpenMP threading layer.
+    if any(
+        lib_controller.internal_api == "openblas"
+        and lib_controller.threading_layer == "openmp"
+        for lib_controller in controller.lib_controllers
+    ):
+        pytest.skip(
+            "Setting a limit on OpenBLAS when using the OpenMP threading layer also "
+            "impact the OpenMP library. They can't be controlled independently."
+        )
+
     blas_controller = ThreadpoolController().select(user_api="blas")
     original_openmp_info = ThreadpoolController().select(user_api="openmp").info()
 
@@ -208,14 +221,8 @@ def test_threadpool_controller_limit():
             for lib_controller in blas_controller.lib_controllers
         )
         # original_blas_controller contains only blas libraries so no opemp library
-        # should be impacted. This is not True for OpenBLAS with the OpenMP threading
-        # layer.
-        if not any(
-            lib_controller.internal_api == "openblas"
-            and lib_controller.threading_layer == "openmp"
-            for lib_controller in blas_controller.lib_controllers
-        ):
-            assert openmp_info == original_openmp_info
+        # should be impacted.
+        assert openmp_info == original_openmp_info
 
 
 def test_get_params_for_sequential_blas_under_openmp():
@@ -541,9 +548,15 @@ def test_command_line_command_flag():
         [sys.executable, "-m", "threadpoolctl", "-c", "import numpy"]
     )
     cli_info = json.loads(output.decode("utf-8"))
-
     this_process_info = threadpool_info()
+
+    from pprint import pprint
+    pprint(this_process_info)
+
     for lib_info in cli_info:
+        pprint(lib_info)
+        print(lib_info["internal_api"], lib_info in this_process_info)
+
         assert lib_info in this_process_info
 
 

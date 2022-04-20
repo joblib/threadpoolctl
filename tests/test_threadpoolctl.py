@@ -22,6 +22,21 @@ def is_old_openblas(lib_controller):
     return lib_controller.internal_api == "openblas" and lib_controller.version is None
 
 
+def skip_if_openblas_openmp():
+    """Helper to skip tests with side effects when OpenBLAS has the OpenMP
+    threading layer.
+    """
+    if any(
+        lib_controller.internal_api == "openblas"
+        and lib_controller.threading_layer == "openmp"
+        for lib_controller in ThreadpoolController().lib_controllers
+    ):
+        pytest.skip(
+            "Setting a limit on OpenBLAS when using the OpenMP threading layer also "
+            "impact the OpenMP library. They can't be controlled independently."
+        )
+
+
 def effective_num_threads(nthreads, max_threads):
     if nthreads is None or nthreads > max_threads:
         return max_threads
@@ -196,18 +211,9 @@ def test_threadpool_limits_manual_restore():
 def test_threadpool_controller_limit():
     # Check that using the limit method of ThreadpoolController only impact its
     # library controllers.
-    controller = ThreadpoolController()
 
     # This is not True for OpenBLAS with the OpenMP threading layer.
-    if any(
-        lib_controller.internal_api == "openblas"
-        and lib_controller.threading_layer == "openmp"
-        for lib_controller in controller.lib_controllers
-    ):
-        pytest.skip(
-            "Setting a limit on OpenBLAS when using the OpenMP threading layer also "
-            "impact the OpenMP library. They can't be controlled independently."
-        )
+    skip_if_openblas_openmp()
 
     blas_controller = ThreadpoolController().select(user_api="blas")
     original_openmp_info = ThreadpoolController().select(user_api="openmp").info()
@@ -414,6 +420,8 @@ def test_nested_prange_blas(nthreads_outer):
 
     check_nested_prange_blas = prange_blas.check_nested_prange_blas
 
+    skip_if_openblas_openmp()
+
     original_info = ThreadpoolController().info()
 
     blas_controller = ThreadpoolController().select(user_api="blas")
@@ -432,6 +440,7 @@ def test_nested_prange_blas(nthreads_outer):
 
     A = np.ones((1000, 10))
     B = np.ones((100, 10))
+
 
     with threadpool_limits(limits=1) as threadpoolctx:
         max_threads = threadpoolctx.get_original_num_threads()["openmp"]

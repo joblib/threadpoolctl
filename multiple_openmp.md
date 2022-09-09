@@ -82,4 +82,4 @@ developers on the following public issue trackers/forums along with a minimal
 reproducer written in C:
 
 - https://bugs.llvm.org/show_bug.cgi?id=43565
-- https://software.intel.com/en-us/forums/intel-c-compiler/topic/827607
+- https://community.intel.com/t5/Intel-C-Compiler/Cannot-call-OpenMP-functions-from-libiomp-after-calling-from/m-p/1176406

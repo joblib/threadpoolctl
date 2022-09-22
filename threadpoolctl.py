@@ -602,24 +602,7 @@ class ThreadpoolController:
         """
         libc = self._get_libc()
         if not hasattr(libc, "_dyld_image_count"):  # pragma: no cover
-            print("NO libc._dyld_image_count !!!")
-            #return []
-
-        ldyld = find_library("dyld")
-        print("ldyld", ldyld)
-        system_c = find_library("system_c")
-        print("system_c", system_c)
-        try:
-            dyld = ctypes.CDLL(ldyld)
-        except BaseException as e:
-            print("CANT LOAD dyld", e)
-        
-        try:
-            dyld = ctypes.CDLL(system_c)
-        except BaseException as e:
-            print("CANT LOAD system_c", e)
-
-        return []
+            return []
 
         n_dyld = libc._dyld_image_count()
         libc._dyld_get_image_name.restype = ctypes.c_char_p
@@ -627,8 +610,6 @@ class ThreadpoolController:
         for i in range(n_dyld):
             filepath = ctypes.string_at(libc._dyld_get_image_name(i))
             filepath = filepath.decode("utf-8")
-
-            print(filepath)
 
             # Store the library controller if it is supported and selected
             self._make_controller_from_path(filepath)
@@ -786,9 +767,7 @@ class ThreadpoolController:
         libc = cls._system_libraries.get("libc")
         if libc is None:
             libc_name = find_library("c")
-            print("libc=", libc_name)
             if libc_name is None:  # pragma: no cover
-                print("NO LIBC !!!")
                 return None
             libc = ctypes.CDLL(libc_name, mode=_RTLD_NOLOAD)
             cls._system_libraries["libc"] = libc

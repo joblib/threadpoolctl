@@ -611,6 +611,8 @@ class ThreadpoolController:
             filepath = ctypes.string_at(libc._dyld_get_image_name(i))
             filepath = filepath.decode("utf-8")
 
+            print(filepath)
+
             # Store the library controller if it is supported and selected
             self._make_controller_from_path(filepath)
 

@@ -142,7 +142,7 @@ stages:
         # MacOS environment with OpenMP installed through homebrew
         py36_conda_homebrew_libomp:
           PACKAGER: 'conda'
-          VERSION_PYTHON: '3.7'
+          VERSION_PYTHON: '3.6'
           BLAS: 'openblas'
           CC_OUTER_LOOP: 'clang'
           CC_INNER_LOOP: 'clang'

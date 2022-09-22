@@ -602,6 +602,7 @@ class ThreadpoolController:
         """
         libc = self._get_libc()
         if not hasattr(libc, "_dyld_image_count"):  # pragma: no cover
+            print("NO libc._dyld_image_count !!!")
             return []
 
         n_dyld = libc._dyld_image_count()
@@ -770,6 +771,7 @@ class ThreadpoolController:
         if libc is None:
             libc_name = find_library("c")
             if libc_name is None:  # pragma: no cover
+                print("NO LIBC !!!")
                 return None
             libc = ctypes.CDLL(libc_name, mode=_RTLD_NOLOAD)
             cls._system_libraries["libc"] = libc

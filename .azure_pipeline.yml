@@ -137,7 +137,7 @@ stages:
   - template: continuous_integration/posix.yml
     parameters:
       name: macOS
-      vmImage: macOS-11
+      vmImage: macOS-10.15
       matrix:
         # MacOS environment with OpenMP installed through homebrew
         py36_conda_homebrew_libomp:

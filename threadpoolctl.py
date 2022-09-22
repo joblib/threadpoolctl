@@ -605,14 +605,14 @@ class ThreadpoolController:
             print("NO libc._dyld_image_count !!!")
             #return []
 
-        ldyld = find_library("dyld")
-        print("ldyld", ldyld)
-        dyld = ctypes.CDLL(ldyld)
-        if not hasattr(dyld, "_dyld_image_count"):
-            print("NO dyld._dyld_image_count !!!")
+        #ldyld = find_library("dyld")
+        #print("ldyld", ldyld)
+        #dyld = ctypes.CDLL(ldyld)
+        #if not hasattr(dyld, "_dyld_image_count"):
+        #    print("NO dyld._dyld_image_count !!!")
             #return []
 
-        return []
+        #return []
 
         n_dyld = libc._dyld_image_count()
         libc._dyld_get_image_name.restype = ctypes.c_char_p
@@ -779,6 +779,7 @@ class ThreadpoolController:
         libc = cls._system_libraries.get("libc")
         if libc is None:
             libc_name = find_library("c")
+            print("libc=", libc_name)
             if libc_name is None:  # pragma: no cover
                 print("NO LIBC !!!")
                 return None

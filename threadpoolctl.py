@@ -768,6 +768,12 @@ class ThreadpoolController:
         if libc is None:
             libc_name = find_library("c")
             if libc_name is None:  # pragma: no cover
+                warnings.warn(
+                    "libc not found. The ctypes module in Python "
+                    f"{sys.version_info.major}.{sys.version_info.minor} is maybe too "
+                    "old for this OS.",
+                    RuntimeWarning,
+                )
                 return None
             libc = ctypes.CDLL(libc_name, mode=_RTLD_NOLOAD)
             cls._system_libraries["libc"] = libc

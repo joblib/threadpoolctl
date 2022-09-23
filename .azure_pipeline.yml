@@ -27,15 +27,15 @@ stages:
           VERSION_PYTHON: '*'
           PACKAGER: 'conda-forge'
           BLAS: 'mkl'
-        py39_conda_forge_openblas:
-          VERSION_PYTHON: '3.9'
+        py310_conda_forge_openblas:
+          VERSION_PYTHON: '3.10'
           PACKAGER: 'conda-forge'
           BLAS: 'openblas'
-        py37_conda:
-          VERSION_PYTHON: '3.7'
+        py39_conda:
+          VERSION_PYTHON: '3.9'
           PACKAGER: 'conda'
-        py36_pip:
-          VERSION_PYTHON: '3.6'
+        py38_pip:
+          VERSION_PYTHON: '3.8'
           PACKAGER: 'pip'
 
 
@@ -52,16 +52,16 @@ stages:
           VERSION_PYTHON: '3.8'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
-        py36_ubuntu_openblas_gcc_gcc:
+        py38_ubuntu_openblas_gcc_gcc:
           PACKAGER: 'ubuntu'
           APT_BLAS: 'libopenblas-base libopenblas-dev'
           VERSION_PYTHON: '3.8'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
-        # Linux + Python 3.7 and homogeneous runtime nesting.
-        py37_conda_openblas_clang_clang:
+        # Linux + Python 3.9 and homogeneous runtime nesting.
+        py39_conda_openblas_clang_clang:
           PACKAGER: 'conda'
-          VERSION_PYTHON: '3.7'
+          VERSION_PYTHON: '3.9'
           BLAS: 'openblas'
           CC_OUTER_LOOP: 'clang-10'
           CC_INNER_LOOP: 'clang-10'
@@ -137,16 +137,24 @@ stages:
   - template: continuous_integration/posix.yml
     parameters:
       name: macOS
-      vmImage: macOS-10.15
+      vmImage: macOS-11
       matrix:
         # MacOS environment with OpenMP installed through homebrew
-        py36_conda_homebrew_libomp:
+        py38_conda_homebrew_libomp:
           PACKAGER: 'conda'
-          VERSION_PYTHON: '3.6'
+          VERSION_PYTHON: '3.8'
           BLAS: 'openblas'
           CC_OUTER_LOOP: 'clang'
           CC_INNER_LOOP: 'clang'
           INSTALL_LIBOMP: 'homebrew'
+        # MacOS env with OpenBLAS and OpenMP installed through conda-forge compilers
+        py39_conda_forge_clang_openblas:
+          PACKAGER: 'conda-forge'
+          VERSION_PYTHON: '*'
+          BLAS: 'openblas'
+          CC_OUTER_LOOP: 'clang'
+          CC_INNER_LOOP: 'clang'
+          INSTALL_LIBOMP: 'conda-forge'
         # MacOS environment with OpenMP installed through conda-forge compilers
         pylatest_conda_forge_clang:
           PACKAGER: 'conda-forge'

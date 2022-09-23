@@ -40,8 +40,8 @@ os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "True")
 
 # Structure to cast the info on dynamically loaded library. See
 # https://linux.die.net/man/3/dl_iterate_phdr for more details.
-_SYSTEM_UINT = ctypes.c_uint64 if sys.maxsize > 2 ** 32 else ctypes.c_uint32
-_SYSTEM_UINT_HALF = ctypes.c_uint32 if sys.maxsize > 2 ** 32 else ctypes.c_uint16
+_SYSTEM_UINT = ctypes.c_uint64 if sys.maxsize > 2**32 else ctypes.c_uint32
+_SYSTEM_UINT_HALF = ctypes.c_uint32 if sys.maxsize > 2**32 else ctypes.c_uint16
 
 
 class _dl_phdr_info(ctypes.Structure):
@@ -768,6 +768,12 @@ class ThreadpoolController:
         if libc is None:
             libc_name = find_library("c")
             if libc_name is None:  # pragma: no cover
+                warnings.warn(
+                    "libc not found. The ctypes module in Python "
+                    f"{sys.version_info.major}.{sys.version_info.minor} is maybe too "
+                    "old for this OS.",
+                    RuntimeWarning,
+                )
                 return None
             libc = ctypes.CDLL(libc_name, mode=_RTLD_NOLOAD)
             cls._system_libraries["libc"] = libc

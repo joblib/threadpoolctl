@@ -33,11 +33,20 @@ for name in os.listdir(base_dir):
                 always_skipped[test_name] = skipped
 
 print("\n------------------------------------------------------------------\n")
+
+# List of tests that we don't want to fail the CI if they are skipped in
+# every job. This is useful for tests that depend on specific versions of
+# numpy or scipy and we don't want to pin old versions of these libraries.
+SAFE_SKIPPED_TESTS = ["test_multiple_shipped_openblas"]
+
 fail = False
 for test, skipped in always_skipped.items():
     if skipped:
-        fail = True
-        print(test, "was skipped in every job")
+        if test in SAFE_SKIPPED_TESTS:
+            print(test, "was skipped in every job but it's fine to skip it")
+        else:
+            fail = True
+            print(test, "was skipped in every job")
 
 if fail:
     sys.exit(1)

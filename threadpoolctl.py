@@ -219,6 +219,7 @@ class BLISController(LibController):
     user_api = "blas"
     internal_api = "blis"
     filename_prefixes = ("libblis", "libblas")
+    check_symbols = ("bli_thread_get_num_threads",)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

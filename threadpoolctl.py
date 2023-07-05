@@ -22,7 +22,13 @@ from functools import lru_cache
 from contextlib import ContextDecorator
 
 __version__ = "3.2.0.dev0"
-__all__ = ["threadpool_limits", "threadpool_info", "ThreadpoolController"]
+__all__ = [
+    "threadpool_limits",
+    "threadpool_info",
+    "ThreadpoolController",
+    "LibController",
+    "register",
+]
 
 
 # One can get runtime errors or even segfaults due to multiple OpenMP libraries
@@ -60,56 +66,306 @@ except AttributeError:
     _RTLD_NOLOAD = ctypes.DEFAULT_MODE
 
 
-# List of the supported libraries. The items are indexed by the name of the
-# class to instantiate to create the library controller objects. The items hold
-# the possible prefixes of loaded shared objects, the name of the internal_api
-# to call, the name of the user_api and potentially some symbols that the library is
-# expected to have (this is necessary to distinguish between the blas implementations
-# when they are all renamed "libblas.dll" on conda-forge on windows).
-_SUPPORTED_LIBRARIES = {
-    "OpenMPController": {
-        "user_api": "openmp",
-        "internal_api": "openmp",
-        "filename_prefixes": ("libiomp", "libgomp", "libomp", "vcomp"),
-    },
-    "OpenBLASController": {
-        "user_api": "blas",
-        "internal_api": "openblas",
-        "filename_prefixes": ("libopenblas", "libblas"),
-        "check_symbols": ("openblas_get_num_threads", "openblas_get_num_threads64_"),
-    },
-    "MKLController": {
-        "user_api": "blas",
-        "internal_api": "mkl",
-        "filename_prefixes": ("libmkl_rt", "mkl_rt", "libblas"),
-        "check_symbols": ("MKL_Get_Max_Threads",),
-    },
-    "BLISController": {
-        "user_api": "blas",
-        "internal_api": "blis",
-        "filename_prefixes": ("libblis", "libblas"),
-        "check_symbols": ("bli_thread_get_num_threads",),
-    },
-}
+class LibController(ABC):
+    """Abstract base class for the individual library controllers
+
+    A library controller is represented by the following information:
+      - "user_api" : user API.
+      - "internal_api" : internal API.
+      - "prefix" : prefix of the shared library's name.
+      - "filepath" : path to the loaded library.
+      - "version" : version of the library (if available).
+      - "num_threads" : the current thread limit.
+
+    In addition, each library controller may contain internal_api specific
+    entries.
+    """
+
+    def __init__(self, *, filepath=None, prefix=None):
+        self.prefix = prefix
+        self.filepath = filepath
+        self._dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
+        self.version = self.get_version()
+
+    def info(self):
+        """Return relevant info wrapped in a dict"""
+        all_attrs = {
+            "user_api": self.user_api,
+            "internal_api": self.internal_api,
+            "num_threads": self.num_threads,
+            **vars(self),
+        }
+        return {k: v for k, v in all_attrs.items() if not k.startswith("_")}
+
+    @property
+    @abstractmethod
+    def user_api(self):
+        """User API of the library"""
+
+    @property
+    @abstractmethod
+    def internal_api(self):
+        """Internal API of the library"""
+
+    @property
+    @abstractmethod
+    def filename_prefixes(self):
+        """Possible prefixes of the library's filename"""
+
+    @property
+    def num_threads(self):
+        return self.get_num_threads()
+
+    @abstractmethod
+    def get_num_threads(self):
+        """Return the maximum number of threads available to use"""
+        pass  # pragma: no cover
+
+    @abstractmethod
+    def set_num_threads(self, num_threads):
+        """Set the maximum number of threads to use"""
+        pass  # pragma: no cover
+
+    @abstractmethod
+    def get_version(self):
+        """Return the version of the shared library"""
+        pass  # pragma: no cover
+
+
+class OpenBLASController(LibController):
+    """Controller class for OpenBLAS"""
+
+    user_api = "blas"
+    internal_api = "openblas"
+    filename_prefixes = ("libopenblas", "libblas")
+    check_symbols = ("openblas_get_num_threads", "openblas_get_num_threads64_")
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.threading_layer = self._get_threading_layer()
+        self.architecture = self._get_architecture()
+
+    def get_num_threads(self):
+        get_func = getattr(
+            self._dynlib,
+            "openblas_get_num_threads",
+            # Symbols differ when built for 64bit integers in Fortran
+            getattr(self._dynlib, "openblas_get_num_threads64_", lambda: None),
+        )
+
+        return get_func()
+
+    def set_num_threads(self, num_threads):
+        set_func = getattr(
+            self._dynlib,
+            "openblas_set_num_threads",
+            # Symbols differ when built for 64bit integers in Fortran
+            getattr(
+                self._dynlib, "openblas_set_num_threads64_", lambda num_threads: None
+            ),
+        )
+        return set_func(num_threads)
+
+    def get_version(self):
+        # None means OpenBLAS is not loaded or version < 0.3.4, since OpenBLAS
+        # did not expose its version before that.
+        get_config = getattr(
+            self._dynlib,
+            "openblas_get_config",
+            getattr(self._dynlib, "openblas_get_config64_", None),
+        )
+        if get_config is None:
+            return None
+
+        get_config.restype = ctypes.c_char_p
+        config = get_config().split()
+        if config[0] == b"OpenBLAS":
+            return config[1].decode("utf-8")
+        return None
+
+    def _get_threading_layer(self):
+        """Return the threading layer of OpenBLAS"""
+        openblas_get_parallel = getattr(
+            self._dynlib,
+            "openblas_get_parallel",
+            getattr(self._dynlib, "openblas_get_parallel64_", None),
+        )
+        if openblas_get_parallel is None:
+            return "unknown"
+        threading_layer = openblas_get_parallel()
+        if threading_layer == 2:
+            return "openmp"
+        elif threading_layer == 1:
+            return "pthreads"
+        return "disabled"
+
+    def _get_architecture(self):
+        """Return the architecture detected by OpenBLAS"""
+        get_corename = getattr(
+            self._dynlib,
+            "openblas_get_corename",
+            getattr(self._dynlib, "openblas_get_corename64_", None),
+        )
+        if get_corename is None:
+            return None
+
+        get_corename.restype = ctypes.c_char_p
+        return get_corename().decode("utf-8")
+
+
+class BLISController(LibController):
+    """Controller class for BLIS"""
+
+    user_api = "blas"
+    internal_api = "blis"
+    filename_prefixes = ("libblis", "libblas")
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.threading_layer = self._get_threading_layer()
+        self.architecture = self._get_architecture()
+
+    def get_num_threads(self):
+        get_func = getattr(self._dynlib, "bli_thread_get_num_threads", lambda: None)
+        num_threads = get_func()
+        # by default BLIS is single-threaded and get_num_threads
+        # returns -1. We map it to 1 for consistency with other libraries.
+        return 1 if num_threads == -1 else num_threads
+
+    def set_num_threads(self, num_threads):
+        set_func = getattr(
+            self._dynlib, "bli_thread_set_num_threads", lambda num_threads: None
+        )
+        return set_func(num_threads)
+
+    def get_version(self):
+        get_version_ = getattr(self._dynlib, "bli_info_get_version_str", None)
+        if get_version_ is None:
+            return None
+
+        get_version_.restype = ctypes.c_char_p
+        return get_version_().decode("utf-8")
+
+    def _get_threading_layer(self):
+        """Return the threading layer of BLIS"""
+        if self._dynlib.bli_info_get_enable_openmp():
+            return "openmp"
+        elif self._dynlib.bli_info_get_enable_pthreads():
+            return "pthreads"
+        return "disabled"
+
+    def _get_architecture(self):
+        """Return the architecture detected by BLIS"""
+        bli_arch_query_id = getattr(self._dynlib, "bli_arch_query_id", None)
+        bli_arch_string = getattr(self._dynlib, "bli_arch_string", None)
+        if bli_arch_query_id is None or bli_arch_string is None:
+            return None
+
+        # the true restype should be BLIS' arch_t (enum) but int should work
+        # for us:
+        bli_arch_query_id.restype = ctypes.c_int
+        bli_arch_string.restype = ctypes.c_char_p
+        return bli_arch_string(bli_arch_query_id()).decode("utf-8")
+
+
+class MKLController(LibController):
+    """Controller class for MKL"""
+
+    user_api = "blas"
+    internal_api = "mkl"
+    filename_prefixes = ("libmkl_rt", "mkl_rt", "libblas")
+    check_symbols = ("MKL_Get_Max_Threads",)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.threading_layer = self._get_threading_layer()
+
+    def get_num_threads(self):
+        get_func = getattr(self._dynlib, "MKL_Get_Max_Threads", lambda: None)
+        return get_func()
+
+    def set_num_threads(self, num_threads):
+        set_func = getattr(
+            self._dynlib, "MKL_Set_Num_Threads", lambda num_threads: None
+        )
+        return set_func(num_threads)
+
+    def get_version(self):
+        if not hasattr(self._dynlib, "MKL_Get_Version_String"):
+            return None
+
+        res = ctypes.create_string_buffer(200)
+        self._dynlib.MKL_Get_Version_String(res, 200)
+
+        version = res.value.decode("utf-8")
+        group = re.search(r"Version ([^ ]+) ", version)
+        if group is not None:
+            version = group.groups()[0]
+        return version.strip()
+
+    def _get_threading_layer(self):
+        """Return the threading layer of MKL"""
+        # The function mkl_set_threading_layer returns the current threading
+        # layer. Calling it with an invalid threading layer allows us to safely
+        # get the threading layer
+        set_threading_layer = getattr(
+            self._dynlib, "MKL_Set_Threading_Layer", lambda layer: -1
+        )
+        layer_map = {
+            0: "intel",
+            1: "sequential",
+            2: "pgi",
+            3: "gnu",
+            4: "tbb",
+            -1: "not specified",
+        }
+        return layer_map[set_threading_layer(-1)]
+
+
+class OpenMPController(LibController):
+    """Controller class for OpenMP"""
+
+    user_api = "openmp"
+    internal_api = "openmp"
+    filename_prefixes = ("libiomp", "libgomp", "libomp", "vcomp")
+
+    def get_num_threads(self):
+        get_func = getattr(self._dynlib, "omp_get_max_threads", lambda: None)
+        return get_func()
+
+    def set_num_threads(self, num_threads):
+        set_func = getattr(
+            self._dynlib, "omp_set_num_threads", lambda num_threads: None
+        )
+        return set_func(num_threads)
+
+    def get_version(self):
+        # There is no way to get the version number programmatically in OpenMP.
+        return None
+
+
+# Controllers for the libraries that we'll look for in the loaded libraries.
+# Third party libraries can register their own controllers.
+_ALL_CONTROLLERS = [OpenBLASController, BLISController, MKLController, OpenMPController]
 
 # Helpers for the doc and test names
-_ALL_USER_APIS = list(set(lib["user_api"] for lib in _SUPPORTED_LIBRARIES.values()))
-_ALL_INTERNAL_APIS = [lib["internal_api"] for lib in _SUPPORTED_LIBRARIES.values()]
+_ALL_USER_APIS = list(set(lib.user_api for lib in _ALL_CONTROLLERS))
+_ALL_INTERNAL_APIS = [lib.internal_api for lib in _ALL_CONTROLLERS]
 _ALL_PREFIXES = list(
-    set(
-        prefix
-        for lib in _SUPPORTED_LIBRARIES.values()
-        for prefix in lib["filename_prefixes"]
-    )
+    set(prefix for lib in _ALL_CONTROLLERS for prefix in lib.filename_prefixes)
 )
 _ALL_BLAS_LIBRARIES = [
-    lib["internal_api"]
-    for lib in _SUPPORTED_LIBRARIES.values()
-    if lib["user_api"] == "blas"
+    lib.internal_api for lib in _ALL_CONTROLLERS if lib.user_api == "blas"
 ]
-_ALL_OPENMP_LIBRARIES = list(
-    _SUPPORTED_LIBRARIES["OpenMPController"]["filename_prefixes"]
-)
+_ALL_OPENMP_LIBRARIES = OpenMPController.filename_prefixes
+
+
+def register(controller):
+    """Register a new controller"""
+    _ALL_CONTROLLERS.append(controller)
+    _ALL_USER_APIS.append(controller.user_api)
+    _ALL_INTERNAL_APIS.append(controller.internal_api)
+    _ALL_PREFIXES.extend(controller.filename_prefixes)
 
 
 def _format_docstring(*args, **kwargs):
@@ -377,12 +633,6 @@ class threadpool_limits(_ThreadpoolLimiter):
         return super().wrap(ThreadpoolController(), limits=limits, user_api=user_api)
 
 
-@_format_docstring(
-    PREFIXES=", ".join(f'"{prefix}"' for prefix in _ALL_PREFIXES),
-    USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),
-    BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
-    OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
-)
 class ThreadpoolController:
     """Collection of LibController objects for all loaded supported libraries
 
@@ -664,7 +914,6 @@ class ThreadpoolController:
             buf = ctypes.create_unicode_buffer(MAX_PATH)
             n_size = DWORD()
             for h_module in h_modules:
-
                 # Get the path of the current module
                 if not ps_api.GetModuleFileNameExW(
                     h_process, h_module, ctypes.byref(buf), ctypes.byref(n_size)
@@ -687,9 +936,9 @@ class ThreadpoolController:
 
         # Loop through supported libraries to find if this filename corresponds
         # to a supported one.
-        for controller_class, candidate_lib in _SUPPORTED_LIBRARIES.items():
+        for controller_class in _ALL_CONTROLLERS:
             # check if filename matches a supported prefix
-            prefix = self._check_prefix(filename, candidate_lib["filename_prefixes"])
+            prefix = self._check_prefix(filename, controller_class.filename_prefixes)
 
             # filename does not match any of the prefixes of the candidate
             # library. move to next library.
@@ -705,7 +954,7 @@ class ThreadpoolController:
                     libblas = ctypes.CDLL(filepath, _RTLD_NOLOAD)
                     if not any(
                         hasattr(libblas, func)
-                        for func in candidate_lib["check_symbols"]
+                        for func in controller_class.check_symbols
                     ):
                         continue
                 else:
@@ -718,16 +967,8 @@ class ThreadpoolController:
 
             # filename matches a prefix. Create and store the library
             # controller.
-            user_api = candidate_lib["user_api"]
-            internal_api = candidate_lib["internal_api"]
 
-            lib_controller_class = globals()[controller_class]
-            lib_controller = lib_controller_class(
-                filepath=filepath,
-                prefix=prefix,
-                user_api=user_api,
-                internal_api=internal_api,
-            )
+            lib_controller = controller_class(filepath=filepath, prefix=prefix)
             self.lib_controllers.append(lib_controller)
 
     def _check_prefix(self, library_basename, filename_prefixes):
@@ -747,8 +988,7 @@ class ThreadpoolController:
             return
 
         prefixes = [lib_controller.prefix for lib_controller in self.lib_controllers]
-        msg = textwrap.dedent(
-            """
+        msg = textwrap.dedent("""
             Found Intel OpenMP ('libiomp') and LLVM OpenMP ('libomp') loaded at
             the same time. Both libraries are known to be incompatible and this
             can cause random crashes or deadlocks on Linux when loaded in the
@@ -756,8 +996,7 @@ class ThreadpoolController:
             Using threadpoolctl may cause crashes or deadlocks. For more
             information and possible workarounds, please see
                 https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
-            """
-        )
+            """)
         if "libomp" in prefixes and "libiomp" in prefixes:
             warnings.warn(msg, RuntimeWarning)
 
@@ -769,9 +1008,11 @@ class ThreadpoolController:
             libc_name = find_library("c")
             if libc_name is None:  # pragma: no cover
                 warnings.warn(
-                    "libc not found. The ctypes module in Python "
-                    f"{sys.version_info.major}.{sys.version_info.minor} is maybe too "
-                    "old for this OS.",
+                    (
+                        "libc not found. The ctypes module in Python"
+                        f" {sys.version_info.major}.{sys.version_info.minor} is maybe"
+                        " too old for this OS."
+                    ),
                     RuntimeWarning,
                 )
                 return None
@@ -787,252 +1028,6 @@ class ThreadpoolController:
             dll = ctypes.WinDLL(f"{dll_name}.dll")
             cls._system_libraries[dll_name] = dll
         return dll
-
-
-@_format_docstring(
-    USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
-    INTERNAL_APIS=", ".join('"{}"'.format(api) for api in _ALL_INTERNAL_APIS),
-)
-class LibController(ABC):
-    """Abstract base class for the individual library controllers
-
-    A library controller is represented by the following information:
-      - "user_api" : user API. Possible values are {USER_APIS}.
-      - "internal_api" : internal API. Possible values are {INTERNAL_APIS}.
-      - "prefix" : prefix of the shared library's name.
-      - "filepath" : path to the loaded library.
-      - "version" : version of the library (if available).
-      - "num_threads" : the current thread limit.
-
-    In addition, each library controller may contain internal_api specific
-    entries.
-    """
-
-    def __init__(self, *, filepath=None, prefix=None, user_api=None, internal_api=None):
-        self.user_api = user_api
-        self.internal_api = internal_api
-        self.prefix = prefix
-        self.filepath = filepath
-        self._dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
-        self.version = self.get_version()
-
-    def info(self):
-        """Return relevant info wrapped in a dict"""
-        all_attrs = dict(vars(self), **{"num_threads": self.num_threads})
-        return {k: v for k, v in all_attrs.items() if not k.startswith("_")}
-
-    @property
-    def num_threads(self):
-        return self.get_num_threads()
-
-    @abstractmethod
-    def get_num_threads(self):
-        """Return the maximum number of threads available to use"""
-        pass  # pragma: no cover
-
-    @abstractmethod
-    def set_num_threads(self, num_threads):
-        """Set the maximum number of threads to use"""
-        pass  # pragma: no cover
-
-    @abstractmethod
-    def get_version(self):
-        """Return the version of the shared library"""
-        pass  # pragma: no cover
-
-
-class OpenBLASController(LibController):
-    """Controller class for OpenBLAS"""
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.threading_layer = self._get_threading_layer()
-        self.architecture = self._get_architecture()
-
-    def get_num_threads(self):
-        get_func = getattr(
-            self._dynlib,
-            "openblas_get_num_threads",
-            # Symbols differ when built for 64bit integers in Fortran
-            getattr(self._dynlib, "openblas_get_num_threads64_", lambda: None),
-        )
-
-        return get_func()
-
-    def set_num_threads(self, num_threads):
-        set_func = getattr(
-            self._dynlib,
-            "openblas_set_num_threads",
-            # Symbols differ when built for 64bit integers in Fortran
-            getattr(
-                self._dynlib, "openblas_set_num_threads64_", lambda num_threads: None
-            ),
-        )
-        return set_func(num_threads)
-
-    def get_version(self):
-        # None means OpenBLAS is not loaded or version < 0.3.4, since OpenBLAS
-        # did not expose its version before that.
-        get_config = getattr(
-            self._dynlib,
-            "openblas_get_config",
-            getattr(self._dynlib, "openblas_get_config64_", None),
-        )
-        if get_config is None:
-            return None
-
-        get_config.restype = ctypes.c_char_p
-        config = get_config().split()
-        if config[0] == b"OpenBLAS":
-            return config[1].decode("utf-8")
-        return None
-
-    def _get_threading_layer(self):
-        """Return the threading layer of OpenBLAS"""
-        openblas_get_parallel = getattr(
-            self._dynlib,
-            "openblas_get_parallel",
-            getattr(self._dynlib, "openblas_get_parallel64_", None),
-        )
-        if openblas_get_parallel is None:
-            return "unknown"
-        threading_layer = openblas_get_parallel()
-        if threading_layer == 2:
-            return "openmp"
-        elif threading_layer == 1:
-            return "pthreads"
-        return "disabled"
-
-    def _get_architecture(self):
-        """Return the architecture detected by OpenBLAS"""
-        get_corename = getattr(
-            self._dynlib,
-            "openblas_get_corename",
-            getattr(self._dynlib, "openblas_get_corename64_", None),
-        )
-        if get_corename is None:
-            return None
-
-        get_corename.restype = ctypes.c_char_p
-        return get_corename().decode("utf-8")
-
-
-class BLISController(LibController):
-    """Controller class for BLIS"""
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.threading_layer = self._get_threading_layer()
-        self.architecture = self._get_architecture()
-
-    def get_num_threads(self):
-        get_func = getattr(self._dynlib, "bli_thread_get_num_threads", lambda: None)
-        num_threads = get_func()
-        # by default BLIS is single-threaded and get_num_threads
-        # returns -1. We map it to 1 for consistency with other libraries.
-        return 1 if num_threads == -1 else num_threads
-
-    def set_num_threads(self, num_threads):
-        set_func = getattr(
-            self._dynlib, "bli_thread_set_num_threads", lambda num_threads: None
-        )
-        return set_func(num_threads)
-
-    def get_version(self):
-        get_version_ = getattr(self._dynlib, "bli_info_get_version_str", None)
-        if get_version_ is None:
-            return None
-
-        get_version_.restype = ctypes.c_char_p
-        return get_version_().decode("utf-8")
-
-    def _get_threading_layer(self):
-        """Return the threading layer of BLIS"""
-        if self._dynlib.bli_info_get_enable_openmp():
-            return "openmp"
-        elif self._dynlib.bli_info_get_enable_pthreads():
-            return "pthreads"
-        return "disabled"
-
-    def _get_architecture(self):
-        """Return the architecture detected by BLIS"""
-        bli_arch_query_id = getattr(self._dynlib, "bli_arch_query_id", None)
-        bli_arch_string = getattr(self._dynlib, "bli_arch_string", None)
-        if bli_arch_query_id is None or bli_arch_string is None:
-            return None
-
-        # the true restype should be BLIS' arch_t (enum) but int should work
-        # for us:
-        bli_arch_query_id.restype = ctypes.c_int
-        bli_arch_string.restype = ctypes.c_char_p
-        return bli_arch_string(bli_arch_query_id()).decode("utf-8")
-
-
-class MKLController(LibController):
-    """Controller class for MKL"""
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.threading_layer = self._get_threading_layer()
-
-    def get_num_threads(self):
-        get_func = getattr(self._dynlib, "MKL_Get_Max_Threads", lambda: None)
-        return get_func()
-
-    def set_num_threads(self, num_threads):
-        set_func = getattr(
-            self._dynlib, "MKL_Set_Num_Threads", lambda num_threads: None
-        )
-        return set_func(num_threads)
-
-    def get_version(self):
-        if not hasattr(self._dynlib, "MKL_Get_Version_String"):
-            return None
-
-        res = ctypes.create_string_buffer(200)
-        self._dynlib.MKL_Get_Version_String(res, 200)
-
-        version = res.value.decode("utf-8")
-        group = re.search(r"Version ([^ ]+) ", version)
-        if group is not None:
-            version = group.groups()[0]
-        return version.strip()
-
-    def _get_threading_layer(self):
-        """Return the threading layer of MKL"""
-        # The function mkl_set_threading_layer returns the current threading
-        # layer. Calling it with an invalid threading layer allows us to safely
-        # get the threading layer
-        set_threading_layer = getattr(
-            self._dynlib, "MKL_Set_Threading_Layer", lambda layer: -1
-        )
-        layer_map = {
-            0: "intel",
-            1: "sequential",
-            2: "pgi",
-            3: "gnu",
-            4: "tbb",
-            -1: "not specified",
-        }
-        return layer_map[set_threading_layer(-1)]
-
-
-class OpenMPController(LibController):
-    """Controller class for OpenMP"""
-
-    def get_num_threads(self):
-        get_func = getattr(self._dynlib, "omp_get_max_threads", lambda: None)
-        return get_func()
-
-    def set_num_threads(self, num_threads):
-        set_func = getattr(
-            self._dynlib, "omp_set_num_threads", lambda num_threads: None
-        )
-        return set_func(num_threads)
-
-    def get_version(self):
-        # There is no way to get the version number programmatically in OpenMP.
-        return None
 
 
 def _main():

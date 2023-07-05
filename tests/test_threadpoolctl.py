@@ -672,3 +672,30 @@ def test_threadpool_controller_as_decorator():
     outer_func()
 
     assert ThreadpoolController().info() == original_info
+
+
+def test_custom_controller():
+    # Check that a custom controller can be used to change the number of threads
+    # used by a library.
+    try:
+        import tests._pyMylib  # noqa
+    except:
+        pytest.skip("requires my_thread_lib to be compiled")
+
+    controller = ThreadpoolController()
+    original_info = controller.info()
+
+    mylib_controller = controller.select(user_api="my_threaded_lib")
+
+    # my_threaded_lib has been found and there's 1 matching shared library
+    assert len(mylib_controller.lib_controllers) == 1
+    mylib_controller = mylib_controller.lib_controllers[0]
+
+    # we linked against my_threaded_lib v2.0 and by default it uses 42 thread
+    assert mylib_controller.version == "2.0"
+    assert mylib_controller.num_threads == 42
+
+    with controller.limit(limits=1, user_api="my_threaded_lib"):
+        assert mylib_controller.num_threads == 1
+
+    assert ThreadpoolController().info() == original_info

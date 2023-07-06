@@ -84,6 +84,10 @@ class LibController(ABC):
     A library contoller must implement the following methods: `get_num_threads`,
     `set_num_threads` and `get_version`.
 
+    This class provides a `dynlib` attribute that holds the loaded shared library as a
+    `ctypes.CDLL` object. It can be used to access the necessary symbols of the shared
+    library to implement the above methods.
+
     The following information will be exposed in the info dict:
       - user_api : user API.
       - internal_api : internal API.
@@ -100,20 +104,21 @@ class LibController(ABC):
     def __init__(self, *, filepath=None, prefix=None):
         self.prefix = prefix
         self.filepath = filepath
-        self._dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
+        self.dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
         self.version = self.get_version()
         self.set_additional_attributes()
 
     @final
     def info(self):
         """Return relevant info wrapped in a dict"""
-        all_attrs = {
+        exposed_attrs = {
             "user_api": self.user_api,
             "internal_api": self.internal_api,
             "num_threads": self.num_threads,
             **vars(self),
         }
-        return {k: v for k, v in all_attrs.items() if not k.startswith("_")}
+        exposed_attrs.pop("dynlib")
+        return exposed_attrs
 
     def set_additional_attributes(self):
         """Set additional attributes meant to be exposed in the info dict"""
@@ -165,21 +170,21 @@ class OpenBLASController(LibController):
 
     def get_num_threads(self):
         get_func = getattr(
-            self._dynlib,
+            self.dynlib,
             "openblas_get_num_threads",
             # Symbols differ when built for 64bit integers in Fortran
-            getattr(self._dynlib, "openblas_get_num_threads64_", lambda: None),
+            getattr(self.dynlib, "openblas_get_num_threads64_", lambda: None),
         )
 
         return get_func()
 
     def set_num_threads(self, num_threads):
         set_func = getattr(
-            self._dynlib,
+            self.dynlib,
             "openblas_set_num_threads",
             # Symbols differ when built for 64bit integers in Fortran
             getattr(
-                self._dynlib, "openblas_set_num_threads64_", lambda num_threads: None
+                self.dynlib, "openblas_set_num_threads64_", lambda num_threads: None
             ),
         )
         return set_func(num_threads)
@@ -188,9 +193,9 @@ class OpenBLASController(LibController):
         # None means OpenBLAS is not loaded or version < 0.3.4, since OpenBLAS
         # did not expose its version before that.
         get_config = getattr(
-            self._dynlib,
+            self.dynlib,
             "openblas_get_config",
-            getattr(self._dynlib, "openblas_get_config64_", None),
+            getattr(self.dynlib, "openblas_get_config64_", None),
         )
         if get_config is None:
             return None
@@ -204,9 +209,9 @@ class OpenBLASController(LibController):
     def _get_threading_layer(self):
         """Return the threading layer of OpenBLAS"""
         openblas_get_parallel = getattr(
-            self._dynlib,
+            self.dynlib,
             "openblas_get_parallel",
-            getattr(self._dynlib, "openblas_get_parallel64_", None),
+            getattr(self.dynlib, "openblas_get_parallel64_", None),
         )
         if openblas_get_parallel is None:
             return "unknown"
@@ -220,9 +225,9 @@ class OpenBLASController(LibController):
     def _get_architecture(self):
         """Return the architecture detected by OpenBLAS"""
         get_corename = getattr(
-            self._dynlib,
+            self.dynlib,
             "openblas_get_corename",
-            getattr(self._dynlib, "openblas_get_corename64_", None),
+            getattr(self.dynlib, "openblas_get_corename64_", None),
         )
         if get_corename is None:
             return None
@@ -244,7 +249,7 @@ class BLISController(LibController):
         self.architecture = self._get_architecture()
 
     def get_num_threads(self):
-        get_func = getattr(self._dynlib, "bli_thread_get_num_threads", lambda: None)
+        get_func = getattr(self.dynlib, "bli_thread_get_num_threads", lambda: None)
         num_threads = get_func()
         # by default BLIS is single-threaded and get_num_threads
         # returns -1. We map it to 1 for consistency with other libraries.
@@ -252,12 +257,12 @@ class BLISController(LibController):
 
     def set_num_threads(self, num_threads):
         set_func = getattr(
-            self._dynlib, "bli_thread_set_num_threads", lambda num_threads: None
+            self.dynlib, "bli_thread_set_num_threads", lambda num_threads: None
         )
         return set_func(num_threads)
 
     def get_version(self):
-        get_version_ = getattr(self._dynlib, "bli_info_get_version_str", None)
+        get_version_ = getattr(self.dynlib, "bli_info_get_version_str", None)
         if get_version_ is None:
             return None
 
@@ -266,16 +271,16 @@ class BLISController(LibController):
 
     def _get_threading_layer(self):
         """Return the threading layer of BLIS"""
-        if self._dynlib.bli_info_get_enable_openmp():
+        if self.dynlib.bli_info_get_enable_openmp():
             return "openmp"
-        elif self._dynlib.bli_info_get_enable_pthreads():
+        elif self.dynlib.bli_info_get_enable_pthreads():
             return "pthreads"
         return "disabled"
 
     def _get_architecture(self):
         """Return the architecture detected by BLIS"""
-        bli_arch_query_id = getattr(self._dynlib, "bli_arch_query_id", None)
-        bli_arch_string = getattr(self._dynlib, "bli_arch_string", None)
+        bli_arch_query_id = getattr(self.dynlib, "bli_arch_query_id", None)
+        bli_arch_string = getattr(self.dynlib, "bli_arch_string", None)
         if bli_arch_query_id is None or bli_arch_string is None:
             return None
 
@@ -298,21 +303,19 @@ class MKLController(LibController):
         self.threading_layer = self._get_threading_layer()
 
     def get_num_threads(self):
-        get_func = getattr(self._dynlib, "MKL_Get_Max_Threads", lambda: None)
+        get_func = getattr(self.dynlib, "MKL_Get_Max_Threads", lambda: None)
         return get_func()
 
     def set_num_threads(self, num_threads):
-        set_func = getattr(
-            self._dynlib, "MKL_Set_Num_Threads", lambda num_threads: None
-        )
+        set_func = getattr(self.dynlib, "MKL_Set_Num_Threads", lambda num_threads: None)
         return set_func(num_threads)
 
     def get_version(self):
-        if not hasattr(self._dynlib, "MKL_Get_Version_String"):
+        if not hasattr(self.dynlib, "MKL_Get_Version_String"):
             return None
 
         res = ctypes.create_string_buffer(200)
-        self._dynlib.MKL_Get_Version_String(res, 200)
+        self.dynlib.MKL_Get_Version_String(res, 200)
 
         version = res.value.decode("utf-8")
         group = re.search(r"Version ([^ ]+) ", version)
@@ -326,7 +329,7 @@ class MKLController(LibController):
         # layer. Calling it with an invalid threading layer allows us to safely
         # get the threading layer
         set_threading_layer = getattr(
-            self._dynlib, "MKL_Set_Threading_Layer", lambda layer: -1
+            self.dynlib, "MKL_Set_Threading_Layer", lambda layer: -1
         )
         layer_map = {
             0: "intel",
@@ -347,13 +350,11 @@ class OpenMPController(LibController):
     filename_prefixes = ("libiomp", "libgomp", "libomp", "vcomp")
 
     def get_num_threads(self):
-        get_func = getattr(self._dynlib, "omp_get_max_threads", lambda: None)
+        get_func = getattr(self.dynlib, "omp_get_max_threads", lambda: None)
         return get_func()
 
     def set_num_threads(self, num_threads):
-        set_func = getattr(
-            self._dynlib, "omp_set_num_threads", lambda num_threads: None
-        )
+        set_func = getattr(self.dynlib, "omp_set_num_threads", lambda num_threads: None)
         return set_func(num_threads)
 
     def get_version(self):

@@ -73,9 +73,10 @@ class LibController(ABC):
     A library controller must expose the following class attributes:
         - user_api : str
             Usually the name of the library or generic specification the library
-            implements.
+            implements, e.g. "blas" is a specification with different implementations.
         - internal_api : str
-            Usually the name of the library, or concrete implementation of some
+            Usually the name of the library or concrete implementation of some
+            specification, e.g. "openblas" is an implementation of the "blas"
             specification.
         - filename_prefixes : tuple
             Possible prefixes of the shared library's filename that allow to

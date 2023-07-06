@@ -80,7 +80,7 @@ class LibController(ABC):
         - filename_prefixes : tuple
             Possible prefixes of the shared library's filename that allow to
             identify the library. e.g. "libopenblas" for libopenblas.so.
-    
+
     A library contoller must implement the following methods: `get_num_threads`,
     `set_num_threads` and `get_version`.
 

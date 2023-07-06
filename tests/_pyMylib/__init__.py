@@ -24,5 +24,8 @@ class MyThreadedLibController(LibController):
         get_version.restype = ctypes.c_char_p
         return get_version().decode("utf-8")
 
+    def set_additional_attributes(self):
+        self.some_attr = "some_value"
+
 
 register(MyThreadedLibController)

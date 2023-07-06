@@ -695,6 +695,9 @@ def test_custom_controller():
     assert mylib_controller.version == "2.0"
     assert mylib_controller.num_threads == 42
 
+    # my_threaded_lib exposes an additional info "some_attr":
+    assert mylib_controller.info()["some_attr"] == "some_value"
+
     with controller.limit(limits=1, user_api="my_threaded_lib"):
         assert mylib_controller.num_threads == 1
 

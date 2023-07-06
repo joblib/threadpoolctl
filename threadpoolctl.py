@@ -102,6 +102,7 @@ class LibController(ABC):
 
     @final
     def __init__(self, *, filepath=None, prefix=None):
+        """This is not meant to be overriden by subclasses."""
         self.prefix = prefix
         self.filepath = filepath
         self.dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
@@ -110,7 +111,10 @@ class LibController(ABC):
 
     @final
     def info(self):
-        """Return relevant info wrapped in a dict"""
+        """Return relevant info wrapped in a dict
+
+        This is not meant to be overriden by subclasses.
+        """
         exposed_attrs = {
             "user_api": self.user_api,
             "internal_api": self.internal_api,
@@ -124,23 +128,11 @@ class LibController(ABC):
         """Set additional attributes meant to be exposed in the info dict"""
 
     @property
-    @abstractmethod
-    def user_api(self):
-        """User API of the library"""
-
-    @property
-    @abstractmethod
-    def internal_api(self):
-        """Internal API of the library"""
-
-    @property
-    @abstractmethod
-    def filename_prefixes(self):
-        """Possible prefixes of the library's filename"""
-
-    @property
-    @final
     def num_threads(self):
+        """Exposes the current thread limit as a dynamic property
+
+        This is not meant to be used or overriden by subclasses.
+        """
         return self.get_num_threads()
 
     @abstractmethod

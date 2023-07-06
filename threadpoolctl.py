@@ -15,6 +15,7 @@ import re
 import sys
 import ctypes
 import textwrap
+from typing import final
 import warnings
 from ctypes.util import find_library
 from abc import ABC, abstractmethod
@@ -69,24 +70,41 @@ except AttributeError:
 class LibController(ABC):
     """Abstract base class for the individual library controllers
 
-    A library controller is represented by the following information:
-      - "user_api" : user API.
-      - "internal_api" : internal API.
-      - "prefix" : prefix of the shared library's name.
-      - "filepath" : path to the loaded library.
-      - "version" : version of the library (if available).
-      - "num_threads" : the current thread limit.
+    A library controller must expose the following class attributes:
+        - user_api : str
+            Usually the name of the library or generic specification the library
+            implements.
+        - internal_api : str
+            Usually the name of the library, or concrete implementation of some
+            specification.
+        - filename_prefixes : tuple
+            Possible prefixes of the shared library's filename that allow to
+            identify the library. e.g. "libopenblas" for libopenblas.so.
+    
+    A library contoller must implement the following methods: `get_num_threads`,
+    `set_num_threads` and `get_version`.
 
-    In addition, each library controller may contain internal_api specific
-    entries.
+    The following information will be exposed in the info dict:
+      - user_api : user API.
+      - internal_api : internal API.
+      - num_threads : the current thread limit.
+      - prefix : prefix of the shared library's filename.
+      - filepath : path to the loaded shared library.
+      - version : version of the library (if available).
+
+    In addition, each library controller may expose internal API specific entries. They
+    must be set as attributes in the `set_additional_attributes method`.
     """
 
+    @final
     def __init__(self, *, filepath=None, prefix=None):
         self.prefix = prefix
         self.filepath = filepath
         self._dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
         self.version = self.get_version()
+        self.set_additional_attributes()
 
+    @final
     def info(self):
         """Return relevant info wrapped in a dict"""
         all_attrs = {
@@ -96,6 +114,9 @@ class LibController(ABC):
             **vars(self),
         }
         return {k: v for k, v in all_attrs.items() if not k.startswith("_")}
+
+    def set_additional_attributes(self):
+        """Set additional attributes meant to be exposed in the info dict"""
 
     @property
     @abstractmethod
@@ -113,23 +134,21 @@ class LibController(ABC):
         """Possible prefixes of the library's filename"""
 
     @property
+    @final
     def num_threads(self):
         return self.get_num_threads()
 
     @abstractmethod
     def get_num_threads(self):
         """Return the maximum number of threads available to use"""
-        pass  # pragma: no cover
 
     @abstractmethod
     def set_num_threads(self, num_threads):
         """Set the maximum number of threads to use"""
-        pass  # pragma: no cover
 
     @abstractmethod
     def get_version(self):
         """Return the version of the shared library"""
-        pass  # pragma: no cover
 
 
 class OpenBLASController(LibController):
@@ -140,8 +159,7 @@ class OpenBLASController(LibController):
     filename_prefixes = ("libopenblas", "libblas")
     check_symbols = ("openblas_get_num_threads", "openblas_get_num_threads64_")
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def set_additional_attributes(self):
         self.threading_layer = self._get_threading_layer()
         self.architecture = self._get_architecture()
 
@@ -221,8 +239,7 @@ class BLISController(LibController):
     filename_prefixes = ("libblis", "libblas")
     check_symbols = ("bli_thread_get_num_threads",)
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def set_additional_attributes(self):
         self.threading_layer = self._get_threading_layer()
         self.architecture = self._get_architecture()
 
@@ -277,8 +294,7 @@ class MKLController(LibController):
     filename_prefixes = ("libmkl_rt", "mkl_rt", "libblas")
     check_symbols = ("MKL_Get_Max_Threads",)
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def set_additional_attributes(self):
         self.threading_layer = self._get_threading_layer()
 
     def get_num_threads(self):

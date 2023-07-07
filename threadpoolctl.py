@@ -82,14 +82,16 @@ class LibController(ABC):
             Possible prefixes of the shared library's filename that allow to
             identify the library. e.g. "libopenblas" for libopenblas.so.
 
-    A library contoller must implement the following methods: `get_num_threads`,
-    `set_num_threads` and `get_version`.
+    and implement the following methods: `get_num_threads`, `set_num_threads` and
+    `get_version`.
 
-    This class provides a `dynlib` attribute that holds the loaded shared library as a
-    `ctypes.CDLL` object. It can be used to access the necessary symbols of the shared
-    library to implement the above methods.
+    Threadpoolctl loops through all the loaded shared libraries and tries to match
+    the filename of each library with the `filename_prefixes`. If a match is found, a
+    controller is instantiated and a handler to the library is stored in the `dynlib`
+    attribute as a `ctypes.CDLL` object. It can be used to access the necessary symbols
+    of the shared library to implement the above methods.
 
-    The following information will be exposed in the info dict:
+    The following information will be exposed in the info dictionary:
       - user_api : user API.
       - internal_api : internal API.
       - num_threads : the current thread limit.
@@ -98,7 +100,7 @@ class LibController(ABC):
       - version : version of the library (if available).
 
     In addition, each library controller may expose internal API specific entries. They
-    must be set as attributes in the `set_additional_attributes method`.
+    must be set as attributes in the `set_additional_attributes` method.
     """
 
     @final

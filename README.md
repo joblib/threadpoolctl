@@ -192,6 +192,20 @@ decorators are accessible through their `wrap` method:
 ...
 ```
 
+### Writing a custom library controller
+
+Currently, `threadpoolctl` has support for `OpenMP` and the main `BLAS` libraries.
+However it can also be used to control the threadpool of other native libraries,
+provided that they expose an API to get and set the limit on the number of threads.
+For that, one must implement a controller for this library and register it to
+`threadpoolctl`.
+
+A custom controller must be a subclass of the `LibController` class and implement
+the attributes and methods described in the docstring of `LibController`. Then this
+new controller class must be registered using the `threadpoolctl.register` function.
+An complete example can be found [here](
+  https://github.com/joblib/threadpoolctl/blob/master/tests/_pyMylib/__init__.py).
+
 ### Sequential BLAS within OpenMP parallel region
 
 When one wants to have sequential BLAS calls within an OpenMP parallel region, it's

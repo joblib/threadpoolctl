@@ -42,6 +42,7 @@ library_dirs = $ABS_PATH/BLIS_install/lib
 include_dirs = $ABS_PATH/BLIS_install/include/blis
 runtime_library_dirs = $ABS_PATH/BLIS_install/lib" > site.cfg
 python setup.py build_ext -i
+python setup.py build_ext -i  # WTF
 pip install -e .
 popd
 

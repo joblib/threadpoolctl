@@ -13,7 +13,7 @@ sudo ./llvm.sh 10
 sudo apt-get install libomp-dev
 
 # create conda env
-conda create -n $VIRTUALENV -q --yes -c conda-forge python=$VERSION_PYTHON pip cython ninja
+conda create -n $VIRTUALENV -q --yes -c conda-forge python=$VERSION_PYTHON pip cython meson-python
 source activate $VIRTUALENV
 
 if [[ "$BLIS_CC" == "gcc-8" ]]; then
@@ -41,8 +41,8 @@ libraries = blis
 library_dirs = $ABS_PATH/BLIS_install/lib
 include_dirs = $ABS_PATH/BLIS_install/include/blis
 runtime_library_dirs = $ABS_PATH/BLIS_install/lib" > site.cfg
-# python setup.py build_ext -i
-pip install -e .
+python setup.py build_ext -i
+pip install --no-build-isolation -e .
 popd
 
 popd

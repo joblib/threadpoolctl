@@ -12,7 +12,7 @@ chmod +x llvm.sh
 sudo ./llvm.sh 10
 sudo apt-get install libomp-dev
 
-## create conda env
+# create conda env
 conda create -n $VIRTUALENV -q --yes -c conda-forge python=$VERSION_PYTHON pip cython ninja
 source activate $VIRTUALENV
 

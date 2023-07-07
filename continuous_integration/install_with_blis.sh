@@ -33,7 +33,7 @@ git clone https://github.com/numpy/numpy.git
 pushd numpy
 
 ## create conda env from numpy requirements
-conda create -n $VIRTUALENV python=3.9 pip cython setuptools=59.2.0 meson ninja pkg-config meson-python
+conda create -n $VIRTUALENV -c conda-forge python=3.9 pip cython setuptools=59.2.0 meson ninja pkg-config meson-python
 source activate $VIRTUALENV
 
 git submodule update --init

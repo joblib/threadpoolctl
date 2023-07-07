@@ -12,6 +12,10 @@ chmod +x llvm.sh
 sudo ./llvm.sh 10
 sudo apt-get install libomp-dev
 
+## create conda env from numpy requirements
+conda create -n $VIRTUALENV -c conda-forge -q --yes python pip cython ninja
+source activate $VIRTUALENV
+
 if [[ "$BLIS_CC" == "gcc-8" ]]; then
     sudo apt install gcc-8
 fi
@@ -31,11 +35,6 @@ popd
 # build & install numpy
 git clone https://github.com/numpy/numpy.git
 pushd numpy
-
-## create conda env from numpy requirements
-conda create -n $VIRTUALENV -c conda-forge -q --yes python=3.9 pip cython setuptools=59.2.0 meson ninja pkg-config meson-python
-source activate $VIRTUALENV
-
 git submodule update --init
 echo "[blis]
 libraries = blis

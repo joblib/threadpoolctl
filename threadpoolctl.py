@@ -743,7 +743,8 @@ class ThreadpoolController:
     def _warn_if_incompatible_openmp(self):
         """Raise a warning if llvm-OpenMP and intel-OpenMP are both loaded"""
         prefixes = [lib_controller.prefix for lib_controller in self.lib_controllers]
-        msg = textwrap.dedent("""
+        msg = textwrap.dedent(
+            """
             Found Intel OpenMP ('libiomp') and LLVM OpenMP ('libomp') loaded at
             the same time. Both libraries are known to be incompatible and this
             can cause random crashes or deadlocks on Linux when loaded in the
@@ -751,7 +752,8 @@ class ThreadpoolController:
             Using threadpoolctl may cause crashes or deadlocks. For more
             information and possible workarounds, please see
                 https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
-            """)
+            """
+        )
         if "libomp" in prefixes and "libiomp" in prefixes:
             warnings.warn(msg, RuntimeWarning)
 
@@ -763,11 +765,9 @@ class ThreadpoolController:
             libc_name = find_library("c")
             if libc_name is None:  # pragma: no cover
                 warnings.warn(
-                    (
-                        "libc not found. The ctypes module in Python"
-                        f" {sys.version_info.major}.{sys.version_info.minor} is maybe"
-                        " too old for this OS."
-                    ),
+                    "libc not found. The ctypes module in Python "
+                    f"{sys.version_info.major}.{sys.version_info.minor} is maybe too "
+                    "old for this OS.",
                     RuntimeWarning,
                 )
                 return None

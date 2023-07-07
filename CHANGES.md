@@ -3,6 +3,11 @@
 
 - Dropped support for Python 3.6 and 3.7.
 
+- Added support for custom library controllers. Custom controllers must inherit from
+  the `threadpoolctl.LibController` class and be registered to threadpoolctl using the
+  `threadpoolctl.register` function.
+  https://github.com/joblib/threadpoolctl/pull/138
+
 3.1.0 (2022-01-31)
 ==================
 

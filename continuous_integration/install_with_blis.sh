@@ -12,8 +12,8 @@ chmod +x llvm.sh
 sudo ./llvm.sh 10
 sudo apt-get install libomp-dev
 
-## create conda env from numpy requirements
-conda create -n $VIRTUALENV -c conda-forge -q --yes python pip cython ninja
+## create conda env
+conda create -n $VIRTUALENV -q --yes -c conda-forge python=$VERSION_PYTHON pip cython ninja
 source activate $VIRTUALENV
 
 if [[ "$BLIS_CC" == "gcc-8" ]]; then

@@ -29,13 +29,13 @@ program**. For instance, on Linux, we never observed any issue between
 `libgomp` and `libiomp`, which is the most common mix (NumPy with MKL + a
 package compiled with GCC, the most widely used C compiler on that platform).
 
-## Incompatibility between Intel OpenMP and LLVM OpenMP under Linux
+## Incompatibility between Intel OpenMP and LLVM OpenMP
 
 The only unrecoverable incompatibility we encountered happens when loading a
 mix of compiled extensions linked with **`libomp` (LLVM/Clang) and `libiomp`
-(ICC), on Linux**, manifested by crashes or deadlocks. It can happen even with
-the simplest OpenMP calls like getting the maximum number of threads that will
-be used in a subsequent parallel region. A possible explanation is that
+(ICC), on Linux and MacOS**, manifested by crashes or deadlocks. It can happen
+even with the simplest OpenMP calls like getting the maximum number of threads
+that will be used in a subsequent parallel region. A possible explanation is that
 `libomp` is actually a fork of `libiomp` causing name colliding for instance.
 Using `threadpoolctl` may crash your program in such a setting.
 
@@ -43,10 +43,7 @@ Using `threadpoolctl` may crash your program in such a setting.
 binary distributions of Python packages for Linux use either GCC or ICC to
 build the Python scientific packages. Therefore this problem would only happen
 if some packagers decide to start shipping Python packages built with
-LLVM/Clang instead of GCC.
-
-Surprisingly, we never encountered this kind of issue on macOS, where this mix
-is the most frequent (Clang being the default C compiler on macOS).
+LLVM/Clang instead of GCC (this is the case for instance with conda's default channel).
 
 ## Workarounds for Intel OpenMP and LLVM OpenMP case
 

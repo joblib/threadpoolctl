@@ -50,10 +50,15 @@ LLVM/Clang instead of GCC (this is the case for instance with conda's default ch
 As far as we know, the only workaround consists in making sure only of one of
 the two incompatible OpenMP libraries is loaded. For example:
 
-- Tell MKL (used by NumPy) to use the GNU OpenMP runtime instead of the Intel
-  OpenMP runtime by setting the following environment variable:
+- Tell MKL (used by NumPy) to use another threading implementation instead of the Intel
+  OpenMP runtime. It can be the GNU OpenMP runtime on Linux or TBB on Linux and MacOS
+  for instance. This is done by setting the following environment variable:
 
       export MKL_THREADING_LAYER=GNU
+
+  or, if TBB is installed:
+
+      export MKL_THREADING_LAYER=TBB
 
 - Install a build of NumPy and SciPy linked against OpenBLAS instead of MKL.
   This can be done for instance by installing NumPy and SciPy from PyPI:

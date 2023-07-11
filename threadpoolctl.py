@@ -93,7 +93,7 @@ class LibController(ABC):
 
     The following information will be exposed in the info dictionary:
       - user_api : standardized API, if any, or a copy of internal_api.
-      - internal_api : internal API.
+      - internal_api : implementation-specific API.
       - num_threads : the current thread limit.
       - prefix : prefix of the shared library's filename.
       - filepath : path to the loaded shared library.

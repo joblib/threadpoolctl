@@ -8,6 +8,11 @@
   `threadpoolctl.register` function.
   https://github.com/joblib/threadpoolctl/pull/138
 
+- A warning is raised on macOS when threadpoolctl finds both Intel OpenMP and LLVM
+  OpenMP runtimes loaded simultaneously by the same Python program. See details and
+  workarounds at https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md.
+  https://github.com/joblib/threadpoolctl/pull/142
+
 3.1.0 (2022-01-31)
 ==================
 

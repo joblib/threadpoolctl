@@ -996,10 +996,6 @@ class ThreadpoolController:
 
     def _warn_if_incompatible_openmp(self):
         """Raise a warning if llvm-OpenMP and intel-OpenMP are both loaded"""
-        if sys.platform != "linux":
-            # Only raise the warning on linux
-            return
-
         prefixes = [lib_controller.prefix for lib_controller in self.lib_controllers]
         msg = textwrap.dedent("""
             Found Intel OpenMP ('libiomp') and LLVM OpenMP ('libomp') loaded at

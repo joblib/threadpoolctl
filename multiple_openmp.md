@@ -29,13 +29,13 @@ program**. For instance, on Linux, we never observed any issue between
 `libgomp` and `libiomp`, which is the most common mix (NumPy with MKL + a
 package compiled with GCC, the most widely used C compiler on that platform).
 
-## Incompatibility between Intel OpenMP and LLVM OpenMP under Linux
+## Incompatibility between Intel OpenMP and LLVM OpenMP
 
 The only unrecoverable incompatibility we encountered happens when loading a
 mix of compiled extensions linked with **`libomp` (LLVM/Clang) and `libiomp`
-(ICC), on Linux**, manifested by crashes or deadlocks. It can happen even with
-the simplest OpenMP calls like getting the maximum number of threads that will
-be used in a subsequent parallel region. A possible explanation is that
+(ICC), on Linux and macOS**, manifested by crashes or deadlocks. It can happen
+even with the simplest OpenMP calls like getting the maximum number of threads
+that will be used in a subsequent parallel region. A possible explanation is that
 `libomp` is actually a fork of `libiomp` causing name colliding for instance.
 Using `threadpoolctl` may crash your program in such a setting.
 
@@ -43,20 +43,22 @@ Using `threadpoolctl` may crash your program in such a setting.
 binary distributions of Python packages for Linux use either GCC or ICC to
 build the Python scientific packages. Therefore this problem would only happen
 if some packagers decide to start shipping Python packages built with
-LLVM/Clang instead of GCC.
-
-Surprisingly, we never encountered this kind of issue on macOS, where this mix
-is the most frequent (Clang being the default C compiler on macOS).
+LLVM/Clang instead of GCC (this is the case for instance with conda's default channel).
 
 ## Workarounds for Intel OpenMP and LLVM OpenMP case
 
 As far as we know, the only workaround consists in making sure only of one of
 the two incompatible OpenMP libraries is loaded. For example:
 
-- Tell MKL (used by NumPy) to use the GNU OpenMP runtime instead of the Intel
-  OpenMP runtime by setting the following environment variable:
+- Tell MKL (used by NumPy) to use another threading implementation instead of the Intel
+  OpenMP runtime. It can be the GNU OpenMP runtime on Linux or TBB on Linux and MacOS
+  for instance. This is done by setting the following environment variable:
 
       export MKL_THREADING_LAYER=GNU
+
+  or, if TBB is installed:
+
+      export MKL_THREADING_LAYER=TBB
 
 - Install a build of NumPy and SciPy linked against OpenBLAS instead of MKL.
   This can be done for instance by installing NumPy and SciPy from PyPI:

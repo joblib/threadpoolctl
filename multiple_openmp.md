@@ -33,7 +33,7 @@ package compiled with GCC, the most widely used C compiler on that platform).
 
 The only unrecoverable incompatibility we encountered happens when loading a
 mix of compiled extensions linked with **`libomp` (LLVM/Clang) and `libiomp`
-(ICC), on Linux and MacOS**, manifested by crashes or deadlocks. It can happen
+(ICC), on Linux and macOS**, manifested by crashes or deadlocks. It can happen
 even with the simplest OpenMP calls like getting the maximum number of threads
 that will be used in a subsequent parallel region. A possible explanation is that
 `libomp` is actually a fork of `libiomp` causing name colliding for instance.

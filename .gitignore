@@ -1,11 +1,14 @@
-# Python and Cython generated files
+# Python generated files
 *.pyc
 __pycache__
 .cache
 .pytest_cache
+
+# Cython/C generated files
+*.o
 *.so
 *.dylib
-*.c
+tests/_openmp_test_helper/*.c
 
 # Python install files, build and release artifacts
 *.egg-info/

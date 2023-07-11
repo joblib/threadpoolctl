@@ -92,7 +92,7 @@ class LibController(ABC):
     of the shared library to implement the above methods.
 
     The following information will be exposed in the info dictionary:
-      - user_api : user API.
+      - user_api : standardized API, if any, or a copy of internal_api.
       - internal_api : internal API.
       - num_threads : the current thread limit.
       - prefix : prefix of the shared library's filename.

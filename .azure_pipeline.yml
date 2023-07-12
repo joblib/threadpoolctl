@@ -17,8 +17,9 @@ schedules:
 stages:
 - stage:
   jobs:
-  - job: 'run_linter'
-    displayName: Run linter
+
+  - job: 'linting'
+    displayName: Linting
     pool:
       vmImage: ubuntu-latest
     steps:
@@ -31,9 +32,6 @@ stages:
       - script: |
           black --check --diff .
         displayName: Run black
-
-- stage:
-  jobs:
 
   - template: continuous_integration/windows.yml
     parameters:

@@ -1017,11 +1017,9 @@ class ThreadpoolController:
             libc_name = find_library("c")
             if libc_name is None:  # pragma: no cover
                 warnings.warn(
-                    (
-                        "libc not found. The ctypes module in Python"
-                        f" {sys.version_info.major}.{sys.version_info.minor} is maybe"
-                        " too old for this OS."
-                    ),
+                    "libc not found. The ctypes module in Python"
+                    f" {sys.version_info.major}.{sys.version_info.minor} is maybe"
+                    " too old for this OS.",
                     RuntimeWarning,
                 )
                 return None

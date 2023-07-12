@@ -17,7 +17,7 @@ schedules:
 stages:
 - stage:
   jobs:
-  - job: 'run linter'
+  - job: 'run_linter'
     displayName: Run linter
     pool:
       vmImage: ubuntu-latest

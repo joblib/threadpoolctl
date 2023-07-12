@@ -20,14 +20,6 @@ jobs:
       # We need to take ownership if we want to update conda or install packages globally
       displayName: Take ownership of conda installation
       condition: eq('${{ parameters.name }}', 'macOS')
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '3.11'
-    - script: |
-        pip install black
-        black --check --diff .
-      displayName: Lint
-      condition: eq(variables['LINT'], 'true')
     - script: |
         continuous_integration/install.sh
       displayName: 'Install without BLIS'

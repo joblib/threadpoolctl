@@ -17,6 +17,23 @@ schedules:
 stages:
 - stage:
   jobs:
+  - job: 'run linter'
+    displayName: Run linter
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.11'
+      - script: |
+          pip install black
+        displayName: install black
+      - script: |
+          black --check --diff .
+        displayName: Run black
+
+- stage:
+  jobs:
 
   - template: continuous_integration/windows.yml
     parameters:
@@ -97,7 +114,6 @@ stages:
           OPENBLAS_THREADING_LAYER: 'openmp'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
-          LINT: 'true'
         # Linux environment with no numpy and heterogeneous OpenMP runtimes.
         pylatest_conda_nonumpy_gcc_clang:
           PACKAGER: 'conda'

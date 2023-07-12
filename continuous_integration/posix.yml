@@ -20,11 +20,12 @@ jobs:
       # We need to take ownership if we want to update conda or install packages globally
       displayName: Take ownership of conda installation
       condition: eq('${{ parameters.name }}', 'macOS')
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.11'
     - script: |
-        conda create -n tmp -y -c conda-forge python black
-        source activate tmp
-        black --check .
-        conda deactivate
+        pip install black
+        black --check --diff .
       displayName: Lint
       condition: eq(variables['LINT'], 'true')
     - script: |

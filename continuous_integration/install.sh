@@ -4,11 +4,11 @@ set -e
 
 UNAMESTR=`uname`
 
-if [[ "$CC_OUTER_LOOP" == "clang-15" || "$CC_INNER_LOOP" == "clang-15" ]]; then
+if [[ "$CC_OUTER_LOOP" == "clang-10" || "$CC_INNER_LOOP" == "clang-10" ]]; then
     # Assume Ubuntu: install a recent version of clang and libomp
     wget https://apt.llvm.org/llvm.sh
     chmod +x llvm.sh
-    sudo ./llvm.sh 15
+    sudo ./llvm.sh 10
     sudo apt-get install libomp-dev
 fi
 

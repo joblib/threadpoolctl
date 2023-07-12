@@ -9,7 +9,7 @@ popd
 # Install a recent version of clang and libomp
 wget https://apt.llvm.org/llvm.sh
 chmod +x llvm.sh
-sudo ./llvm.sh 15
+sudo ./llvm.sh 10
 sudo apt-get install libomp-dev
 
 # create conda env

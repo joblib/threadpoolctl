@@ -18,6 +18,21 @@ stages:
 - stage:
   jobs:
 
+  - job: 'linting'
+    displayName: Linting
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.11'
+      - script: |
+          pip install black
+        displayName: install black
+      - script: |
+          black --check --diff .
+        displayName: Run black
+
   - template: continuous_integration/windows.yml
     parameters:
       name: Windows
@@ -97,7 +112,6 @@ stages:
           OPENBLAS_THREADING_LAYER: 'openmp'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
-          LINT: 'true'
         # Linux environment with no numpy and heterogeneous OpenMP runtimes.
         pylatest_conda_nonumpy_gcc_clang:
           PACKAGER: 'conda'
@@ -172,7 +186,7 @@ stages:
   - job: 'no_test_always_skipped'
     displayName: 'No test always skipped'
     pool:
-      vmImage: ubuntu-20.04
+      vmImage: ubuntu-latest
     steps:
       - download: current
       - script: |

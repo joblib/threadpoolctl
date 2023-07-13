@@ -21,13 +21,6 @@ jobs:
       displayName: Take ownership of conda installation
       condition: eq('${{ parameters.name }}', 'macOS')
     - script: |
-        conda create -n tmp -y -c conda-forge python black
-        source activate tmp
-        black --check .
-        conda deactivate
-      displayName: Lint
-      condition: eq(variables['LINT'], 'true')
-    - script: |
         continuous_integration/install.sh
       displayName: 'Install without BLIS'
       condition: ne(variables['INSTALL_BLIS'], 'true')

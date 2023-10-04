@@ -31,6 +31,9 @@ def check_nested_prange_blas(double[:, ::1] A, double[:, ::1] B, int nthreads):
         int n_chunks = 100
         int chunk_size = A.shape[0] // n_chunks
 
+        double alpha = 1.0
+        double beta = 0.0
+
         int i
         int prange_num_threads
         int *prange_num_threads_ptr = &prange_num_threads

@@ -10,7 +10,7 @@ set PIP_INSTALL=pip install -q
 call deactivate
 @rem Clean up any left-over from a previous build and install version of python
 conda remove --all -q -y -n %VIRTUALENV%
-conda create -n %VIRTUALENV% -q -y
+conda create -n %VIRTUALENV% -q -y python=%VERSION_PYTHON%
 
 call activate %VIRTUALENV%
 python -m pip install -U pip
@@ -20,8 +20,8 @@ pip --version
 @rem Install dependencies with either conda or pip.
 set TO_INSTALL=numpy scipy cython pytest
 
-if "%PACKAGER%" == "conda" (%CONDA_INSTALL% python=%VERSION_PYTHON% %TO_INSTALL%)
-if "%PACKAGER%" == "conda-forge" (%CONDA_INSTALL% -c conda-forge python=%VERSION_PYTHON% %TO_INSTALL% blas[build=%BLAS%])
+if "%PACKAGER%" == "conda" (%CONDA_INSTALL% %TO_INSTALL%)
+if "%PACKAGER%" == "conda-forge" (%CONDA_INSTALL% -c conda-forge %TO_INSTALL% blas[build=%BLAS%])
 if "%PACKAGER%" == "pip" (%PIP_INSTALL% %TO_INSTALL%)
 
 @rem Install extra developer dependencies

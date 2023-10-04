@@ -18,10 +18,10 @@ python --version
 pip --version
 
 @rem Install dependencies with either conda or pip.
-set TO_INSTALL=python=%VERSION_PYTHON% numpy scipy cython pytest
+set TO_INSTALL=numpy scipy cython pytest
 
-if "%PACKAGER%" == "conda" (%CONDA_INSTALL% %TO_INSTALL%)
-if "%PACKAGER%" == "conda-forge" (%CONDA_INSTALL% -c conda-forge %TO_INSTALL% blas[build=%BLAS%])
+if "%PACKAGER%" == "conda" (%CONDA_INSTALL% python=%VERSION_PYTHON% %TO_INSTALL%)
+if "%PACKAGER%" == "conda-forge" (%CONDA_INSTALL% -c conda-forge python=%VERSION_PYTHON% %TO_INSTALL% blas[build=%BLAS%])
 if "%PACKAGER%" == "pip" (%PIP_INSTALL% %TO_INSTALL%)
 
 @rem Install extra developer dependencies

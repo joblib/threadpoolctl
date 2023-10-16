@@ -16,8 +16,9 @@ make_conda() {
     TO_INSTALL="$@"
     if [[ "$UNAMESTR" == "Darwin" ]]; then
         if [[ "$INSTALL_LIBOMP" == "conda-forge" ]]; then
+            conda install -n base conda conda-libmamba-solver --yes
+            conda config --set solver libmamba
             # Install an OpenMP-enabled clang/llvm from conda-forge
-
             # assumes conda-forge is set on priority channel
             TO_INSTALL="$TO_INSTALL compilers llvm-openmp"
 

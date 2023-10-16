@@ -40,7 +40,7 @@ make_conda() {
 }
 
 if [[ "$PACKAGER" == "conda" ]]; then
-    TO_INSTALL="python=$VERSION_PYTHON pip"
+    TO_INSTALL="python=$PYTHON_VERSION pip"
     if [[ "$NO_NUMPY" != "true" ]]; then
         TO_INSTALL="$TO_INSTALL numpy scipy blas[build=$BLAS]"
     fi
@@ -49,7 +49,7 @@ if [[ "$PACKAGER" == "conda" ]]; then
 elif [[ "$PACKAGER" == "conda-forge" ]]; then
     conda config --prepend channels conda-forge
     conda config --set channel_priority strict
-    TO_INSTALL="python=$VERSION_PYTHON numpy scipy blas[build=$BLAS]"
+    TO_INSTALL="python=$PYTHON_VERSION numpy scipy blas[build=$BLAS]"
     if [[ "$BLAS" == "openblas" && "$OPENBLAS_THREADING_LAYER" == "openmp" ]]; then
         TO_INSTALL="$TO_INSTALL libopenblas=*=*openmp*"
     fi
@@ -58,7 +58,7 @@ elif [[ "$PACKAGER" == "conda-forge" ]]; then
 elif [[ "$PACKAGER" == "pip" ]]; then
     # Use conda to build an empty python env and then use pip to install
     # numpy and scipy
-    TO_INSTALL="python=$VERSION_PYTHON pip"
+    TO_INSTALL="python=$PYTHON_VERSION pip"
     make_conda $TO_INSTALL
     if [[ "$NO_NUMPY" != "true" ]]; then
         pip install numpy scipy

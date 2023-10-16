@@ -25,7 +25,7 @@ stages:
     steps:
       - task: UsePythonVersion@0
         inputs:
-          versionSpec: '3.11'
+          versionSpec: '3.12'
       - script: |
           pip install black
         displayName: install black
@@ -39,18 +39,18 @@ stages:
       vmImage: windows-latest
       matrix:
         pylatest_conda_forge_mkl:
-          VERSION_PYTHON: '*'
+          PYTHON_VERSION: '*'
           PACKAGER: 'conda-forge'
           BLAS: 'mkl'
         py310_conda_forge_openblas:
-          VERSION_PYTHON: '3.10'
+          PYTHON_VERSION: '3.10'
           PACKAGER: 'conda-forge'
           BLAS: 'openblas'
         py39_conda:
-          VERSION_PYTHON: '3.9'
+          PYTHON_VERSION: '3.9'
           PACKAGER: 'conda'
         py38_pip:
-          VERSION_PYTHON: '3.8'
+          PYTHON_VERSION: '3.8'
           PACKAGER: 'pip'
 
 
@@ -64,19 +64,19 @@ stages:
         py38_ubuntu_atlas_gcc_gcc:
           PACKAGER: 'ubuntu'
           APT_BLAS: 'libatlas3-base libatlas-base-dev'
-          VERSION_PYTHON: '3.8'
+          PYTHON_VERSION: '3.8'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
         py38_ubuntu_openblas_gcc_gcc:
           PACKAGER: 'ubuntu'
           APT_BLAS: 'libopenblas-base libopenblas-dev'
-          VERSION_PYTHON: '3.8'
+          PYTHON_VERSION: '3.8'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
         # Linux + Python 3.9 and homogeneous runtime nesting.
         py39_conda_openblas_clang_clang:
           PACKAGER: 'conda'
-          VERSION_PYTHON: '3.9'
+          PYTHON_VERSION: '3.9'
           BLAS: 'openblas'
           CC_OUTER_LOOP: 'clang-10'
           CC_INNER_LOOP: 'clang-10'
@@ -84,7 +84,7 @@ stages:
         # threadpoolctl) to only test the warning from multiple OpenMP.
         pylatest_conda_mkl_clang_gcc:
           PACKAGER: 'conda'
-          VERSION_PYTHON: '*'
+          PYTHON_VERSION: '*'
           BLAS: 'mkl'
           CC_OUTER_LOOP: 'clang-10'
           CC_INNER_LOOP: 'gcc'
@@ -92,7 +92,7 @@ stages:
         # Linux environment with MKL, safe for threadpoolctl.
         pylatest_conda_mkl_gcc_gcc:
           PACKAGER: 'conda'
-          VERSION_PYTHON: '*'
+          PYTHON_VERSION: '*'
           BLAS: 'mkl'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
@@ -101,13 +101,13 @@ stages:
         # and heterogeneous OpenMP runtimes.
         py38_pip_openblas_gcc_clang:
           PACKAGER: 'pip'
-          VERSION_PYTHON: '3.8'
+          PYTHON_VERSION: '3.8'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'clang-10'
         # Linux environment with numpy from conda-forge channel and openblas-openmp
         pylatest_conda_forge:
           PACKAGER: 'conda-forge'
-          VERSION_PYTHON: '*'
+          PYTHON_VERSION: '*'
           BLAS: 'openblas'
           OPENBLAS_THREADING_LAYER: 'openmp'
           CC_OUTER_LOOP: 'gcc'
@@ -116,13 +116,13 @@ stages:
         pylatest_conda_nonumpy_gcc_clang:
           PACKAGER: 'conda'
           NO_NUMPY: 'true'
-          VERSION_PYTHON: '*'
+          PYTHON_VERSION: '*'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'clang-10'
         # Linux environment with numpy linked to BLIS
         pylatest_blis_gcc_clang_openmp:
           PACKAGER: 'conda'
-          VERSION_PYTHON: '*'
+          PYTHON_VERSION: '*'
           INSTALL_BLIS: 'true'
           BLIS_NUM_THREADS: '4'
           CC_OUTER_LOOP: 'gcc'
@@ -131,7 +131,7 @@ stages:
           BLIS_ENABLE_THREADING: 'openmp'
         pylatest_blis_clang_gcc_pthreads:
           PACKAGER: 'conda'
-          VERSION_PYTHON: '*'
+          PYTHON_VERSION: '*'
           INSTALL_BLIS: 'true'
           BLIS_NUM_THREADS: '4'
           CC_OUTER_LOOP: 'clang-10'
@@ -140,7 +140,7 @@ stages:
           BLIS_ENABLE_THREADING: 'pthreads'
         pylatest_blis_no_threading:
           PACKAGER: 'conda'
-          VERSION_PYTHON: '*'
+          PYTHON_VERSION: '*'
           INSTALL_BLIS: 'true'
           BLIS_NUM_THREADS: '1'
           CC_OUTER_LOOP: 'gcc'
@@ -156,7 +156,7 @@ stages:
         # MacOS environment with OpenMP installed through homebrew
         py38_conda_homebrew_libomp:
           PACKAGER: 'conda'
-          VERSION_PYTHON: '3.8'
+          PYTHON_VERSION: '3.8'
           BLAS: 'openblas'
           CC_OUTER_LOOP: 'clang'
           CC_INNER_LOOP: 'clang'
@@ -164,7 +164,7 @@ stages:
         # MacOS env with OpenBLAS and OpenMP installed through conda-forge compilers
         py39_conda_forge_clang_openblas:
           PACKAGER: 'conda-forge'
-          VERSION_PYTHON: '*'
+          PYTHON_VERSION: '*'
           BLAS: 'openblas'
           CC_OUTER_LOOP: 'clang'
           CC_INNER_LOOP: 'clang'
@@ -172,7 +172,7 @@ stages:
         # MacOS environment with OpenMP installed through conda-forge compilers
         pylatest_conda_forge_clang:
           PACKAGER: 'conda-forge'
-          VERSION_PYTHON: '*'
+          PYTHON_VERSION: '*'
           BLAS: 'mkl'
           CC_OUTER_LOOP: 'clang'
           CC_INNER_LOOP: 'clang'

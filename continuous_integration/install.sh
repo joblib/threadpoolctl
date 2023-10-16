@@ -34,7 +34,7 @@ make_conda() {
             export LDFLAGS="$LDFLAGS -Wl,-rpath,/usr/local/opt/libomp/lib -L/usr/local/opt/libomp/lib -lomp"
         fi
     fi
-    conda install -n base conda conda-libmamba-solver --yes
+    conda update -n base conda conda-libmamba-solver -q --yes
     conda config --set solver libmamba
     conda create -n $VIRTUALENV -q --yes $TO_INSTALL
     source activate $VIRTUALENV

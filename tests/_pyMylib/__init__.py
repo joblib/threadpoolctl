@@ -19,6 +19,14 @@ class MyThreadedLibController(LibController):
     # instance.
     filename_prefixes = ("my_threaded_lib",)
 
+    # (Optional) Symbols that the linked library is expected to expose. It is used along
+    # with the `filename_prefixes` to make sure that the correct library is identified.
+    check_symbols = (
+        "mylib_get_num_threads",
+        "mylib_set_num_threads",
+        "mylib_get_version",
+    )
+
     def get_num_threads(self):
         # This function should return the current maximum number of threads,
         # which is reported as "num_threads" by `ThreadpoolController.info`.

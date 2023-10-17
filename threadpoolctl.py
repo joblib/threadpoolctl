@@ -157,7 +157,18 @@ class OpenBLASController(LibController):
     user_api = "blas"
     internal_api = "openblas"
     filename_prefixes = ("libopenblas", "libblas")
-    check_symbols = ("openblas_get_num_threads", "openblas_get_num_threads64_")
+    check_symbols = (
+        "openblas_get_num_threads",
+        "openblas_get_num_threads64_",
+        "openblas_set_num_threads",
+        "openblas_set_num_threads64_",
+        "openblas_get_config",
+        "openblas_get_config64_",
+        "openblas_get_parallel",
+        "openblas_get_parallel64_",
+        "openblas_get_corename",
+        "openblas_get_corename64_",
+    )
 
     def set_additional_attributes(self):
         self.threading_layer = self._get_threading_layer()
@@ -237,7 +248,15 @@ class BLISController(LibController):
     user_api = "blas"
     internal_api = "blis"
     filename_prefixes = ("libblis", "libblas")
-    check_symbols = ("bli_thread_get_num_threads",)
+    check_symbols = (
+        "bli_thread_get_num_threads",
+        "bli_thread_set_num_threads",
+        "bli_info_get_version_str",
+        "bli_info_get_enable_openmp",
+        "bli_info_get_enable_pthreads",
+        "bli_arch_query_id",
+        "bli_arch_string",
+    )
 
     def set_additional_attributes(self):
         self.threading_layer = self._get_threading_layer()
@@ -266,9 +285,9 @@ class BLISController(LibController):
 
     def _get_threading_layer(self):
         """Return the threading layer of BLIS"""
-        if self.dynlib.bli_info_get_enable_openmp():
+        if getattr(self.dynlib, "bli_info_get_enable_openmp", lambda: False)():
             return "openmp"
-        elif self.dynlib.bli_info_get_enable_pthreads():
+        elif getattr(self.dynlib, "bli_info_get_enable_pthreads", lambda: False)():
             return "pthreads"
         return "disabled"
 
@@ -292,7 +311,12 @@ class MKLController(LibController):
     user_api = "blas"
     internal_api = "mkl"
     filename_prefixes = ("libmkl_rt", "mkl_rt", "libblas")
-    check_symbols = ("MKL_Get_Max_Threads",)
+    check_symbols = (
+        "MKL_Get_Max_Threads",
+        "MKL_Set_Num_Threads",
+        "MKL_Get_Version_String",
+        "MKL_Set_Threading_Layer",
+    )
 
     def set_additional_attributes(self):
         self.threading_layer = self._get_threading_layer()
@@ -343,6 +367,10 @@ class OpenMPController(LibController):
     user_api = "openmp"
     internal_api = "openmp"
     filename_prefixes = ("libiomp", "libgomp", "libomp", "vcomp")
+    check_symbols = (
+        "omp_get_max_threads",
+        "omp_get_num_threads",
+    )
 
     def get_num_threads(self):
         get_func = getattr(self.dynlib, "omp_get_max_threads", lambda: None)
@@ -978,11 +1006,17 @@ class ThreadpoolController:
                     # duplicate entry in threadpool_info.
                     continue
 
-            # filename matches a prefix. Create and store the library
+            # filename matches a prefix. Now we check if the library has the symbols we
+            # are looking for. If none of the symbols exists, it's very likely not the
+            # expected library (e.g. a library having a common prefix with one of the
+            # our supported libraries). Otherwise, create and store the library
             # controller.
-
             lib_controller = controller_class(filepath=filepath, prefix=prefix)
-            self.lib_controllers.append(lib_controller)
+            if not hasattr(controller_class, "check_symbols") or any(
+                hasattr(lib_controller.dynlib, func)
+                for func in controller_class.check_symbols
+            ):
+                self.lib_controllers.append(lib_controller)
 
     def _check_prefix(self, library_basename, filename_prefixes):
         """Return the prefix library_basename starts with

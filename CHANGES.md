@@ -1,3 +1,11 @@
+3.2.1 (TBD)
+===========
+
+- Fixed a bug where an unsupported library would be detected because it shares a common
+  prefix with one of the supported libraries. Now the symbols are also checked to
+  identify the supported libraries.
+  https://github.com/joblib/threadpoolctl/pull/151
+
 3.2.0 (2023-07-13)
 ==================
 

@@ -555,7 +555,7 @@ def test_command_line_empty_or_system_openmp():
     conda_prefix = os.getenv("CONDA_PREFIX")
     managed_by_conda = conda_prefix and sys.executable.startswith(conda_prefix)
     if not managed_by_conda:  # pragma: no cover
-        # When using a Python interpreter that is not the one from the conda
+        # When using a Python interpreter that does not come from a conda
         # environment, we should ignore any system OpenMP library.
         results = [r for r in results if r["user_api"] != "openmp"]
     assert results == []

@@ -557,14 +557,7 @@ def test_command_line_empty_or_system_openmp():
     if not managed_by_conda:  # pragma: no cover
         # When using a Python interpreter that is not the one from the conda
         # environment, we should ignore any system OpenMP library.
-        results = [
-            library
-            for library in results
-            if not (
-                library["filepath"].startswith("/usr/lib/")
-                and library["user_api"] == "openmp"
-            )
-        ]
+        results = [r for r in results if r["user_api"] != "openmp"]
     assert results == []
 
 

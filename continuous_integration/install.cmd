@@ -9,8 +9,10 @@ set PIP_INSTALL=pip install -q
 @rem Deactivate any environment
 call deactivate
 @rem Clean up any left-over from a previous build and install version of python
+conda update -n base conda conda-libmamba-solver -q -y
+conda config --set solver libmamba
 conda remove --all -q -y -n %VIRTUALENV%
-conda create -n %VIRTUALENV% -q -y python=%VERSION_PYTHON%
+conda create -n %VIRTUALENV% -q -y python=%PYTHON_VERSION%
 
 call activate %VIRTUALENV%
 python -m pip install -U pip

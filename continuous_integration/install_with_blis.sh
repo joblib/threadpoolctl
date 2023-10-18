@@ -13,7 +13,9 @@ sudo ./llvm.sh 10
 sudo apt-get install libomp-dev
 
 # create conda env
-conda create -n $VIRTUALENV -q --yes -c conda-forge python=$VERSION_PYTHON pip cython
+conda update -n base conda conda-libmamba-solver -q --yes
+conda config --set solver libmamba
+conda create -n $VIRTUALENV -q --yes -c conda-forge python=$PYTHON_VERSION pip cython
 source activate $VIRTUALENV
 
 if [[ "$BLIS_CC" == "gcc-8" ]]; then

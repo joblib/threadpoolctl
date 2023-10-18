@@ -545,9 +545,20 @@ def test_libomp_libiomp_warning(recwarn):
     assert "multiple_openmp.md" in str(wm.message)
 
 
-def test_command_line_empty():
+def test_command_line_empty_or_system_openmp():
+    # When the command line is called without arguments, no library should be
+    # detected. The only exception is a system OpenMP library that can be
+    # linked to the Python interpreter, for instance via the libb2.so BLAKE2
+    # library that can itself be linked to an OpenMP runtime on Gentoo.
     output = subprocess.check_output((sys.executable + " -m threadpoolctl").split())
-    assert json.loads(output.decode("utf-8")) == []
+    results = json.loads(output.decode("utf-8"))
+    conda_prefix = os.getenv("CONDA_PREFIX")
+    managed_by_conda = conda_prefix and sys.executable.startswith(conda_prefix)
+    if not managed_by_conda:  # pragma: no cover
+        # When using a Python interpreter that does not come from a conda
+        # environment, we should ignore any system OpenMP library.
+        results = [r for r in results if r["user_api"] != "openmp"]
+    assert results == []
 
 
 def test_command_line_command_flag():

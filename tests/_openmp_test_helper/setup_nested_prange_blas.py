@@ -12,8 +12,8 @@ try:
     set_cc_variables("CC_OUTER_LOOP")
     openmp_flag = get_openmp_flag()
 
-    use_custom_blas = os.getenv("INSTALL_BLAS", "")
-    libraries = [use_custom_blas]
+    use_custom_blas = os.getenv("INSTALL_BLAS", False)
+    libraries = [use_custom_blas] if use_custom_blas else []
     custom_suffix = "_custom" if use_custom_blas else ""
     filename = f"nested_prange_blas{custom_suffix}.pyx"
 

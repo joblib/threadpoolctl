@@ -9,13 +9,11 @@ popd
 # create conda env
 conda update -n base conda conda-libmamba-solver -q --yes
 conda config --set solver libmamba
-conda create -n $VIRTUALENV -q --yes -c conda-forge python=$PYTHON_VERSION pip cython
+conda create -n $VIRTUALENV -q --yes -c conda-forge python=$PYTHON_VERSION \
+    pip cython blis mkl openblas
 source activate $VIRTUALENV
 
 pushd ..
-
-# install different blas libraries
-conda install -c conda-forge blis mkl openblas
 
 # install flexiblas
 mkdir flexiblas_install

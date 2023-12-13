@@ -563,9 +563,9 @@ def test_command_line_empty_or_system_openmp():
 
 def test_command_line_command_flag():
     pytest.importorskip("numpy")
-    output = subprocess.check_output([
-        sys.executable, "-m", "threadpoolctl", "-c", "import numpy"
-    ])
+    output = subprocess.check_output(
+        [sys.executable, "-m", "threadpoolctl", "-c", "import numpy"]
+    )
     cli_info = json.loads(output.decode("utf-8"))
 
     this_process_info = threadpool_info()

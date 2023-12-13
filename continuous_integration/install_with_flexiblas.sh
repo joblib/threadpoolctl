@@ -31,6 +31,7 @@ cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
 make
 make install
 popd
+popd
 
 popd
 

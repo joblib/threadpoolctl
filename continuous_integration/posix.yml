@@ -23,11 +23,15 @@ jobs:
     - script: |
         continuous_integration/install.sh
       displayName: 'Install without BLIS'
-      condition: ne(variables['INSTALL_BLIS'], 'true')
+      condition: eq(variables['INSTALL_BLAS'], '')
     - script: |
         continuous_integration/install_with_blis.sh
       displayName: 'Install with BLIS'
-      condition: eq(variables['INSTALL_BLIS'], 'true')
+      condition: eq(variables['INSTALL_BLAS'], 'blis')
+    - script: |
+        continuous_integration/install_flexiblas.sh
+      displayName: 'Install with FlexiBLAS'
+      condition: eq(variables['INSTALL_BLAS'], 'flexiblas')
     - script: |
         continuous_integration/test_script.sh
       displayName: 'Test Library'

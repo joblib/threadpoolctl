@@ -29,7 +29,7 @@ jobs:
       displayName: 'Install with BLIS'
       condition: eq(variables['INSTALL_BLAS'], 'blis')
     - script: |
-        continuous_integration/install_flexiblas.sh
+        continuous_integration/install_with_flexiblas.sh
       displayName: 'Install with FlexiBLAS'
       condition: eq(variables['INSTALL_BLAS'], 'flexiblas')
     - script: |

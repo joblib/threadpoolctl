@@ -23,15 +23,11 @@ pushd flexiblas
 mkdir build
 pushd build
 
-echo "#######################################################"
-echo $CONDA_PREFIX
-echo "#######################################################"
-
 cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
     -DEXTRA="OpenBLAS;BLIS;MKL" \
-    -DOpenBLAS_LIBRARY=$CONDA_PREFIX"/envs/tmp/lib/libopenblas.so" \
-    -DBLIS_LIBRARY=$CONDA_PREFIX"/envs/tmp/lib/libblis.so" \
-    -DMKL_LIBRARY=$CONDA_PREFIX"/envs/tmp/lib/libmkl_rt.so"
+    -DOpenBLAS_LIBRARY=$CONDA_PREFIX"/lib/libopenblas.so" \
+    -DBLIS_LIBRARY=$CONDA_PREFIX"/lib/libblis.so" \
+    -DMKL_LIBRARY=$CONDA_PREFIX"/lib/libmkl_rt.so"
 make
 make install
 popd

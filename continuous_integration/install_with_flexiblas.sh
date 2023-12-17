@@ -40,6 +40,7 @@ CFLAGS=-I$ABS_PATH/flexiblas_install/include/flexiblas \
     LDFLAGS=-L$ABS_PATH/flexiblas_install/lib \
     bash ./continuous_integration/build_test_ext.sh
 
+# Check that flexiblas is linked
 ldd tests/_openmp_test_helper/nested_prange_blas.cpython*
 
 python --version

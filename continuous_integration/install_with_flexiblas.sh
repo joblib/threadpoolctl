@@ -15,7 +15,7 @@ source activate $VIRTUALENV
 
 pushd ..
 
-# install flexiblas
+# build & install flexiblas
 mkdir flexiblas_install
 git clone https://github.com/mpimd-csc/flexiblas.git
 pushd flexiblas
@@ -36,9 +36,11 @@ popd
 popd
 
 python -m pip install -q -r dev-requirements.txt
-CFLAGS=-I$ABS_PATH/flexiblas_install/include/ \
+CFLAGS=-I$ABS_PATH/flexiblas_install/include/flexiblas \
     LDFLAGS=-L$ABS_PATH/flexiblas_install/lib \
     bash ./continuous_integration/build_test_ext.sh
+
+ldd tests/_openmp_test_helper/nested_prange_blas.cpython*
 
 python --version
 python -c "import numpy; print(f'numpy {numpy.__version__}')" || echo "no numpy"

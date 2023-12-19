@@ -41,7 +41,7 @@ CFLAGS=-I$ABS_PATH/flexiblas_install/include/flexiblas \
     bash ./continuous_integration/build_test_ext.sh
 
 # Check that flexiblas is linked
-ldd tests/_openmp_test_helper/nested_prange_blas.cpython*
+ldd tests/_openmp_test_helper/nested_prange_blas.cpython*.so
 
 python --version
 python -c "import numpy; print(f'numpy {numpy.__version__}')" || echo "no numpy"

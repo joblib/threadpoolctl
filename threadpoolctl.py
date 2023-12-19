@@ -1085,9 +1085,7 @@ class ThreadpoolController:
             # expected library (e.g. a library having a common prefix with one of the
             # our supported libraries). Otherwise, create and store the library
             # controller.
-            print(filepath)
             lib_controller = controller_class(filepath=filepath, prefix=prefix)
-            print(lib_controller.filepath)
             if not hasattr(controller_class, "check_symbols") or any(
                 hasattr(lib_controller.dynlib, func)
                 for func in controller_class.check_symbols

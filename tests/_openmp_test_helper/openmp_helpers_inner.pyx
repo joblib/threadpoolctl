@@ -15,7 +15,7 @@ def check_openmp_num_threads(int n):
     return num_threads
 
 
-cdef int inner_openmp_loop(int n) nogil:
+cdef int inner_openmp_loop(int n) noexcept nogil:
     """Run a short parallel section with OpenMP
 
     Return the number of threads that where effectively used by the

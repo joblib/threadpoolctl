@@ -415,10 +415,8 @@ def test_nested_prange_blas(nthreads_outer):
     # threads requested by the context manager when nested in an outer OpenMP
     # loop.
     import numpy as np
-    prange_blas = pytest.importorskip(
-        "tests._openmp_test_helper.nested_prange_blas"
-    )
 
+    prange_blas = pytest.importorskip("tests._openmp_test_helper.nested_prange_blas")
     check_nested_prange_blas = prange_blas.check_nested_prange_blas
 
     skip_if_openblas_openmp()

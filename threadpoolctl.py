@@ -306,6 +306,51 @@ class BLISController(LibController):
         return bli_arch_string(bli_arch_query_id()).decode("utf-8")
 
 
+class FLEXIBLASController(LibController):
+    """Controller class for Flexiblas"""
+
+    user_api = "blas"
+    internal_api = "flexiblas"
+    filename_prefixes = ("libflexiblas",)
+    check_symbols = (
+        "flexiblas_get_num_threads",
+    )
+
+    def set_additional_attributes(self):
+        # self.backend = self._get_backend()
+        pass
+
+    def get_num_threads(self):
+        get_func = getattr(self.dynlib, "flexiblas_get_num_threads", lambda: None)
+        num_threads = get_func()
+        return num_threads
+
+    def set_num_threads(self, num_threads):
+        set_func = getattr(
+            self.dynlib, "flexiblas_set_num_threads", lambda num_threads: None
+        )
+        return set_func(num_threads)
+
+    def get_version(self):
+        get_version_ = getattr(self.dynlib, "flexiblas_get_version", None)
+        if get_version_ is None:
+            return None
+
+        major = ctypes.c_int()
+        minor = ctypes.c_int()
+        patch = ctypes.c_int()
+        get_version_(ctypes.byref(major), ctypes.byref(minor), ctypes.byref(patch))
+        return f"{major.value}.{minor.value}.{patch.value}"
+
+    def _get_backend(self):
+        """Return the backend of flexiblas"""
+        get_backend_ = getattr(self.dynlib, "flexiblas_current_backend", None)
+        if get_backend_ is None:
+            return None
+        get_backend_.restype = ctypes.c_char_p
+        return get_backend_().decode("utf-8")
+
+
 class MKLController(LibController):
     """Controller class for MKL"""
 
@@ -388,7 +433,13 @@ class OpenMPController(LibController):
 
 # Controllers for the libraries that we'll look for in the loaded libraries.
 # Third party libraries can register their own controllers.
-_ALL_CONTROLLERS = [OpenBLASController, BLISController, MKLController, OpenMPController]
+_ALL_CONTROLLERS = [
+    OpenBLASController,
+    BLISController,
+    MKLController,
+    OpenMPController,
+    FLEXIBLASController,
+]
 
 # Helpers for the doc and test names
 _ALL_USER_APIS = list(set(lib.user_api for lib in _ALL_CONTROLLERS))
@@ -1012,7 +1063,9 @@ class ThreadpoolController:
             # expected library (e.g. a library having a common prefix with one of the
             # our supported libraries). Otherwise, create and store the library
             # controller.
+            print(filepath)
             lib_controller = controller_class(filepath=filepath, prefix=prefix)
+            print(lib_controller.filepath)
             if not hasattr(controller_class, "check_symbols") or any(
                 hasattr(lib_controller.dynlib, func)
                 for func in controller_class.check_symbols

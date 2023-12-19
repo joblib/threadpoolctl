@@ -411,18 +411,17 @@ def test_multiple_shipped_openblas():
 )
 @pytest.mark.parametrize("nthreads_outer", [None, 1, 2, 4])
 def test_nested_prange_blas(nthreads_outer):
-    # Check that the BLAS linked to scipy effectively uses the number of
-    # threads requested by the context manager when nested in an outer OpenMP
-    # loop.
-    # np = pytest.importorskip("numpy")
+    # Check that the BLAS uses the number of threads requested by the context manager
+    # when nested in an outer OpenMP loop.
+    # Remark: this test also works with sequential BLAS only because we limit the
+    # number of threads for the BLAS to 1.
+    np = pytest.importorskip("numpy")
     prange_blas = pytest.importorskip("tests._openmp_test_helper.nested_prange_blas")
     check_nested_prange_blas = prange_blas.check_nested_prange_blas
 
     skip_if_openblas_openmp()
 
     original_info = ThreadpoolController().info()
-
-    print(original_info)
 
     blas_controller = ThreadpoolController().select(user_api="blas")
     blis_controller = ThreadpoolController().select(internal_api="blis")
@@ -456,8 +455,6 @@ def test_nested_prange_blas(nthreads_outer):
     assert all(lib_info["num_threads"] == 1 for lib_info in nested_blas_info)
 
     assert ThreadpoolController().info() == original_info
-
-    assert False
 
 
 # the method `get_original_num_threads` raises a UserWarning due to different

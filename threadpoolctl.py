@@ -351,14 +351,14 @@ class FLEXIBLASController(LibController):
         get_backend_list_ = getattr(self.dynlib, "flexiblas_list", None)
         if get_backend_list_ is None:
             return None
-        
+
         n_backends = get_backend_list_(None, 0, 0)
 
         backends = []
         for i in range(n_backends):
             backend_name = ctypes.create_string_buffer(1024)
             get_backend_list_(backend_name, 1024, i)
-            if backend_name.value.decode("utf-8") != "__FALLBACK__":    
+            if backend_name.value.decode("utf-8") != "__FALLBACK__":
                 backends.append(backend_name.value.decode("utf-8"))
         return backends
 
@@ -367,11 +367,10 @@ class FLEXIBLASController(LibController):
         get_backend_ = getattr(self.dynlib, "flexiblas_current_backend", None)
         if get_backend_ is None:
             return None
-        
+
         backend = ctypes.create_string_buffer(1024)
         get_backend_(backend, ctypes.sizeof(backend))
         return backend.value.decode("utf-8")
-    
 
 
 class MKLController(LibController):

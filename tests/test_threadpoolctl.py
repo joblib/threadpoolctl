@@ -414,8 +414,7 @@ def test_nested_prange_blas(nthreads_outer):
     # Check that the BLAS linked to scipy effectively uses the number of
     # threads requested by the context manager when nested in an outer OpenMP
     # loop.
-    import numpy as np
-
+    np = pytest.importorskip("numpy")
     prange_blas = pytest.importorskip("tests._openmp_test_helper.nested_prange_blas")
     check_nested_prange_blas = prange_blas.check_nested_prange_blas
 

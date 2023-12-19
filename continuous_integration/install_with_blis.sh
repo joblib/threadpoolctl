@@ -53,6 +53,9 @@ python -m pip install -q -r dev-requirements.txt
 CFLAGS=-I$ABS_PATH/BLIS_install/include/blis LDFLAGS=-L$ABS_PATH/BLIS_install/lib \
     bash ./continuous_integration/build_test_ext.sh
 
+# Check dynamic linking
+ldd tests/_openmp_test_helper/nested_prange_blas.cpython*.so
+
 python --version
 python -c "import numpy; print(f'numpy {numpy.__version__}')" || echo "no numpy"
 python -c "import scipy; print(f'scipy {scipy.__version__}')" || echo "no scipy"

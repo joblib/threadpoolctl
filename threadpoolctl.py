@@ -314,11 +314,15 @@ class FLEXIBLASController(LibController):
     filename_prefixes = ("libflexiblas",)
     check_symbols = (
         "flexiblas_get_num_threads",
+        "flexiblas_set_num_threads",
+        "flexiblas_get_version",
+        "flexiblas_list",
+        "flexiblas_current_backend",
     )
 
     def set_additional_attributes(self):
-        # self.backend = self._get_backend()
-        pass
+        self.available_backends = self._get_backend_list()
+        self.current_backend = self._get_current_backend()
 
     def get_num_threads(self):
         get_func = getattr(self.dynlib, "flexiblas_get_num_threads", lambda: None)
@@ -342,13 +346,32 @@ class FLEXIBLASController(LibController):
         get_version_(ctypes.byref(major), ctypes.byref(minor), ctypes.byref(patch))
         return f"{major.value}.{minor.value}.{patch.value}"
 
-    def _get_backend(self):
+    def _get_backend_list(self):
+        """Return the list of available backends for flexiblas"""
+        get_backend_list_ = getattr(self.dynlib, "flexiblas_list", None)
+        if get_backend_list_ is None:
+            return None
+        
+        n_backends = get_backend_list_(None, 0, 0)
+
+        backends = []
+        for i in range(n_backends):
+            backend_name = ctypes.create_string_buffer(1024)
+            get_backend_list_(backend_name, 1024, i)
+            if backend_name.value.decode("utf-8") != "__FALLBACK__":    
+                backends.append(backend_name.value.decode("utf-8"))
+        return backends
+
+    def _get_current_backend(self):
         """Return the backend of flexiblas"""
         get_backend_ = getattr(self.dynlib, "flexiblas_current_backend", None)
         if get_backend_ is None:
             return None
-        get_backend_.restype = ctypes.c_char_p
-        return get_backend_().decode("utf-8")
+        
+        backend = ctypes.create_string_buffer(1024)
+        get_backend_(backend, ctypes.sizeof(backend))
+        return backend.value.decode("utf-8")
+    
 
 
 class MKLController(LibController):

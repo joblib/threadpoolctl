@@ -37,7 +37,7 @@ popd
 
 python -m pip install -q -r dev-requirements.txt
 CFLAGS=-I$ABS_PATH/flexiblas_install/include/flexiblas \
-    LDFLAGS=-L$ABS_PATH/flexiblas_install/lib \
+    LDFLAGS="-L$ABS_PATH/flexiblas_install/lib -Wl,-rpath,$ABS_PATH/flexiblas_install/lib" \
     bash ./continuous_integration/build_test_ext.sh
 
 # Check that flexiblas is linked

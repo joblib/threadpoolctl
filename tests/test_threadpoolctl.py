@@ -406,7 +406,6 @@ def test_multiple_shipped_openblas():
     test_shipped_openblas()
 
 
-@pytest.mark.skipif(scipy is None, reason="requires scipy")
 @pytest.mark.skipif(
     not cython_extensions_compiled, reason="Requires cython extensions to be compiled"
 )
@@ -416,7 +415,9 @@ def test_nested_prange_blas(nthreads_outer):
     # threads requested by the context manager when nested in an outer OpenMP
     # loop.
     import numpy as np
-    import tests._openmp_test_helper.nested_prange_blas as prange_blas
+    prange_blas = pytest.importorskip(
+        "tests._openmp_test_helper.nested_prange_blas"
+    )
 
     check_nested_prange_blas = prange_blas.check_nested_prange_blas
 

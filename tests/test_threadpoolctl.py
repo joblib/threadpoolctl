@@ -422,6 +422,8 @@ def test_nested_prange_blas(nthreads_outer):
 
     original_info = ThreadpoolController().info()
 
+    print(original_info)
+
     blas_controller = ThreadpoolController().select(user_api="blas")
     blis_controller = ThreadpoolController().select(internal_api="blis")
 
@@ -454,6 +456,8 @@ def test_nested_prange_blas(nthreads_outer):
     assert all(lib_info["num_threads"] == 1 for lib_info in nested_blas_info)
 
     assert ThreadpoolController().info() == original_info
+
+    assert False
 
 
 # the method `get_original_num_threads` raises a UserWarning due to different

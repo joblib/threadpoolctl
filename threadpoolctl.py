@@ -329,7 +329,9 @@ class FLEXIBLASController(LibController):
     def get_num_threads(self):
         get_func = getattr(self.dynlib, "flexiblas_get_num_threads", lambda: None)
         num_threads = get_func()
-        return num_threads
+        # by default BLIS is single-threaded and get_num_threads
+        # returns -1. We map it to 1 for consistency with other libraries.
+        return 1 if num_threads == -1 else num_threads
 
     def set_num_threads(self, num_threads):
         set_func = getattr(

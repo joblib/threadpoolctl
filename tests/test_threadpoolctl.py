@@ -651,6 +651,27 @@ def test_openblas_threading_layer():
     assert threading_layer in expected_openblas_threading_layers
 
 
+def test_flexiblas():
+    # Check that threadpool_info correctly recovers the flexiblas backends
+    flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
+    flexiblas_controller = flexiblas_controller.lib_controllers[0]
+
+    if not (flexiblas_controller):
+        pytest.skip("requires FlexiBLAS.")
+
+    expected_backends = {"NETLIB", "OPENBLASPTHREADS", "OpenBLAS", "BLIS", "MKL"}
+    expected_backends_loaded = {"NETLIB"}
+    expected_current_backend = "NETLIB"
+
+    flexiblas_backends = flexiblas_controller.flexiblas_backends
+    flexiblas_backends_loaded = flexiblas_controller.flexiblas_backends_loaded
+    current_backend = flexiblas_controller.current_backend
+
+    assert set(flexiblas_backends) == expected_backends
+    assert set(flexiblas_backends_loaded) == expected_backends_loaded
+    assert current_backend == expected_current_backend
+
+
 def test_threadpool_controller_as_decorator():
     # Check that using the decorator can be nested and is restricted to the scope of
     # the decorated function.

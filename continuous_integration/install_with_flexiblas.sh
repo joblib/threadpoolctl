@@ -10,7 +10,7 @@ popd
 conda update -n base conda conda-libmamba-solver -q --yes
 conda config --set solver libmamba
 conda create -n $VIRTUALENV -q --yes -c conda-forge python=$PYTHON_VERSION \
-    pip cython blis mkl openblas
+    pip cython blis mkl openblas meson-python pkg-config
 source activate $VIRTUALENV
 
 pushd ..
@@ -53,8 +53,7 @@ Libs: -L\${libdir} -lflexiblas
 Libs.private: \${extralib}
 Cflags: -I\${includedir}" > flexiblas.pc
 
-conda install -c conda-forge --yes meson-python pkg-config spin
-PKG_CONFIG_PATH=$ABS_PATH/numpy/ spin build -- -Dblas=flexiblas
+PKG_CONFIG_PATH=$ABS_PATH/numpy/ pip install . -v --no-build-isolation -Csetup-args=-Dblas=flexiblas
 popd
 
 popd

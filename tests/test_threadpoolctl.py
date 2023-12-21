@@ -420,6 +420,8 @@ def test_nested_prange_blas(nthreads_outer):
     # when nested in an outer OpenMP loop.
     # Remark: this test also works with sequential BLAS only because we limit the
     # number of threads for the BLAS to 1.
+    import numpy as np
+
     skip_if_openblas_openmp()
 
     original_info = ThreadpoolController().info()

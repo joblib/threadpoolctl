@@ -322,6 +322,7 @@ class FLEXIBLASController(LibController):
 
     def set_additional_attributes(self):
         self.available_backends = self._get_backend_list()
+        self.loaded_backends = self._get_backend_list_loaded()
         self.current_backend = self._get_current_backend()
 
     def get_num_threads(self):
@@ -349,6 +350,22 @@ class FLEXIBLASController(LibController):
     def _get_backend_list(self):
         """Return the list of available backends for flexiblas"""
         get_backend_list_ = getattr(self.dynlib, "flexiblas_list", None)
+        if get_backend_list_ is None:
+            return None
+
+        n_backends = get_backend_list_(None, 0, 0)
+
+        backends = []
+        for i in range(n_backends):
+            backend_name = ctypes.create_string_buffer(1024)
+            get_backend_list_(backend_name, 1024, i)
+            if backend_name.value.decode("utf-8") != "__FALLBACK__":
+                backends.append(backend_name.value.decode("utf-8"))
+        return backends
+
+    def _get_backend_list_loaded(self):
+        """Return the list of available backends for flexiblas"""
+        get_backend_list_ = getattr(self.dynlib, "flexiblas_list_loaded", None)
         if get_backend_list_ is None:
             return None
 

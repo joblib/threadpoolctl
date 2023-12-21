@@ -10,6 +10,7 @@ from threadpoolctl import ThreadpoolController
 from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 
 from .utils import cython_extensions_compiled
+from .utils import check_nested_prange_blas
 from .utils import libopenblas_paths
 from .utils import scipy
 from .utils import threadpool_info_from_subprocess
@@ -409,16 +410,15 @@ def test_multiple_shipped_openblas():
 @pytest.mark.skipif(
     not cython_extensions_compiled, reason="Requires cython extensions to be compiled"
 )
+@pytest.mark.skipif(
+    check_nested_prange_blas, reason="Requires nested_prange_blas to be compiled"
+)
 @pytest.mark.parametrize("nthreads_outer", [None, 1, 2, 4])
 def test_nested_prange_blas(nthreads_outer):
     # Check that the BLAS uses the number of threads requested by the context manager
     # when nested in an outer OpenMP loop.
     # Remark: this test also works with sequential BLAS only because we limit the
     # number of threads for the BLAS to 1.
-    np = pytest.importorskip("numpy")
-    prange_blas = pytest.importorskip("tests._openmp_test_helper.nested_prange_blas")
-    check_nested_prange_blas = prange_blas.check_nested_prange_blas
-
     skip_if_openblas_openmp()
 
     original_info = ThreadpoolController().info()

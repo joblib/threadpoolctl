@@ -349,9 +349,9 @@ class FLEXIBLASController(LibController):
         return f"{major.value}.{minor.value}.{patch.value}"
 
     def _get_backend_list(self, loaded=False):
-        """Return the list of available backends for flexiblas.
+        """Return the list of available backends for FlexiBLAS.
 
-        If loaded is False, return the list of available backends from the flexiblas
+        If loaded is False, return the list of available backends from the FlexiBLAS
         configuration. If loaded is True, return the list of actually loaded backends.
         """
         func_name = f"flexiblas_list{'_loaded' if loaded else ''}"
@@ -370,7 +370,7 @@ class FLEXIBLASController(LibController):
         return backends
 
     def _get_current_backend(self):
-        """Return the backend of flexiblas"""
+        """Return the backend of FlexiBLAS"""
         get_backend_ = getattr(self.dynlib, "flexiblas_current_backend", None)
         if get_backend_ is None:
             return None

@@ -655,7 +655,7 @@ def test_openblas_threading_layer():
 
 
 def test_flexiblas():
-    # Check that threadpool_info correctly recovers the flexiblas backends
+    # Check that threadpool_info correctly recovers the FlexiBLAS backends
     flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
 
     if not (flexiblas_controller):

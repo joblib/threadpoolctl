@@ -15,7 +15,7 @@ source activate $VIRTUALENV
 
 pushd ..
 
-# build & install flexiblas
+# build & install FlexiBLAS
 mkdir flexiblas_install
 git clone https://github.com/mpimd-csc/flexiblas.git
 pushd flexiblas
@@ -40,7 +40,7 @@ CFLAGS=-I$ABS_PATH/flexiblas_install/include/flexiblas \
     LDFLAGS="-L$ABS_PATH/flexiblas_install/lib -Wl,-rpath,$ABS_PATH/flexiblas_install/lib" \
     bash ./continuous_integration/build_test_ext.sh
 
-# Check that flexiblas is linked
+# Check that FlexiBLAS is linked
 ldd tests/_openmp_test_helper/nested_prange_blas.cpython*.so
 
 python --version

@@ -51,7 +51,7 @@ Description: FlexiBLAS - a BLAS wrapper
 Version: \${version}
 Libs: -L\${libdir} -lflexiblas
 Libs.private: \${extralib}
-Cflags: -I\${includedir}" > site.cfg
+Cflags: -I\${includedir}" > flexiblas.pc
 
 conda install -c conda-forge --yes meson-python pkg-config spin
 PKG_CONFIG_PATH=$ABS_PATH/numpy/ spin build -- -Dblas=flexiblas

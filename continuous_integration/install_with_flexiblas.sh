@@ -32,7 +32,7 @@ make
 make install
 
 # Check that all 3 BLAS are listed in FlexiBLAS configuration
-flexiblas list
+$ABS_PATH/flexiblas_install/bin/flexiblas list
 popd
 popd
 

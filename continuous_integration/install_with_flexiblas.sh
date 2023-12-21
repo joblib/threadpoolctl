@@ -24,7 +24,7 @@ mkdir build
 pushd build
 
 cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
-    -DEXTRA="OpenBLAS;BLIS;MKL" \
+    -DEXTRA="OPENBLAS_CONDA;BLIS_CONDA;MKL_CONDA" \
     -DOPENBLAS_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libopenblas.so" \
     -DBLIS_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libblis.so" \
     -DMKL_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libmkl_rt.so"

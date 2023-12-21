@@ -317,12 +317,13 @@ class FLEXIBLASController(LibController):
         "flexiblas_set_num_threads",
         "flexiblas_get_version",
         "flexiblas_list",
+        "flexiblas_list_loaded",
         "flexiblas_current_backend",
     )
 
     def set_additional_attributes(self):
-        self.available_backends = self._get_backend_list()
-        self.loaded_backends = self._get_backend_list_loaded()
+        self.available_backends = self._get_backend_list(loaded=False)
+        self.loaded_backends = self._get_backend_list(loaded=True)
         self.current_backend = self._get_current_backend()
 
     def get_num_threads(self):
@@ -347,25 +348,14 @@ class FLEXIBLASController(LibController):
         get_version_(ctypes.byref(major), ctypes.byref(minor), ctypes.byref(patch))
         return f"{major.value}.{minor.value}.{patch.value}"
 
-    def _get_backend_list(self):
-        """Return the list of available backends for flexiblas"""
-        get_backend_list_ = getattr(self.dynlib, "flexiblas_list", None)
-        if get_backend_list_ is None:
-            return None
+    def _get_backend_list(self, loaded=False):
+        """Return the list of available backends for flexiblas.
 
-        n_backends = get_backend_list_(None, 0, 0)
-
-        backends = []
-        for i in range(n_backends):
-            backend_name = ctypes.create_string_buffer(1024)
-            get_backend_list_(backend_name, 1024, i)
-            if backend_name.value.decode("utf-8") != "__FALLBACK__":
-                backends.append(backend_name.value.decode("utf-8"))
-        return backends
-
-    def _get_backend_list_loaded(self):
-        """Return the list of available backends for flexiblas"""
-        get_backend_list_ = getattr(self.dynlib, "flexiblas_list_loaded", None)
+        If loaded is False, return the list of available backends from the flexiblas
+        configuration. If loaded is True, return the list of actually loaded backends.
+        """
+        func_name = f"flexiblas_list{'_loaded' if loaded else ''}"
+        get_backend_list_ = getattr(self.dynlib, func_name, None)
         if get_backend_list_ is None:
             return None
 

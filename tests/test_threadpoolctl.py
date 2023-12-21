@@ -411,7 +411,8 @@ def test_multiple_shipped_openblas():
     not cython_extensions_compiled, reason="Requires cython extensions to be compiled"
 )
 @pytest.mark.skipif(
-    check_nested_prange_blas, reason="Requires nested_prange_blas to be compiled"
+    check_nested_prange_blas is None,
+    reason="Requires nested_prange_blas to be compiled",
 )
 @pytest.mark.parametrize("nthreads_outer", [None, 1, 2, 4])
 def test_nested_prange_blas(nthreads_outer):

@@ -36,6 +36,26 @@ $ABS_PATH/flexiblas_install/bin/flexiblas list
 popd
 popd
 
+# build & install numpy
+git clone https://github.com/numpy/numpy.git
+pushd numpy
+git submodule update --init
+
+echo "libdir=$ABS_PATH/flexiblas_install/lib/
+includedir=$ABS_PATH/flexiblas_install/include/flexiblas/
+version=3.3.1
+extralib=-lm -lpthread -lgfortran
+Name: flexiblas
+Description: FlexiBLAS - a BLAS wrapper
+Version: \${version}
+Libs: -L\${libdir} -lflexiblas
+Libs.private: \${extralib}
+Cflags: -I\${includedir}" > site.cfg
+
+conda env update --name $VIRTUALENV --file environment.yml --prune
+PKG_CONFIG_PATH=$ABS_PATH/numpy/ spin build -- -Dblas=flexiblas
+popd
+
 popd
 
 python -m pip install -q -r dev-requirements.txt

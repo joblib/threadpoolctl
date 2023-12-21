@@ -655,10 +655,10 @@ def test_openblas_threading_layer():
 def test_flexiblas():
     # Check that threadpool_info correctly recovers the flexiblas backends
     flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
-    flexiblas_controller = flexiblas_controller.lib_controllers[0]
 
     if not (flexiblas_controller):
         pytest.skip("requires FlexiBLAS.")
+    flexiblas_controller = flexiblas_controller.lib_controllers[0]
 
     expected_backends = {"NETLIB", "OPENBLASPTHREADS", "OpenBLAS", "BLIS", "MKL"}
     expected_backends_loaded = {"NETLIB"}

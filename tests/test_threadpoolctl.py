@@ -662,7 +662,7 @@ def test_flexiblas():
         pytest.skip("requires FlexiBLAS.")
     flexiblas_controller = flexiblas_controller.lib_controllers[0]
 
-    expected_backends = {"NETLIB", "OPENBLASPTHREADS", "OpenBLAS", "BLIS", "MKL"}
+    expected_backends = {"NETLIB", "OPENBLAS_CONDA", "BLIS_CONDA", "MKL_CONDA"}
     expected_backends_loaded = {"NETLIB"}
     expected_current_backend = "NETLIB"
 

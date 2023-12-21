@@ -25,11 +25,14 @@ pushd build
 
 cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
     -DEXTRA="OpenBLAS;BLIS;MKL" \
-    -DOpenBLAS_LIBRARY=$CONDA_PREFIX"/lib/libopenblas.so" \
-    -DBLIS_LIBRARY=$CONDA_PREFIX"/lib/libblis.so" \
-    -DMKL_LIBRARY=$CONDA_PREFIX"/lib/libmkl_rt.so"
+    -DOPENBLAS_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libopenblas.so" \
+    -DBLIS_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libblis.so" \
+    -DMKL_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libmkl_rt.so"
 make
 make install
+
+# Check that all 3 BLAS are listed in FlexiBLAS configuration
+flexiblas list
 popd
 popd
 

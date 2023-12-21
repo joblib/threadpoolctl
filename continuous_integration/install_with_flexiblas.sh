@@ -25,6 +25,7 @@ pushd build
 
 cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
     -DEXTRA="OPENBLAS_CONDA;BLIS_CONDA;MKL_CONDA" \
+    -DFLEXIBLAS_DEFAULT=BLIS_CONDA \
     -DOPENBLAS_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libopenblas.so" \
     -DBLIS_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libblis.so" \
     -DMKL_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libmkl_rt.so"
@@ -52,7 +53,7 @@ Libs: -L\${libdir} -lflexiblas
 Libs.private: \${extralib}
 Cflags: -I\${includedir}" > site.cfg
 
-conda env update --name $VIRTUALENV --file environment.yml --prune
+conda install -c conda-forge --yes meson-python pkg-config spin
 PKG_CONFIG_PATH=$ABS_PATH/numpy/ spin build -- -Dblas=flexiblas
 popd
 

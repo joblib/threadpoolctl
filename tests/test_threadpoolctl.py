@@ -666,8 +666,8 @@ def test_flexiblas():
     expected_backends_loaded = {"NETLIB"}
     expected_current_backend = "NETLIB"
 
-    flexiblas_backends = flexiblas_controller.flexiblas_backends
-    flexiblas_backends_loaded = flexiblas_controller.flexiblas_backends_loaded
+    flexiblas_backends = flexiblas_controller.available_backends
+    flexiblas_backends_loaded = flexiblas_controller.loaded_backends
     current_backend = flexiblas_controller.current_backend
 
     assert set(flexiblas_backends) == expected_backends

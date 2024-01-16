@@ -306,8 +306,8 @@ class BLISController(LibController):
         return bli_arch_string(bli_arch_query_id()).decode("utf-8")
 
 
-class FLEXIBLASController(LibController):
-    """Controller class for Flexiblas"""
+class FlexiBLASController(LibController):
+    """Controller class for FlexiBLAS"""
 
     user_api = "blas"
     internal_api = "flexiblas"

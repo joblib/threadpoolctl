@@ -10,7 +10,7 @@ popd
 conda update -n base conda conda-libmamba-solver -q --yes
 conda config --set solver libmamba
 conda create -n $VIRTUALENV -q --yes -c conda-forge python=$PYTHON_VERSION \
-    pip cython blis mkl openblas meson-python pkg-config
+    pip cython openblas meson-python pkg-config
 source activate $VIRTUALENV
 
 pushd ..
@@ -24,11 +24,9 @@ mkdir build
 pushd build
 
 cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
-    -DEXTRA="OPENBLAS_CONDA;BLIS_CONDA;MKL_CONDA" \
-    -DFLEXIBLAS_DEFAULT=BLIS_CONDA \
+    -DEXTRA="OPENBLAS_CONDA" \
+    -DFLEXIBLAS_DEFAULT=OPENBLAS_CONDA \
     -DOPENBLAS_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libopenblas.so" \
-    -DBLIS_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libblis.so" \
-    -DMKL_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libmkl_rt.so"
 make
 make install
 

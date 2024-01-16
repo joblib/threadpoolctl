@@ -52,7 +52,12 @@ stages:
         py38_pip:
           PYTHON_VERSION: '3.8'
           PACKAGER: 'pip'
-
+        pylatest_flexiblas:
+          PACKAGER: 'conda'
+          PYTHON_VERSION: '*'
+          INSTALL_BLAS: 'flexiblas'
+          CC_OUTER_LOOP: 'gcc'
+          CC_INNER_LOOP: 'gcc'
 
   - template: continuous_integration/posix.yml
     parameters:
@@ -83,7 +88,7 @@ stages:
         # Linux environment with MKL and Clang (known to be unsafe for
         # threadpoolctl) to only test the warning from multiple OpenMP.
         pylatest_conda_mkl_clang_gcc:
-          PACKAGER: 'conda'
+          PACKpAGER: 'conda'
           PYTHON_VERSION: '*'
           BLAS: 'mkl'
           CC_OUTER_LOOP: 'clang-10'
@@ -183,6 +188,12 @@ stages:
           CC_OUTER_LOOP: 'clang'
           CC_INNER_LOOP: 'clang'
           INSTALL_LIBOMP: 'conda-forge'
+        pylatest_flexiblas:
+          PACKAGER: 'conda'
+          PYTHON_VERSION: '*'
+          INSTALL_BLAS: 'flexiblas'
+          CC_OUTER_LOOP: 'gcc'
+          CC_INNER_LOOP: 'gcc'
 
 - stage:
   jobs:

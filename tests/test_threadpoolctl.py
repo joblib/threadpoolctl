@@ -662,9 +662,9 @@ def test_flexiblas():
         pytest.skip("requires FlexiBLAS.")
     flexiblas_controller = flexiblas_controller.lib_controllers[0]
 
-    expected_backends = {"NETLIB", "OPENBLAS_CONDA", "BLIS_CONDA", "MKL_CONDA"}
-    expected_backends_loaded = {"BLIS_CONDA"}
-    expected_current_backend = "BLIS_CONDA"  # blis was set as default at build time
+    expected_backends = {"NETLIB", "OPENBLAS_CONDA"}
+    expected_backends_loaded = {"OPENBLAS_CONDA"}
+    expected_current_backend = "OPENBLAS_CONDA"  # set as default at build time
 
     flexiblas_backends = flexiblas_controller.available_backends
     flexiblas_backends_loaded = flexiblas_controller.loaded_backends

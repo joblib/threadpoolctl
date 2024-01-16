@@ -469,7 +469,7 @@ _ALL_CONTROLLERS = [
     BLISController,
     MKLController,
     OpenMPController,
-    FLEXIBLASController,
+    FlexiBLASController,
 ]
 
 # Helpers for the doc and test names

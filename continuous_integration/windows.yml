@@ -19,6 +19,7 @@ jobs:
     - script: |
         continuous_integration\\install.cmd
       displayName: 'Install without custom BLAS'
+      condition: eq(variables['INSTALL_BLAS'], '')
     - bash: ./continuous_integration/install_with_flexiblas.sh
       displayName: 'Install with FlexiBLAS'
       condition: eq(variables['INSTALL_BLAS'], 'flexiblas')

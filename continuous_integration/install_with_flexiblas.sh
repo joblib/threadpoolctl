@@ -51,7 +51,7 @@ Libs: -L\${libdir} -lflexiblas
 Libs.private: \${extralib}
 Cflags: -I\${includedir}" > flexiblas.pc
 
-PKG_CONFIG_PATH=$ABS_PATH/numpy/ pip install . -v --no-build-isolation -Csetup-args=-Dblas=flexiblas
+PKG_CONFIG_PATH=$ABS_PATH/numpy/ pip install . -v --no-build-isolation -Csetup-args=-Dblas=flexiblas -Csetup-args=-Dlapack=flexiblas
 popd
 
 popd

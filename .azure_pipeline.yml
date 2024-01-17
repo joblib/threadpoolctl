@@ -187,8 +187,8 @@ stages:
           PACKAGER: 'conda'
           PYTHON_VERSION: '*'
           INSTALL_BLAS: 'flexiblas'
-          CC_OUTER_LOOP: 'gcc'
-          CC_INNER_LOOP: 'gcc'
+          CC_OUTER_LOOP: 'clang'
+          CC_INNER_LOOP: 'clang'
 
 - stage:
   jobs:

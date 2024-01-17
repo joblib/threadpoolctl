@@ -52,12 +52,6 @@ stages:
         py38_pip:
           PYTHON_VERSION: '3.8'
           PACKAGER: 'pip'
-        pylatest_flexiblas:
-          PACKAGER: 'conda'
-          PYTHON_VERSION: '*'
-          INSTALL_BLAS: 'flexiblas'
-          CC_OUTER_LOOP: 'gcc'
-          CC_INNER_LOOP: 'gcc'
 
   - template: continuous_integration/posix.yml
     parameters:

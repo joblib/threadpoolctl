@@ -24,7 +24,7 @@ mkdir build
 pushd build
 
 EXTENSION=".so"
-if [[ "$UNAMESTR" == "Darwin" ]]; then
+if [[ $(uname) == "Darwin" ]]; then
     EXTENSION=".dylib"
 fi
 

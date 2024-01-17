@@ -29,8 +29,9 @@ if [[ $(uname) == "Darwin" ]]; then
 fi
 
 cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
+    -DBLAS_AUTO_DETECT="OFF" \
     -DEXTRA="OPENBLAS_CONDA" \
-    -DFLEXIBLAS_DEFAULT=OPENBLAS_CONDA \
+    -DFLEXIBLAS_DEFAULT="OPENBLAS_CONDA" \
     -DOPENBLAS_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libopenblas"$EXTENSION \
 make
 make install

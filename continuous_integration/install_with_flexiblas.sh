@@ -10,7 +10,7 @@ popd
 conda update -n base conda conda-libmamba-solver -q --yes
 conda config --set solver libmamba
 conda create -n $VIRTUALENV -q --yes -c conda-forge python=$PYTHON_VERSION \
-    pip cython openblas meson-python pkg-config
+    pip cython openblas meson-python pkg-config compilers
 source activate $VIRTUALENV
 
 pushd ..

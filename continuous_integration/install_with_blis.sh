@@ -15,7 +15,8 @@ sudo apt-get install libomp-dev
 # create conda env
 conda update -n base conda conda-libmamba-solver -q --yes
 conda config --set solver libmamba
-conda create -n $VIRTUALENV -q --yes -c conda-forge python=$PYTHON_VERSION pip cython
+conda create -n $VIRTUALENV -q --yes -c conda-forge python=$PYTHON_VERSION \
+    pip cython meson-python pkg-config
 source activate $VIRTUALENV
 
 if [[ "$BLIS_CC" == "gcc-8" ]]; then
@@ -37,21 +38,31 @@ popd
 # build & install numpy
 git clone https://github.com/numpy/numpy.git
 pushd numpy
-git checkout v1.26.0  # pin numpy < 2 for now
 git submodule update --init
-echo "[blis]
-libraries = blis
-library_dirs = $ABS_PATH/BLIS_install/lib
-include_dirs = $ABS_PATH/BLIS_install/include/blis
-runtime_library_dirs = $ABS_PATH/BLIS_install/lib" > site.cfg
-python setup.py develop
+
+echo "libdir=$ABS_PATH/BLIS_install/lib/
+includedir=$ABS_PATH/BLIS_install/include/blis/
+version=latest
+extralib=-lm -lpthread -lgfortran
+Name: blis
+Description: BLIS
+Version: \${version}
+Libs: -L\${libdir} -lflexiblas
+Libs.private: \${extralib}
+Cflags: -I\${includedir}" > blis.pc
+
+PKG_CONFIG_PATH=$ABS_PATH/numpy/ pip install . -v --no-build-isolation -Csetup-args=-Dblas=blis
 popd
 
 popd
 
 python -m pip install -q -r dev-requirements.txt
-CFLAGS=-I$ABS_PATH/BLIS_install/include/blis LDFLAGS=-L$ABS_PATH/BLIS_install/lib \
+CFLAGS=-I$ABS_PATH/BLIS_install/include/blis \
+    LDFLAGS="-L$ABS_PATH/BLIS_install/lib -Wl,-rpath,$ABS_PATH/BLIS_install/lib" \
     bash ./continuous_integration/build_test_ext.sh
+
+# Check that BLIS is linked
+ldd tests/_openmp_test_helper/nested_prange_blas.cpython*.so
 
 python --version
 python -c "import numpy; print(f'numpy {numpy.__version__}')" || echo "no numpy"

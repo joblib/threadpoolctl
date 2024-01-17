@@ -23,10 +23,15 @@ pushd flexiblas
 mkdir build
 pushd build
 
+EXTENSION=".so"
+if [[ "$UNAMESTR" == "Darwin" ]]; then
+    EXTENSION=".dylib"
+fi
+
 cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
     -DEXTRA="OPENBLAS_CONDA" \
     -DFLEXIBLAS_DEFAULT=OPENBLAS_CONDA \
-    -DOPENBLAS_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libopenblas.so" \
+    -DOPENBLAS_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libopenblas"$EXTENSION \
 make
 make install
 

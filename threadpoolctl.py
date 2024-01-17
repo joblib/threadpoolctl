@@ -368,6 +368,8 @@ class FlexiBLASController(LibController):
             backend_name = ctypes.create_string_buffer(1024)
             get_backend_list_(backend_name, 1024, i)
             if backend_name.value.decode("utf-8") != "__FALLBACK__":
+                # We don't know when to expect __FALLBACK__ but it is not a real
+                # backend and does not show up when running flexiblas list.
                 backends.append(backend_name.value.decode("utf-8"))
         return backends
 

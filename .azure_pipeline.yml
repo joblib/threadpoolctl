@@ -82,7 +82,7 @@ stages:
         # Linux environment with MKL and Clang (known to be unsafe for
         # threadpoolctl) to only test the warning from multiple OpenMP.
         pylatest_conda_mkl_clang_gcc:
-          PACKpAGER: 'conda'
+          PACKAGER: 'conda'
           PYTHON_VERSION: '*'
           BLAS: 'mkl'
           CC_OUTER_LOOP: 'clang-10'
@@ -152,6 +152,7 @@ stages:
           INSTALL_BLAS: 'flexiblas'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
+
 
   - template: continuous_integration/posix.yml
     parameters:

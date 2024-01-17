@@ -22,7 +22,7 @@ jobs:
       condition: eq('${{ parameters.name }}', 'macOS')
     - script: |
         continuous_integration/install.sh
-      displayName: 'Install without BLIS'
+      displayName: 'Install without custom BLAS'
       condition: eq(variables['INSTALL_BLAS'], '')
     - script: |
         continuous_integration/install_with_blis.sh

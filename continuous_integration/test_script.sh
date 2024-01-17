@@ -20,4 +20,4 @@ set -x
 # launching the tests:
 python -m threadpoolctl -i numpy scipy.linalg tests._openmp_test_helper.openmp_helpers_inner
 
-pytest -vv -lrxXs -W error -k "$TESTS" --junitxml=$JUNITXML --cov=threadpoolctl
+pytest -vlrxXs -W error -k "$TESTS" --junitxml=$JUNITXML --cov=threadpoolctl

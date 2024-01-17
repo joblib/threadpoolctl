@@ -47,7 +47,7 @@ extralib=-lm -lpthread -lgfortran
 Name: blis
 Description: BLIS
 Version: \${version}
-Libs: -L\${libdir} -lflexiblas
+Libs: -L\${libdir} -lblis
 Libs.private: \${extralib}
 Cflags: -I\${includedir}" > blis.pc
 

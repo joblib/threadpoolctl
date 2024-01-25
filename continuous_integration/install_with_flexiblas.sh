@@ -28,6 +28,11 @@ if [[ $(uname) == "Darwin" ]]; then
     EXTENSION=".dylib"
 fi
 
+# We intentionally restrict the list of backends to make it easier to
+# write platform agnostic tests. In particular, we do not detect OS
+# provided backends such as macOS' Apple/Accelerate/vecLib nor plaftorm
+# specific BLAS implementations such as MKL that cannot be installed on
+# arm64 hardware.
 cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
     -DBLAS_AUTO_DETECT="OFF" \
     -DEXTRA="OPENBLAS_CONDA" \

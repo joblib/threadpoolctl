@@ -658,7 +658,7 @@ def test_flexiblas():
     # Check that threadpool_info correctly recovers the FlexiBLAS backends
     flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
 
-    if not (flexiblas_controller):
+    if not flexiblas_controller:
         pytest.skip("requires FlexiBLAS.")
     flexiblas_controller = flexiblas_controller.lib_controllers[0]
 

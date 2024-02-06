@@ -10,6 +10,7 @@ from threadpoolctl import ThreadpoolController
 from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 
 from .utils import cython_extensions_compiled
+from .utils import check_nested_prange_blas
 from .utils import libopenblas_paths
 from .utils import scipy
 from .utils import threadpool_info_from_subprocess
@@ -409,15 +410,17 @@ def test_multiple_shipped_openblas():
 @pytest.mark.skipif(
     not cython_extensions_compiled, reason="Requires cython extensions to be compiled"
 )
+@pytest.mark.skipif(
+    check_nested_prange_blas is None,
+    reason="Requires nested_prange_blas to be compiled",
+)
 @pytest.mark.parametrize("nthreads_outer", [None, 1, 2, 4])
 def test_nested_prange_blas(nthreads_outer):
     # Check that the BLAS uses the number of threads requested by the context manager
     # when nested in an outer OpenMP loop.
     # Remark: this test also works with sequential BLAS only because we limit the
     # number of threads for the BLAS to 1.
-    np = pytest.importorskip("numpy")
-    prange_blas = pytest.importorskip("tests._openmp_test_helper.nested_prange_blas")
-    check_nested_prange_blas = prange_blas.check_nested_prange_blas
+    import numpy as np
 
     skip_if_openblas_openmp()
 
@@ -649,6 +652,27 @@ def test_openblas_threading_layer():
         pytest.skip("Unknown OpenBLAS threading layer.")
 
     assert threading_layer in expected_openblas_threading_layers
+
+
+def test_flexiblas():
+    # Check that threadpool_info correctly recovers the FlexiBLAS backends
+    flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
+
+    if not flexiblas_controller:
+        pytest.skip("requires FlexiBLAS.")
+    flexiblas_controller = flexiblas_controller.lib_controllers[0]
+
+    expected_backends = {"NETLIB", "OPENBLAS_CONDA"}
+    expected_backends_loaded = {"OPENBLAS_CONDA"}
+    expected_current_backend = "OPENBLAS_CONDA"  # set as default at build time
+
+    flexiblas_backends = flexiblas_controller.available_backends
+    flexiblas_backends_loaded = flexiblas_controller.loaded_backends
+    current_backend = flexiblas_controller.current_backend
+
+    assert set(flexiblas_backends) == expected_backends
+    assert set(flexiblas_backends_loaded) == expected_backends_loaded
+    assert current_backend == expected_current_backend
 
 
 def test_threadpool_controller_as_decorator():

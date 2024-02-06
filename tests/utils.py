@@ -47,6 +47,12 @@ except ImportError:
     cython_extensions_compiled = False
 
 
+try:
+    from tests._openmp_test_helper.nested_prange_blas import check_nested_prange_blas
+except ImportError:
+    check_nested_prange_blas = None
+
+
 def threadpool_info_from_subprocess(module):
     """Utility to call threadpool_info in a subprocess
 

@@ -654,8 +654,13 @@ def test_openblas_threading_layer():
     assert threading_layer in expected_openblas_threading_layers
 
 
+# skip test if not run in a azure pipelines job since it relies on a specific flexiblas
+# installation.
+@pytest.mark.skipif(
+    "TF_BUILD" not in os.environ, reason="not running in azure pipelines"
+)
 def test_flexiblas():
-    # Check that threadpool_info correctly recovers the FlexiBLAS backends
+    # Check that threadpool_info correctly recovers the FlexiBLAS backends.
     flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
 
     if not flexiblas_controller:
@@ -673,6 +678,54 @@ def test_flexiblas():
     assert set(flexiblas_backends) == expected_backends
     assert set(flexiblas_backends_loaded) == expected_backends_loaded
     assert current_backend == expected_current_backend
+
+
+def test_flexiblas_switch_error():
+    # Check that an error is raised when trying to switch to an invalid backend.
+    flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
+
+    if not flexiblas_controller:
+        pytest.skip("requires FlexiBLAS.")
+    flexiblas_controller = flexiblas_controller.lib_controllers[0]
+
+    with pytest.raises(RuntimeError, match="Failed to load backend"):
+        flexiblas_controller.switch_backend("INVALID_BACKEND")
+
+
+# skip test if not run in a azure pipelines job since it relies on a specific flexiblas
+# installation.
+@pytest.mark.skipif(
+    "TF_BUILD" not in os.environ, reason="not running in azure pipelines"
+)
+def test_flexiblas_switch():
+    # Check that the backend can be switched.
+    controller = ThreadpoolController()
+    flexiblas_controller = controller.select(internal_api="flexiblas")
+
+    if not flexiblas_controller:
+        pytest.skip("requires FlexiBLAS.")
+    flexiblas_controller = flexiblas_controller.lib_controllers[0]
+
+    # at first, only "OPENBLAS_CONDA" is loaded
+    assert flexiblas_controller.current_backend == "OPENBLAS_CONDA"
+    assert flexiblas_controller.loaded_backends == ["OPENBLAS_CONDA"]
+
+    flexiblas_controller.switch_backend("NETLIB")
+    assert flexiblas_controller.current_backend == "NETLIB"
+    assert flexiblas_controller.loaded_backends == ["OPENBLAS_CONDA", "NETLIB"]
+
+    ext = ".so" if sys.platform == "linux" else ".dylib"
+    mkl_path = f"{os.getenv('CONDA_PREFIX')}/lib/libmkl_rt{ext}"
+    flexiblas_controller.switch_backend(mkl_path)
+    assert flexiblas_controller.current_backend == mkl_path
+    assert flexiblas_controller.loaded_backends == [
+        "OPENBLAS_CONDA",
+        "NETLIB",
+        mkl_path,
+    ]
+
+    # switch back to default to avoid side effects
+    flexiblas_controller.switch_backend("OPENBLAS_CONDA")
 
 
 def test_threadpool_controller_as_decorator():

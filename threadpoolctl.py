@@ -306,6 +306,84 @@ class BLISController(LibController):
         return bli_arch_string(bli_arch_query_id()).decode("utf-8")
 
 
+class FlexiBLASController(LibController):
+    """Controller class for FlexiBLAS"""
+
+    user_api = "blas"
+    internal_api = "flexiblas"
+    filename_prefixes = ("libflexiblas",)
+    check_symbols = (
+        "flexiblas_get_num_threads",
+        "flexiblas_set_num_threads",
+        "flexiblas_get_version",
+        "flexiblas_list",
+        "flexiblas_list_loaded",
+        "flexiblas_current_backend",
+    )
+
+    def set_additional_attributes(self):
+        self.available_backends = self._get_backend_list(loaded=False)
+        self.loaded_backends = self._get_backend_list(loaded=True)
+        self.current_backend = self._get_current_backend()
+
+    def get_num_threads(self):
+        get_func = getattr(self.dynlib, "flexiblas_get_num_threads", lambda: None)
+        num_threads = get_func()
+        # by default BLIS is single-threaded and get_num_threads
+        # returns -1. We map it to 1 for consistency with other libraries.
+        return 1 if num_threads == -1 else num_threads
+
+    def set_num_threads(self, num_threads):
+        set_func = getattr(
+            self.dynlib, "flexiblas_set_num_threads", lambda num_threads: None
+        )
+        return set_func(num_threads)
+
+    def get_version(self):
+        get_version_ = getattr(self.dynlib, "flexiblas_get_version", None)
+        if get_version_ is None:
+            return None
+
+        major = ctypes.c_int()
+        minor = ctypes.c_int()
+        patch = ctypes.c_int()
+        get_version_(ctypes.byref(major), ctypes.byref(minor), ctypes.byref(patch))
+        return f"{major.value}.{minor.value}.{patch.value}"
+
+    def _get_backend_list(self, loaded=False):
+        """Return the list of available backends for FlexiBLAS.
+
+        If loaded is False, return the list of available backends from the FlexiBLAS
+        configuration. If loaded is True, return the list of actually loaded backends.
+        """
+        func_name = f"flexiblas_list{'_loaded' if loaded else ''}"
+        get_backend_list_ = getattr(self.dynlib, func_name, None)
+        if get_backend_list_ is None:
+            return None
+
+        n_backends = get_backend_list_(None, 0, 0)
+
+        backends = []
+        for i in range(n_backends):
+            backend_name = ctypes.create_string_buffer(1024)
+            get_backend_list_(backend_name, 1024, i)
+            if backend_name.value.decode("utf-8") != "__FALLBACK__":
+                # We don't know when to expect __FALLBACK__ but it is not a real
+                # backend and does not show up when running flexiblas list.
+                backends.append(backend_name.value.decode("utf-8"))
+        return backends
+
+    def _get_current_backend(self):
+        """Return the backend of FlexiBLAS"""
+        get_backend_ = getattr(self.dynlib, "flexiblas_current_backend", None)
+        if get_backend_ is None:
+            return None
+
+        backend = ctypes.create_string_buffer(1024)
+        get_backend_(backend, ctypes.sizeof(backend))
+        return backend.value.decode("utf-8")
+
+
 class MKLController(LibController):
     """Controller class for MKL"""
 
@@ -388,7 +466,13 @@ class OpenMPController(LibController):
 
 # Controllers for the libraries that we'll look for in the loaded libraries.
 # Third party libraries can register their own controllers.
-_ALL_CONTROLLERS = [OpenBLASController, BLISController, MKLController, OpenMPController]
+_ALL_CONTROLLERS = [
+    OpenBLASController,
+    BLISController,
+    MKLController,
+    OpenMPController,
+    FlexiBLASController,
+]
 
 # Helpers for the doc and test names
 _ALL_USER_APIS = list(set(lib.user_api for lib in _ALL_CONTROLLERS))
@@ -1032,7 +1116,8 @@ class ThreadpoolController:
     def _warn_if_incompatible_openmp(self):
         """Raise a warning if llvm-OpenMP and intel-OpenMP are both loaded"""
         prefixes = [lib_controller.prefix for lib_controller in self.lib_controllers]
-        msg = textwrap.dedent("""
+        msg = textwrap.dedent(
+            """
             Found Intel OpenMP ('libiomp') and LLVM OpenMP ('libomp') loaded at
             the same time. Both libraries are known to be incompatible and this
             can cause random crashes or deadlocks on Linux when loaded in the
@@ -1040,7 +1125,8 @@ class ThreadpoolController:
             Using threadpoolctl may cause crashes or deadlocks. For more
             information and possible workarounds, please see
                 https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
-            """)
+            """
+        )
         if "libomp" in prefixes and "libiomp" in prefixes:
             warnings.warn(msg, RuntimeWarning)
 

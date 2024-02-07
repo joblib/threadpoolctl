@@ -12,10 +12,10 @@ try:
     set_cc_variables("CC_OUTER_LOOP")
     openmp_flag = get_openmp_flag()
 
-    use_blis = os.getenv("INSTALL_BLIS", False)
-    libraries = ["blis"] if use_blis else []
-    blis_suffix = "_blis" if use_blis else ""
-    filename = f"nested_prange_blas{blis_suffix}.pyx"
+    use_custom_blas = os.getenv("INSTALL_BLAS", False)
+    libraries = [use_custom_blas] if use_custom_blas else []
+    custom_suffix = "_custom" if use_custom_blas else ""
+    filename = f"nested_prange_blas{custom_suffix}.pyx"
 
     ext_modules = [
         Extension(

@@ -700,32 +700,33 @@ def test_flexiblas_switch_error():
 def test_flexiblas_switch():
     # Check that the backend can be switched.
     controller = ThreadpoolController()
-    flexiblas_controller = controller.select(internal_api="flexiblas")
+    fb_controller = controller.select(internal_api="flexiblas")
 
-    if not flexiblas_controller:
+    if not fb_controller:
         pytest.skip("requires FlexiBLAS.")
-    flexiblas_controller = flexiblas_controller.lib_controllers[0]
+    fb_controller = fb_controller.lib_controllers[0]
+
+    # at first mkl is not loaded in the CI jobs where this test runs
+    assert len(controller.select(internal_api="mkl").lib_controllers) == 0
 
     # at first, only "OPENBLAS_CONDA" is loaded
-    assert flexiblas_controller.current_backend == "OPENBLAS_CONDA"
-    assert flexiblas_controller.loaded_backends == ["OPENBLAS_CONDA"]
+    assert fb_controller.current_backend == "OPENBLAS_CONDA"
+    assert fb_controller.loaded_backends == ["OPENBLAS_CONDA"]
 
-    flexiblas_controller.switch_backend("NETLIB")
-    assert flexiblas_controller.current_backend == "NETLIB"
-    assert flexiblas_controller.loaded_backends == ["OPENBLAS_CONDA", "NETLIB"]
+    fb_controller.switch_backend("NETLIB")
+    assert fb_controller.current_backend == "NETLIB"
+    assert fb_controller.loaded_backends == ["OPENBLAS_CONDA", "NETLIB"]
 
     ext = ".so" if sys.platform == "linux" else ".dylib"
     mkl_path = f"{os.getenv('CONDA_PREFIX')}/lib/libmkl_rt{ext}"
-    flexiblas_controller.switch_backend(mkl_path)
-    assert flexiblas_controller.current_backend == mkl_path
-    assert flexiblas_controller.loaded_backends == [
-        "OPENBLAS_CONDA",
-        "NETLIB",
-        mkl_path,
-    ]
+    fb_controller.switch_backend(mkl_path)
+    assert fb_controller.current_backend == mkl_path
+    assert fb_controller.loaded_backends == ["OPENBLAS_CONDA", "NETLIB", mkl_path]
+    # switching the backend triggered a new search for loaded shared libs
+    assert len(controller.select(internal_api="mkl").lib_controllers) == 1
 
     # switch back to default to avoid side effects
-    flexiblas_controller.switch_backend("OPENBLAS_CONDA")
+    fb_controller.switch_backend("OPENBLAS_CONDA")
 
 
 def test_threadpool_controller_as_decorator():

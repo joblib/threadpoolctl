@@ -613,12 +613,12 @@ def test_architecture():
     expected_openblas_architectures = (
         # XXX: add more as needed by CI or developer laptops
         "armv8",
-        "Haswell",
-        "Prescott",  # see: https://github.com/xianyi/OpenBLAS/pull/3485
-        "SkylakeX",
-        "Sandybridge",
-        "VORTEX",
-        "Zen",
+        "haswell",
+        "prescott",  # see: https://github.com/xianyi/OpenBLAS/pull/3485
+        "skylakex",
+        "sandybridge",
+        "vortex",
+        "zen",
     )
     expected_blis_architectures = (
         # XXX: add more as needed by CI or developer laptops
@@ -627,9 +627,9 @@ def test_architecture():
     )
     for lib_info in threadpool_info():
         if lib_info["internal_api"] == "openblas":
-            assert lib_info["architecture"] in expected_openblas_architectures
+            assert lib_info["architecture"].lower() in expected_openblas_architectures
         elif lib_info["internal_api"] == "blis":
-            assert lib_info["architecture"] in expected_blis_architectures
+            assert lib_info["architecture"].lower() in expected_blis_architectures
         else:
             # Not supported for other libraries
             assert "architecture" not in lib_info

@@ -1,7 +1,9 @@
 [build-system]
-requires = ["flit_core"]
+requires = ["flit_core >=2,<4"]
 build-backend = "flit_core.buildapi"
 
+# TODO: replace the following section by the standard [project] section to be able
+# to use flit v4.
 [tool.flit.metadata]
 module = "threadpoolctl"
 author = "Thomas Moreau"

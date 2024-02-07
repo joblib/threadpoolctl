@@ -971,6 +971,7 @@ class ThreadpoolController:
 
     def _load_libraries(self):
         """Loop through loaded shared libraries and store the supported ones"""
+        self.lib_controllers = []  # reset the list of controllers
         if sys.platform == "darwin":
             self._find_libraries_with_dyld()
         elif sys.platform == "win32":

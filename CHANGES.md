@@ -1,6 +1,9 @@
 3.2.1 (TBD)
 ===========
 
+- Extended FlexiBLAS support to be able to switch backend at runtime.
+  https://github.com/joblib/threadpoolctl/pull/163
+
 - Added support for FlexiBLAS
   https://github.com/joblib/threadpoolctl/pull/156
 

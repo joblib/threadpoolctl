@@ -438,17 +438,15 @@ class MKLController(LibController):
             -1: "not specified",
         }
         return layer_map[set_threading_layer(-1)]
-    
+
 
 class AccelerateController(LibController):
     """Controller class for Accelerate"""
 
     user_api = "blas"
     internal_api = "accelerate"
-    filename_prefixes = ("libblas")
-    check_symbols = (
-        "_veclib",
-    )
+    filename_prefixes = "libblas"
+    check_symbols = ("_veclib",)
 
     def set_additional_attributes(self):
         self.remark = "Number of threads cannot be changed at runtime."
@@ -1121,6 +1119,10 @@ class ThreadpoolController:
             # our supported libraries). Otherwise, create and store the library
             # controller.
             lib_controller = controller_class(filepath=filepath, prefix=prefix)
+
+            if prefix == "libblas":
+                print(hasattr, lib_controller.dynlib, "_veclib")
+                print(hasattr, lib_controller.dynlib, "_sdot")
             if not hasattr(controller_class, "check_symbols") or any(
                 hasattr(lib_controller.dynlib, func)
                 for func in controller_class.check_symbols

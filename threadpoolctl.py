@@ -1060,6 +1060,8 @@ class ThreadpoolController:
         # (vcomp, VCOMP, Vcomp, ...)
         filename = os.path.basename(filepath).lower()
 
+        print(filename)
+
         # Loop through supported libraries to find if this filename corresponds
         # to a supported one.
         for controller_class in _ALL_CONTROLLERS:

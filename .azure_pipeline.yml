@@ -189,6 +189,13 @@ stages:
           INSTALL_BLAS: 'flexiblas'
           CC_OUTER_LOOP: 'clang'
           CC_INNER_LOOP: 'clang'
+        pylatest_accelerate:
+          PACKAGER: 'conda-forge'
+          PYTHON_VERSION: '*'
+          BLAS: 'accelerate'
+          CC_OUTER_LOOP: 'clang'
+          CC_INNER_LOOP: 'clang'
+          INSTALL_LIBOMP: 'conda-forge'
 
 - stage:
   jobs:

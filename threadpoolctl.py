@@ -438,6 +438,29 @@ class MKLController(LibController):
             -1: "not specified",
         }
         return layer_map[set_threading_layer(-1)]
+    
+
+class AccelerateController(LibController):
+    """Controller class for Accelerate"""
+
+    user_api = "blas"
+    internal_api = "accelerate"
+    filename_prefixes = ("libblas")
+    check_symbols = (
+        "_veclib",
+    )
+
+    def set_additional_attributes(self):
+        self.remark = "Number of threads cannot be changed at runtime."
+
+    def get_num_threads(self):
+        return "Not available"
+
+    def set_num_threads(self, num_threads):
+        pass
+
+    def get_version(self):
+        return None
 
 
 class OpenMPController(LibController):
@@ -472,6 +495,7 @@ _ALL_CONTROLLERS = [
     MKLController,
     OpenMPController,
     FlexiBLASController,
+    AccelerateController,
 ]
 
 # Helpers for the doc and test names
@@ -1060,8 +1084,6 @@ class ThreadpoolController:
         # (vcomp, VCOMP, Vcomp, ...)
         filename = os.path.basename(filepath).lower()
 
-        print(filename)
-
         # Loop through supported libraries to find if this filename corresponds
         # to a supported one.
         for controller_class in _ALL_CONTROLLERS:
@@ -1085,13 +1107,13 @@ class ThreadpoolController:
                         for func in controller_class.check_symbols
                     ):
                         continue
-                else:
-                    # We ignore libblas on other platforms than windows because there
-                    # might be a libblas dso comming with openblas for instance that
-                    # can't be used to instantiate a pertinent LibController (many
-                    # symbols are missing) and would create confusion by making a
-                    # duplicate entry in threadpool_info.
-                    continue
+                # else:
+                #     # We ignore libblas on other platforms than windows because there
+                #     # might be a libblas dso comming with openblas for instance that
+                #     # can't be used to instantiate a pertinent LibController (many
+                #     # symbols are missing) and would create confusion by making a
+                #     # duplicate entry in threadpool_info.
+                #     continue
 
             # filename matches a prefix. Now we check if the library has the symbols we
             # are looking for. If none of the symbols exists, it's very likely not the

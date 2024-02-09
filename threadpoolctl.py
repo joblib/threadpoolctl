@@ -440,6 +440,27 @@ class MKLController(LibController):
         return layer_map[set_threading_layer(-1)]
 
 
+class AccelerateController(LibController):
+    """Controller class for Accelerate"""
+
+    user_api = "blas"
+    internal_api = "accelerate"
+    filename_prefixes = ["libveclib"]
+    # check_symbols = ("_veclib",)
+
+    def set_additional_attributes(self):
+        self.remark = "Number of threads cannot be changed at runtime."
+
+    def get_num_threads(self):
+        return "Not available"
+
+    def set_num_threads(self, num_threads):
+        pass
+
+    def get_version(self):
+        return None
+
+
 class OpenMPController(LibController):
     """Controller class for OpenMP"""
 
@@ -472,6 +493,7 @@ _ALL_CONTROLLERS = [
     MKLController,
     OpenMPController,
     FlexiBLASController,
+    AccelerateController,
 ]
 
 # Helpers for the doc and test names
@@ -1059,6 +1081,7 @@ class ThreadpoolController:
         # `lower` required to take account of OpenMP dll case on Windows
         # (vcomp, VCOMP, Vcomp, ...)
         filename = os.path.basename(filepath).lower()
+        # print(filename)
 
         # Loop through supported libraries to find if this filename corresponds
         # to a supported one.
@@ -1083,13 +1106,13 @@ class ThreadpoolController:
                         for func in controller_class.check_symbols
                     ):
                         continue
-                else:
-                    # We ignore libblas on other platforms than windows because there
-                    # might be a libblas dso comming with openblas for instance that
-                    # can't be used to instantiate a pertinent LibController (many
-                    # symbols are missing) and would create confusion by making a
-                    # duplicate entry in threadpool_info.
-                    continue
+                # else:
+                #     # We ignore libblas on other platforms than windows because there
+                #     # might be a libblas dso comming with openblas for instance that
+                #     # can't be used to instantiate a pertinent LibController (many
+                #     # symbols are missing) and would create confusion by making a
+                #     # duplicate entry in threadpool_info.
+                #     continue
 
             # filename matches a prefix. Now we check if the library has the symbols we
             # are looking for. If none of the symbols exists, it's very likely not the
@@ -1097,6 +1120,10 @@ class ThreadpoolController:
             # our supported libraries). Otherwise, create and store the library
             # controller.
             lib_controller = controller_class(filepath=filepath, prefix=prefix)
+
+            if prefix == "libblas":
+                print(f"{hasattr(lib_controller.dynlib, '_veclib') = }")
+                print(f"{hasattr(lib_controller.dynlib, '_sdot') = }")
             if not hasattr(controller_class, "check_symbols") or any(
                 hasattr(lib_controller.dynlib, func)
                 for func in controller_class.check_symbols

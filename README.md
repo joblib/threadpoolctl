@@ -275,6 +275,9 @@ that this part of the API is experimental and subject to change without deprecat
   'threading_layer': 'gnu'}]
 ```
 
+You can observe that the previously linked OpenBLAS shared object stays loaded by
+the Python program indefinitely, but FlexiBLAS itself no longer delegates BLAS calls
+to OpenBLAS as indicated by the `current_backend` attribute.
 ### Writing a custom library controller
 
 Currently, `threadpoolctl` has support for `OpenMP` and the main `BLAS` libraries.

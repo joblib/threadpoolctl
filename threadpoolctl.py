@@ -415,7 +415,11 @@ class FlexiBLASController(LibController):
                 )
             res = load_func(str(backend).encode("utf-8"))
             if res == -1:
-                raise RuntimeError(f"Failed to load backend {backend!r}.")
+                raise RuntimeError(
+                    f"Failed to load backend {backend!r}. It must either be the name of"
+                    " a backend available in the FlexiBLAS configuration "
+                    f"{self.available_backends} or the path to a valid shared library."
+                )
 
             # Trigger a new search of loaded shared libraries since loading a new
             # backend caused a dlopen.
@@ -971,7 +975,6 @@ class ThreadpoolController:
 
     def _load_libraries(self):
         """Loop through loaded shared libraries and store the supported ones"""
-        self.lib_controllers = []  # reset the list of controllers
         if sys.platform == "darwin":
             self._find_libraries_with_dyld()
         elif sys.platform == "win32":
@@ -1144,6 +1147,11 @@ class ThreadpoolController:
             lib_controller = controller_class(
                 filepath=filepath, prefix=prefix, parent=self
             )
+
+            if filepath in (lib.filepath for lib in self.lib_controllers):
+                # We already have a controller for this library.
+                continue
+
             if not hasattr(controller_class, "check_symbols") or any(
                 hasattr(lib_controller.dynlib, func)
                 for func in controller_class.check_symbols

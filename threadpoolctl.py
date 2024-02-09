@@ -1121,8 +1121,8 @@ class ThreadpoolController:
             lib_controller = controller_class(filepath=filepath, prefix=prefix)
 
             if prefix == "libblas":
-                print(hasattr, lib_controller.dynlib, "_veclib")
-                print(hasattr, lib_controller.dynlib, "_sdot")
+                print(hasattr(lib_controller.dynlib, "_veclib"))
+                print(hasattr(lib_controller.dynlib, "_sdot"))
             if not hasattr(controller_class, "check_symbols") or any(
                 hasattr(lib_controller.dynlib, func)
                 for func in controller_class.check_symbols

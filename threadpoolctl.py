@@ -105,20 +105,17 @@ class LibController(ABC):
     """
 
     @final
-    def __init__(self, *, filepath=None, prefix=None):
+    def __init__(self, *, filepath=None, prefix=None, parent=None):
         """This is not meant to be overriden by subclasses."""
+        self.parent = parent
         self.prefix = prefix
         self.filepath = filepath
         self.dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
         self.version = self.get_version()
         self.set_additional_attributes()
 
-    @final
     def info(self):
-        """Return relevant info wrapped in a dict
-
-        This is not meant to be overriden by subclasses.
-        """
+        """Return relevant info wrapped in a dict"""
         exposed_attrs = {
             "user_api": self.user_api,
             "internal_api": self.internal_api,
@@ -126,6 +123,7 @@ class LibController(ABC):
             **vars(self),
         }
         exposed_attrs.pop("dynlib")
+        exposed_attrs.pop("parent")
         return exposed_attrs
 
     def set_additional_attributes(self):
@@ -321,10 +319,26 @@ class FlexiBLASController(LibController):
         "flexiblas_current_backend",
     )
 
+    @property
+    def loaded_backends(self):
+        return self._get_backend_list(loaded=True)
+
+    @property
+    def current_backend(self):
+        return self._get_current_backend()
+
+    def info(self):
+        """Return relevant info wrapped in a dict"""
+        # We override the info method because the loaded and current backends
+        # are dynamic properties
+        exposed_attrs = super().info()
+        exposed_attrs["loaded_backends"] = self.loaded_backends
+        exposed_attrs["current_backend"] = self.current_backend
+
+        return exposed_attrs
+
     def set_additional_attributes(self):
         self.available_backends = self._get_backend_list(loaded=False)
-        self.loaded_backends = self._get_backend_list(loaded=True)
-        self.current_backend = self._get_current_backend()
 
     def get_num_threads(self):
         get_func = getattr(self.dynlib, "flexiblas_get_num_threads", lambda: None)
@@ -382,6 +396,40 @@ class FlexiBLASController(LibController):
         backend = ctypes.create_string_buffer(1024)
         get_backend_(backend, ctypes.sizeof(backend))
         return backend.value.decode("utf-8")
+
+    def switch_backend(self, backend):
+        """Switch the backend of FlexiBLAS
+
+        Parameters
+        ----------
+        backend : str
+            The name or the path to the shared library of the backend to switch to. If
+            the backend is not already loaded, it will be loaded first.
+        """
+        if backend not in self.loaded_backends:
+            if backend in self.available_backends:
+                load_func = getattr(self.dynlib, "flexiblas_load_backend", lambda _: -1)
+            else:  # assume backend is a path to a shared library
+                load_func = getattr(
+                    self.dynlib, "flexiblas_load_backend_library", lambda _: -1
+                )
+            res = load_func(str(backend).encode("utf-8"))
+            if res == -1:
+                raise RuntimeError(
+                    f"Failed to load backend {backend!r}. It must either be the name of"
+                    " a backend available in the FlexiBLAS configuration "
+                    f"{self.available_backends} or the path to a valid shared library."
+                )
+
+            # Trigger a new search of loaded shared libraries since loading a new
+            # backend caused a dlopen.
+            self.parent._load_libraries()
+
+        switch_func = getattr(self.dynlib, "flexiblas_switch", lambda _: -1)
+        idx = self.loaded_backends.index(backend)
+        res = switch_func(idx)
+        if res == -1:
+            raise RuntimeError(f"Failed to switch to backend {backend!r}.")
 
 
 class MKLController(LibController):
@@ -1096,7 +1144,14 @@ class ThreadpoolController:
             # expected library (e.g. a library having a common prefix with one of the
             # our supported libraries). Otherwise, create and store the library
             # controller.
-            lib_controller = controller_class(filepath=filepath, prefix=prefix)
+            lib_controller = controller_class(
+                filepath=filepath, prefix=prefix, parent=self
+            )
+
+            if filepath in (lib.filepath for lib in self.lib_controllers):
+                # We already have a controller for this library.
+                continue
+
             if not hasattr(controller_class, "check_symbols") or any(
                 hasattr(lib_controller.dynlib, func)
                 for func in controller_class.check_symbols

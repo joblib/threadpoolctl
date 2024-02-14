@@ -150,6 +150,7 @@ stages:
           PACKAGER: 'conda'
           PYTHON_VERSION: '*'
           INSTALL_BLAS: 'flexiblas'
+          PLATFORM_SPECIFIC_PACKAGES: 'mkl'
           CC_OUTER_LOOP: 'gcc'
           CC_INNER_LOOP: 'gcc'
 
@@ -187,6 +188,7 @@ stages:
           PACKAGER: 'conda'
           PYTHON_VERSION: '*'
           INSTALL_BLAS: 'flexiblas'
+          PLATFORM_SPECIFIC_PACKAGES: 'mkl'
           CC_OUTER_LOOP: 'clang'
           CC_INNER_LOOP: 'clang'
 

@@ -979,6 +979,8 @@ class ThreadpoolController:
             self._find_libraries_with_dyld()
         elif sys.platform == "win32":
             self._find_libraries_with_enum_process_module_ex()
+        elif sys.platform == "emscripten":
+            self._find_libraries_emscripten()
         else:
             self._find_libraries_with_dl_iterate_phdr()
 
@@ -1100,6 +1102,27 @@ class ThreadpoolController:
         finally:
             kernel_32.CloseHandle(h_process)
 
+    def _find_libraries_emscripten(self):
+        """Emscripten specific implementation taken from Pyodide CPython patch for ctypes.util.find_library
+        """
+        libraries = []
+        ld_library_paths = [
+            path
+            for path in os.environ.get("LD_LIBRARY_PATH", "").split(":")
+            if os.path.exists(path)
+        ]
+        for dir in ld_library_paths:
+            dir_full_paths = [os.path.join(dir, name) for name in os.listdir(dir)]
+            dir_libraries = [
+                path
+                for path in dir_full_paths
+                if path.endswith(".so") or path.endswith(".wasm") and _is_wasm(path)
+            ]
+            libraries += dir_libraries
+
+        for library in libraries:
+            self._make_controller_from_path(library)
+
     def _make_controller_from_path(self, filepath):
         """Store a library controller if it is supported and selected"""
         # Required to resolve symlinks
@@ -1192,12 +1215,13 @@ class ThreadpoolController:
         if libc is None:
             libc_name = find_library("c")
             if libc_name is None:  # pragma: no cover
-                warnings.warn(
-                    "libc not found. The ctypes module in Python"
-                    f" {sys.version_info.major}.{sys.version_info.minor} is maybe"
-                    " too old for this OS.",
-                    RuntimeWarning,
-                )
+                if sys.platform != "emscripten":
+                    warnings.warn(
+                        "libc not found. The ctypes module in Python"
+                        f" {sys.version_info.major}.{sys.version_info.minor} is maybe"
+                        " too old for this OS.",
+                        RuntimeWarning,
+                    )
                 return None
             libc = ctypes.CDLL(libc_name, mode=_RTLD_NOLOAD)
             cls._system_libraries["libc"] = libc

@@ -1103,8 +1103,18 @@ class ThreadpoolController:
             kernel_32.CloseHandle(h_process)
 
     def _find_libraries_emscripten(self):
-        """Emscripten specific implementation taken from Pyodide CPython patch for ctypes.util.find_library
+        """Emscripten specific implementation for finding libraries.
+
+        Adapted from Pyodide CPython patch for ctypes.util.find_library. For more details, see:
+        https://github.com/pyodide/pyodide/blob/df8aa663b01c2072b9d2a85c18f9a8f13f70576f/cpython/patches/0003-Add-emscripten-platform-support-to-ctypes.util.find_.patch  # noqa: E501
         """
+
+        def _is_wasm(filename):
+            # Return True if the given file is an WASM module
+            wasm_header = b"\x00asm"
+            with open(filename, "br") as thefile:
+                return thefile.read(4) == wasm_header
+
         libraries = []
         ld_library_paths = [
             path

@@ -1109,9 +1109,11 @@ class ThreadpoolController:
         """
         try:
             from pyodide_js._module import LDSO
-            return LDSO.loadedLibsByName.as_object_map().keys()
         except ImportError:
-            return []
+            warnings.warn("Unable to import LDSO from pyodide_js._module. This should never happen")
+
+        for filepath in LDSO.loadedLibsByName.as_object_map().keys():
+            self._make_controller_from_path(filepath)
 
     def _make_controller_from_path(self, filepath):
         """Store a library controller if it is supported and selected"""

@@ -1116,7 +1116,8 @@ class ThreadpoolController:
             from pyodide_js._module import LDSO
         except ImportError:
             warnings.warn(
-                "Unable to import LDSO from pyodide_js._module. This should never happen"
+                "Unable to import LDSO from pyodide_js._module. This should never "
+                "happen."
             )
             return
 

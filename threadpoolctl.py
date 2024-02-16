@@ -1118,6 +1118,7 @@ class ThreadpoolController:
             warnings.warn(
                 "Unable to import LDSO from pyodide_js._module. This should never happen"
             )
+            return
 
         for filepath in LDSO.loadedLibsByName.as_object_map():
             # Some libraries are duplicated by Pyodide and do not exist in the

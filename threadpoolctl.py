@@ -1123,7 +1123,7 @@ class ThreadpoolController:
             # Some libraries are duplicated by Pyodide and do not exist in the
             # filesystem, so we first check for the existence of the file. For
             # more details, see
-            # https://github.com/joblib/threadpoolctl/pull/169#issuecomment-1947800866
+            # https://github.com/joblib/threadpoolctl/pull/169#issuecomment-1947946728
             if os.path.exists(filepath):
                 self._make_controller_from_path(filepath)
 

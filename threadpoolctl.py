@@ -1119,7 +1119,11 @@ class ThreadpoolController:
                 "Unable to import LDSO from pyodide_js._module. This should never happen"
             )
 
-        for filepath in LDSO.loadedLibsByName.as_object_map().keys():
+        for filepath in LDSO.loadedLibsByName.as_object_map():
+            # Some libraries are duplicated by Pyodide and do not exist in the
+            # filesystem, so we first check for the existence of the file. For
+            # more details, see
+            # https://github.com/joblib/threadpoolctl/pull/169#issuecomment-1947800866
             if os.path.exists(filepath):
                 self._make_controller_from_path(filepath)
 

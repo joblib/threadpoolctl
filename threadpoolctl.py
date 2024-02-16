@@ -979,8 +979,8 @@ class ThreadpoolController:
             self._find_libraries_with_dyld()
         elif sys.platform == "win32":
             self._find_libraries_with_enum_process_module_ex()
-        elif sys.platform == "emscripten":
-            self._find_libraries_emscripten()
+        elif "pyodide" in sys.modules:
+            self._find_libraries_pyodide()
         else:
             self._find_libraries_with_dl_iterate_phdr()
 
@@ -1102,36 +1102,16 @@ class ThreadpoolController:
         finally:
             kernel_32.CloseHandle(h_process)
 
-    def _find_libraries_emscripten(self):
-        """Emscripten specific implementation for finding libraries.
+    def _find_libraries_pyodide(self):
+        """Pyodide specific implementation for finding loaded libraries.
 
-        Adapted from Pyodide CPython patch for ctypes.util.find_library. For more details, see:
-        https://github.com/pyodide/pyodide/blob/df8aa663b01c2072b9d2a85c18f9a8f13f70576f/cpython/patches/0003-Add-emscripten-platform-support-to-ctypes.util.find_.patch  # noqa: E501
+        Adapted from suggestion in https://github.com/joblib/threadpoolctl/pull/169#issuecomment-1946696449
         """
-
-        def _is_wasm(filename):
-            # Return True if the given file is an WASM module
-            wasm_header = b"\x00asm"
-            with open(filename, "br") as thefile:
-                return thefile.read(4) == wasm_header
-
-        libraries = []
-        ld_library_paths = [
-            path
-            for path in os.environ.get("LD_LIBRARY_PATH", "").split(":")
-            if os.path.exists(path)
-        ]
-        for dir in ld_library_paths:
-            dir_full_paths = [os.path.join(dir, name) for name in os.listdir(dir)]
-            dir_libraries = [
-                path
-                for path in dir_full_paths
-                if path.endswith(".so") or path.endswith(".wasm") and _is_wasm(path)
-            ]
-            libraries += dir_libraries
-
-        for library in libraries:
-            self._make_controller_from_path(library)
+        try:
+            from pyodide_js._module import LDSO
+            return LDSO.loadedLibsByName.as_object_map().keys()
+        except ImportError:
+            return []
 
     def _make_controller_from_path(self, filepath):
         """Store a library controller if it is supported and selected"""
@@ -1225,13 +1205,12 @@ class ThreadpoolController:
         if libc is None:
             libc_name = find_library("c")
             if libc_name is None:  # pragma: no cover
-                if sys.platform != "emscripten":
-                    warnings.warn(
-                        "libc not found. The ctypes module in Python"
-                        f" {sys.version_info.major}.{sys.version_info.minor} is maybe"
-                        " too old for this OS.",
-                        RuntimeWarning,
-                    )
+                warnings.warn(
+                    "libc not found. The ctypes module in Python"
+                    f" {sys.version_info.major}.{sys.version_info.minor} is maybe"
+                    " too old for this OS.",
+                    RuntimeWarning,
+                )
                 return None
             libc = ctypes.CDLL(libc_name, mode=_RTLD_NOLOAD)
             cls._system_libraries["libc"] = libc

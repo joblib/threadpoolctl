@@ -1,3 +1,9 @@
+3.4.0 (TDB)
+===========
+
+- Added support for Pyodide
+  https://github.com/joblib/threadpoolctl/pull/169
+
 3.3.0 (2024-02-14)
 ==================
 

@@ -996,6 +996,10 @@ class ThreadpoolController:
         """
         libc = self._get_libc()
         if not hasattr(libc, "dl_iterate_phdr"):  # pragma: no cover
+            warnings.warn(
+                "Could not find dl_iterate_phdr in the C standard library.",
+                RuntimeWarning,
+            )
             return []
 
         # Callback function for `dl_iterate_phdr` which is called for every
@@ -1028,6 +1032,10 @@ class ThreadpoolController:
         """
         libc = self._get_libc()
         if not hasattr(libc, "_dyld_image_count"):  # pragma: no cover
+            warnings.warn(
+                "Could not find _dyld_image_count in the C standard library.",
+                RuntimeWarning,
+            )
             return []
 
         n_dyld = libc._dyld_image_count()

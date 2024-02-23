@@ -1,6 +1,10 @@
 3.4.0 (TDB)
 ===========
 
+- Added support for Python interpreters statically linked against libc or linked against
+  alternative implementations of libc like musl (on Alpine Linux for instance).
+  https://github.com/joblib/threadpoolctl/pull/171
+
 - Added support for Pyodide
   https://github.com/joblib/threadpoolctl/pull/169
 

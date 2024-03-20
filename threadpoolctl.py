@@ -996,6 +996,10 @@ class ThreadpoolController:
         """
         libc = self._get_libc()
         if not hasattr(libc, "dl_iterate_phdr"):  # pragma: no cover
+            warnings.warn(
+                "Could not find dl_iterate_phdr in the C standard library.",
+                RuntimeWarning,
+            )
             return []
 
         # Callback function for `dl_iterate_phdr` which is called for every
@@ -1028,6 +1032,10 @@ class ThreadpoolController:
         """
         libc = self._get_libc()
         if not hasattr(libc, "_dyld_image_count"):  # pragma: no cover
+            warnings.warn(
+                "Could not find _dyld_image_count in the C standard library.",
+                RuntimeWarning,
+            )
             return []
 
         n_dyld = libc._dyld_image_count()
@@ -1219,16 +1227,13 @@ class ThreadpoolController:
         """Load the lib-C for unix systems."""
         libc = cls._system_libraries.get("libc")
         if libc is None:
-            libc_name = find_library("c")
-            if libc_name is None:  # pragma: no cover
-                warnings.warn(
-                    "libc not found. The ctypes module in Python"
-                    f" {sys.version_info.major}.{sys.version_info.minor} is maybe"
-                    " too old for this OS.",
-                    RuntimeWarning,
-                )
-                return None
-            libc = ctypes.CDLL(libc_name, mode=_RTLD_NOLOAD)
+            # Remark: If libc is statically linked or if Python is linked against an
+            # alternative implementation of libc like musl, find_library will return
+            # None and CDLL will load the main program itself which should contain the
+            # libc symbols. We still name it libc for convenience.
+            # If the main program does not contain the libc symbols, it's ok because
+            # we check their presence later anyway.
+            libc = ctypes.CDLL(find_library("c"), mode=_RTLD_NOLOAD)
             cls._system_libraries["libc"] = libc
         return libc
 

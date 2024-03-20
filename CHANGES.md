@@ -1,5 +1,5 @@
-3.4.0 (TDB)
-===========
+3.4.0 (2024-03-20)
+==================
 
 - Added support for Python interpreters statically linked against libc or linked against
   alternative implementations of libc like musl (on Alpine Linux for instance).

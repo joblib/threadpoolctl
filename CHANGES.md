@@ -1,3 +1,11 @@
+3.5.0 (TDB)
+===========
+
+- Added support for the Scientific Python version of OpenBLAS
+  (https://github.com/MacPython/openblas-libs), which exposes symbols with different
+  names than the ones of the original OpenBLAS library.
+  https://github.com/joblib/threadpoolctl/pull/175
+
 3.4.0 (2024-03-20)
 ==================
 

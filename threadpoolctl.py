@@ -254,7 +254,9 @@ class OpenBLASController(LibController):
         return get_corename().decode("utf-8")
 
 
-class ScipyOpenBLASController(OpenBLASController):
+class SciPyOpenBLASController(OpenBLASController):
+    """Controller class for SciPy OpenBLAS"""
+
     filename_prefixes = ("libscipy_openblas", "libblas")
     check_symbols = (
         "scipy_openblas_get_num_threads",
@@ -546,7 +548,7 @@ class OpenMPController(LibController):
 # Third party libraries can register their own controllers.
 _ALL_CONTROLLERS = [
     OpenBLASController,
-    ScipyOpenBLASController,
+    SciPyOpenBLASController,
     BLISController,
     MKLController,
     OpenMPController,

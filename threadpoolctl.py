@@ -168,39 +168,48 @@ class OpenBLASController(LibController):
         "openblas_get_corename",
         "openblas_get_corename64_",
     )
+    _sym_prefix = ""
+
+    def _format_symbols(self, symbol):
+        """Return the base and 64bit integer versions of a symbol name with the prefix corresponding to the appropriate library."""
+        return f"{self._sym_prefix}{symbol}", f"{self._sym_prefix}{symbol}64_"
 
     def set_additional_attributes(self):
         self.threading_layer = self._get_threading_layer()
         self.architecture = self._get_architecture()
 
     def get_num_threads(self):
+        sym_base, sym_64 = self._format_symbols("openblas_get_num_threads")
+
         get_func = getattr(
             self.dynlib,
-            "openblas_get_num_threads",
+            sym_base,
             # Symbols differ when built for 64bit integers in Fortran
-            getattr(self.dynlib, "openblas_get_num_threads64_", lambda: None),
+            getattr(self.dynlib, sym_64, lambda: None),
         )
 
         return get_func()
 
     def set_num_threads(self, num_threads):
+        sym_base, sym_64 = self._format_symbols("openblas_set_num_threads")
+
         set_func = getattr(
             self.dynlib,
-            "openblas_set_num_threads",
+            sym_base,
             # Symbols differ when built for 64bit integers in Fortran
-            getattr(
-                self.dynlib, "openblas_set_num_threads64_", lambda num_threads: None
-            ),
+            getattr(self.dynlib, sym_64, lambda num_threads: None),
         )
         return set_func(num_threads)
 
     def get_version(self):
         # None means OpenBLAS is not loaded or version < 0.3.4, since OpenBLAS
         # did not expose its version before that.
+        sym_base, sym_64 = self._format_symbols("openblas_get_config")
+
         get_config = getattr(
             self.dynlib,
-            "openblas_get_config",
-            getattr(self.dynlib, "openblas_get_config64_", None),
+            sym_base,
+            getattr(self.dynlib, sym_64, None),
         )
         if get_config is None:
             return None
@@ -213,10 +222,12 @@ class OpenBLASController(LibController):
 
     def _get_threading_layer(self):
         """Return the threading layer of OpenBLAS"""
+        sym_base, sym_64 = self._format_symbols("openblas_get_parallel")
+
         openblas_get_parallel = getattr(
             self.dynlib,
-            "openblas_get_parallel",
-            getattr(self.dynlib, "openblas_get_parallel64_", None),
+            sym_base,
+            getattr(self.dynlib, sym_64, None),
         )
         if openblas_get_parallel is None:
             return "unknown"
@@ -229,16 +240,35 @@ class OpenBLASController(LibController):
 
     def _get_architecture(self):
         """Return the architecture detected by OpenBLAS"""
+        sym_base, sym_64 = self._format_symbols("openblas_get_corename")
+
         get_corename = getattr(
             self.dynlib,
-            "openblas_get_corename",
-            getattr(self.dynlib, "openblas_get_corename64_", None),
+            sym_base,
+            getattr(self.dynlib, sym_64, None),
         )
         if get_corename is None:
             return None
 
         get_corename.restype = ctypes.c_char_p
         return get_corename().decode("utf-8")
+
+
+class ScipyOpenBLASController(OpenBLASController):
+    filename_prefixes = ("libscipy_openblas", "libblas")
+    check_symbols = (
+        "scipy_openblas_get_num_threads",
+        "scipy_openblas_get_num_threads64_",
+        "scipy_openblas_set_num_threads",
+        "scipy_openblas_set_num_threads64_",
+        "scipy_openblas_get_config",
+        "scipy_openblas_get_config64_",
+        "scipy_openblas_get_parallel",
+        "scipy_openblas_get_parallel64_",
+        "scipy_openblas_get_corename",
+        "scipy_openblas_get_corename64_",
+    )
+    _sym_prefix = "scipy_"
 
 
 class BLISController(LibController):
@@ -516,6 +546,7 @@ class OpenMPController(LibController):
 # Third party libraries can register their own controllers.
 _ALL_CONTROLLERS = [
     OpenBLASController,
+    ScipyOpenBLASController,
     BLISController,
     MKLController,
     OpenMPController,

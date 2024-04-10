@@ -112,9 +112,7 @@ class LibController(ABC):
         self.prefix = prefix
         self.filepath = filepath
         self.dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
-        self._sym_prefix, self._sym_suffix, self._sym_compiler_suffix = (
-            self._find_affixes()
-        )
+        self._sym_prefix, self._sym_suffix = self._find_affixes()
         self.version = self.get_version()
         self.set_additional_attributes()
 
@@ -125,8 +123,7 @@ class LibController(ABC):
             "internal_api": self.internal_api,
             "num_threads": self.num_threads,
             # Include all attributes that are not private
-            # **{k: v for k, v in vars(self).items() if not k.startswith("_")},
-            **vars(self),
+            **{k: v for k, v in vars(self).items() if not k.startswith("_")},
         }
         exposed_attrs.pop("dynlib")
         exposed_attrs.pop("parent")
@@ -157,15 +154,11 @@ class LibController(ABC):
 
     def _find_affixes(self):
         """Return the affixes for the symbols of the shared library"""
-        return "", "", ""
+        return "", ""
 
     def _get_symbol(self, name):
         """Return the symbol of the shared library accounding for the affixes"""
-        return getattr(
-            self.dynlib,
-            f"{self._sym_prefix}{name}{self._sym_suffix}{self._sym_compiler_suffix}",
-            None,
-        )
+        return getattr(self.dynlib, f"{self._sym_prefix}{name}{self._sym_suffix}", None)
 
 
 class OpenBLASController(LibController):
@@ -176,24 +169,18 @@ class OpenBLASController(LibController):
     filename_prefixes = ("libopenblas", "libblas", "libscipy_openblas")
 
     _sym_prefixes = ("", "scipy_")
-    _sym_suffixes = ("", "_64", "64")
-    _sym_compiler_suffixes = ("", "_")
+    _sym_suffixes = ("", "64_", "_64")
 
     # All variations of "openblas_get_num_threads", accounting for the affixes
     check_symbols = tuple(
-        f"{prefix}openblas_get_num_threads{suffix}{compiler_suffix}"
-        for prefix, suffix, compiler_suffix in itertools.product(
-            _sym_prefixes, _sym_suffixes, _sym_compiler_suffixes
-        )
+        f"{prefix}openblas_get_num_threads{suffix}"
+        for prefix, suffix in itertools.product(_sym_prefixes, _sym_suffixes)
     )
 
     def _find_affixes(self):
-        for prefix, suffix, compiler_suffix in itertools.product(
-            self._sym_prefixes, self._sym_suffixes, self._sym_compiler_suffixes
-        ):
-            symbol = f"{prefix}openblas_get_num_threads{suffix}{compiler_suffix}"
-            if hasattr(self.dynlib, symbol):
-                return prefix, suffix, compiler_suffix
+        for prefix, suffix in itertools.product(self._sym_prefixes, self._sym_suffixes):
+            if hasattr(self.dynlib, f"{prefix}openblas_get_num_threads{suffix}"):
+                return prefix, suffix
 
     def set_additional_attributes(self):
         self.threading_layer = self._get_threading_layer()
@@ -206,7 +193,6 @@ class OpenBLASController(LibController):
 
     def set_num_threads(self, num_threads):
         if (symbol := self._get_symbol("openblas_set_num_threads")) is not None:
-            print(symbol)
             return symbol(num_threads)
         return None
 

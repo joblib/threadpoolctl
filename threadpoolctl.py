@@ -125,7 +125,8 @@ class LibController(ABC):
             "internal_api": self.internal_api,
             "num_threads": self.num_threads,
             # Include all attributes that are not private
-            **{k: v for k, v in vars(self).items() if not k.startswith("_")},
+            # **{k: v for k, v in vars(self).items() if not k.startswith("_")},
+            **vars(self),
         }
         exposed_attrs.pop("dynlib")
         exposed_attrs.pop("parent")
@@ -205,6 +206,7 @@ class OpenBLASController(LibController):
 
     def set_num_threads(self, num_threads):
         if (symbol := self._get_symbol("openblas_set_num_threads")) is not None:
+            print(symbol)
             return symbol(num_threads)
         return None
 

@@ -15,6 +15,7 @@ import os
 import re
 import sys
 import ctypes
+import itertools
 import textwrap
 from typing import final
 import warnings
@@ -111,6 +112,9 @@ class LibController(ABC):
         self.prefix = prefix
         self.filepath = filepath
         self.dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
+        self._sym_prefix, self._sym_suffix, self._sym_compiler_suffix = (
+            self._find_affixes()
+        )
         self.version = self.get_version()
         self.set_additional_attributes()
 
@@ -120,7 +124,8 @@ class LibController(ABC):
             "user_api": self.user_api,
             "internal_api": self.internal_api,
             "num_threads": self.num_threads,
-            **vars(self),
+            # Include all attributes that are not private
+            **{k: v for k, v in vars(self).items() if not k.startswith("_")},
         }
         exposed_attrs.pop("dynlib")
         exposed_attrs.pop("parent")
@@ -149,128 +154,88 @@ class LibController(ABC):
     def get_version(self):
         """Return the version of the shared library"""
 
+    def _find_affixes(self):
+        """Return the affixes for the symbols of the shared library"""
+        return "", "", ""
+
+    def _get_symbol(self, name):
+        """Return the symbol of the shared library accounding for the affixes"""
+        return getattr(
+            self.dynlib,
+            f"{self._sym_prefix}{name}{self._sym_suffix}{self._sym_compiler_suffix}",
+            None,
+        )
+
 
 class OpenBLASController(LibController):
     """Controller class for OpenBLAS"""
 
     user_api = "blas"
     internal_api = "openblas"
-    filename_prefixes = ("libopenblas", "libblas")
-    check_symbols = (
-        "openblas_get_num_threads",
-        "openblas_get_num_threads64_",
-        "openblas_set_num_threads",
-        "openblas_set_num_threads64_",
-        "openblas_get_config",
-        "openblas_get_config64_",
-        "openblas_get_parallel",
-        "openblas_get_parallel64_",
-        "openblas_get_corename",
-        "openblas_get_corename64_",
-    )
-    _sym_prefix = ""
+    filename_prefixes = ("libopenblas", "libblas", "libscipy_openblas")
 
-    def _format_symbols(self, symbol):
-        """Return the base and 64bit integer versions of a symbol name with the prefix corresponding to the appropriate library."""
-        return f"{self._sym_prefix}{symbol}", f"{self._sym_prefix}{symbol}64_"
+    _sym_prefixes = ("", "scipy_")
+    _sym_suffixes = ("", "_64", "64")
+    _sym_compiler_suffixes = ("", "_")
+
+    # All variations of "openblas_get_num_threads", accounting for the affixes
+    check_symbols = tuple(
+        f"{prefix}openblas_get_num_threads{suffix}{compiler_suffix}"
+        for prefix, suffix, compiler_suffix in itertools.product(
+            _sym_prefixes, _sym_suffixes, _sym_compiler_suffixes
+        )
+    )
+
+    def _find_affixes(self):
+        for prefix, suffix, compiler_suffix in itertools.product(
+            self._sym_prefixes, self._sym_suffixes, self._sym_compiler_suffixes
+        ):
+            symbol = f"{prefix}openblas_get_num_threads{suffix}{compiler_suffix}"
+            if hasattr(self.dynlib, symbol):
+                return prefix, suffix, compiler_suffix
 
     def set_additional_attributes(self):
         self.threading_layer = self._get_threading_layer()
         self.architecture = self._get_architecture()
 
     def get_num_threads(self):
-        sym_base, sym_64 = self._format_symbols("openblas_get_num_threads")
-
-        get_func = getattr(
-            self.dynlib,
-            sym_base,
-            # Symbols differ when built for 64bit integers in Fortran
-            getattr(self.dynlib, sym_64, lambda: None),
-        )
-
-        return get_func()
+        if (symbol := self._get_symbol("openblas_get_num_threads")) is not None:
+            return symbol()
+        return None
 
     def set_num_threads(self, num_threads):
-        sym_base, sym_64 = self._format_symbols("openblas_set_num_threads")
-
-        set_func = getattr(
-            self.dynlib,
-            sym_base,
-            # Symbols differ when built for 64bit integers in Fortran
-            getattr(self.dynlib, sym_64, lambda num_threads: None),
-        )
-        return set_func(num_threads)
+        if (symbol := self._get_symbol("openblas_set_num_threads")) is not None:
+            return symbol(num_threads)
+        return None
 
     def get_version(self):
         # None means OpenBLAS is not loaded or version < 0.3.4, since OpenBLAS
         # did not expose its version before that.
-        sym_base, sym_64 = self._format_symbols("openblas_get_config")
-
-        get_config = getattr(
-            self.dynlib,
-            sym_base,
-            getattr(self.dynlib, sym_64, None),
-        )
-        if get_config is None:
+        if (symbol := self._get_symbol("openblas_get_config")) is not None:
+            symbol.restype = ctypes.c_char_p
+            config = symbol().split()
+            if config[0] == b"OpenBLAS":
+                return config[1].decode("utf-8")
             return None
-
-        get_config.restype = ctypes.c_char_p
-        config = get_config().split()
-        if config[0] == b"OpenBLAS":
-            return config[1].decode("utf-8")
         return None
 
     def _get_threading_layer(self):
         """Return the threading layer of OpenBLAS"""
-        sym_base, sym_64 = self._format_symbols("openblas_get_parallel")
-
-        openblas_get_parallel = getattr(
-            self.dynlib,
-            sym_base,
-            getattr(self.dynlib, sym_64, None),
-        )
-        if openblas_get_parallel is None:
-            return "unknown"
-        threading_layer = openblas_get_parallel()
-        if threading_layer == 2:
-            return "openmp"
-        elif threading_layer == 1:
-            return "pthreads"
-        return "disabled"
+        if (symbol := self._get_symbol("openblas_get_parallel")) is not None:
+            threading_layer = symbol()
+            if threading_layer == 2:
+                return "openmp"
+            elif threading_layer == 1:
+                return "pthreads"
+            return "disabled"
+        return "unknown"
 
     def _get_architecture(self):
         """Return the architecture detected by OpenBLAS"""
-        sym_base, sym_64 = self._format_symbols("openblas_get_corename")
-
-        get_corename = getattr(
-            self.dynlib,
-            sym_base,
-            getattr(self.dynlib, sym_64, None),
-        )
-        if get_corename is None:
-            return None
-
-        get_corename.restype = ctypes.c_char_p
-        return get_corename().decode("utf-8")
-
-
-class SciPyOpenBLASController(OpenBLASController):
-    """Controller class for SciPy OpenBLAS"""
-
-    filename_prefixes = ("libscipy_openblas", "libblas")
-    check_symbols = (
-        "scipy_openblas_get_num_threads",
-        "scipy_openblas_get_num_threads64_",
-        "scipy_openblas_set_num_threads",
-        "scipy_openblas_set_num_threads64_",
-        "scipy_openblas_get_config",
-        "scipy_openblas_get_config64_",
-        "scipy_openblas_get_parallel",
-        "scipy_openblas_get_parallel64_",
-        "scipy_openblas_get_corename",
-        "scipy_openblas_get_corename64_",
-    )
-    _sym_prefix = "scipy_"
+        if (symbol := self._get_symbol("openblas_get_corename")) is not None:
+            symbol.restype = ctypes.c_char_p
+            return symbol().decode("utf-8")
+        return None
 
 
 class BLISController(LibController):
@@ -548,7 +513,6 @@ class OpenMPController(LibController):
 # Third party libraries can register their own controllers.
 _ALL_CONTROLLERS = [
     OpenBLASController,
-    SciPyOpenBLASController,
     BLISController,
     MKLController,
     OpenMPController,

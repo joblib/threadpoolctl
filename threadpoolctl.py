@@ -112,7 +112,7 @@ class LibController(ABC):
         self.prefix = prefix
         self.filepath = filepath
         self.dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
-        self._sym_prefix, self._sym_suffix = self._find_affixes()
+        self._symbol_prefix, self._symbol_suffix = self._find_affixes()
         self.version = self.get_version()
         self.set_additional_attributes()
 
@@ -158,7 +158,9 @@ class LibController(ABC):
 
     def _get_symbol(self, name):
         """Return the symbol of the shared library accounding for the affixes"""
-        return getattr(self.dynlib, f"{self._sym_prefix}{name}{self._sym_suffix}", None)
+        return getattr(
+            self.dynlib, f"{self._symbol_prefix}{name}{self._symbol_suffix}", None
+        )
 
 
 class OpenBLASController(LibController):
@@ -168,17 +170,19 @@ class OpenBLASController(LibController):
     internal_api = "openblas"
     filename_prefixes = ("libopenblas", "libblas", "libscipy_openblas")
 
-    _sym_prefixes = ("", "scipy_")
-    _sym_suffixes = ("", "64_", "_64")
+    _symbol_prefixes = ("", "scipy_")
+    _symbol_suffixes = ("", "64_", "_64")
 
     # All variations of "openblas_get_num_threads", accounting for the affixes
     check_symbols = tuple(
         f"{prefix}openblas_get_num_threads{suffix}"
-        for prefix, suffix in itertools.product(_sym_prefixes, _sym_suffixes)
+        for prefix, suffix in itertools.product(_symbol_prefixes, _symbol_suffixes)
     )
 
     def _find_affixes(self):
-        for prefix, suffix in itertools.product(self._sym_prefixes, self._sym_suffixes):
+        for prefix, suffix in itertools.product(
+            self._symbol_prefixes, self._symbol_suffixes
+        ):
             if hasattr(self.dynlib, f"{prefix}openblas_get_num_threads{suffix}"):
                 return prefix, suffix
 
@@ -187,21 +191,24 @@ class OpenBLASController(LibController):
         self.architecture = self._get_architecture()
 
     def get_num_threads(self):
-        if (symbol := self._get_symbol("openblas_get_num_threads")) is not None:
-            return symbol()
+        get_num_threads_func = self._get_symbol("openblas_get_num_threads")
+        if get_num_threads_func is not None:
+            return get_num_threads_func()
         return None
 
     def set_num_threads(self, num_threads):
-        if (symbol := self._get_symbol("openblas_set_num_threads")) is not None:
-            return symbol(num_threads)
+        set_num_threads_func = self._get_symbol("openblas_set_num_threads")
+        if set_num_threads_func is not None:
+            return set_num_threads_func(num_threads)
         return None
 
     def get_version(self):
         # None means OpenBLAS is not loaded or version < 0.3.4, since OpenBLAS
         # did not expose its version before that.
-        if (symbol := self._get_symbol("openblas_get_config")) is not None:
-            symbol.restype = ctypes.c_char_p
-            config = symbol().split()
+        get_version_func = self._get_symbol("openblas_get_config")
+        if get_version_func is not None:
+            get_version_func.restype = ctypes.c_char_p
+            config = get_version_func().split()
             if config[0] == b"OpenBLAS":
                 return config[1].decode("utf-8")
             return None
@@ -209,8 +216,9 @@ class OpenBLASController(LibController):
 
     def _get_threading_layer(self):
         """Return the threading layer of OpenBLAS"""
-        if (symbol := self._get_symbol("openblas_get_parallel")) is not None:
-            threading_layer = symbol()
+        get_threading_layer_func = self._get_symbol("openblas_get_parallel")
+        if get_threading_layer_func is not None:
+            threading_layer = get_threading_layer_func()
             if threading_layer == 2:
                 return "openmp"
             elif threading_layer == 1:
@@ -220,9 +228,10 @@ class OpenBLASController(LibController):
 
     def _get_architecture(self):
         """Return the architecture detected by OpenBLAS"""
-        if (symbol := self._get_symbol("openblas_get_corename")) is not None:
-            symbol.restype = ctypes.c_char_p
-            return symbol().decode("utf-8")
+        get_architecture_func = self._get_symbol("openblas_get_corename")
+        if get_architecture_func is not None:
+            get_architecture_func.restype = ctypes.c_char_p
+            return get_architecture_func().decode("utf-8")
         return None
 
 

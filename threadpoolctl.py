@@ -118,16 +118,13 @@ class LibController(ABC):
 
     def info(self):
         """Return relevant info wrapped in a dict"""
-        exposed_attrs = {
+        hidden_attrs = ("dynlib", "parent", "_symbol_prefix", "_symbol_suffix")
+        return {
             "user_api": self.user_api,
             "internal_api": self.internal_api,
             "num_threads": self.num_threads,
-            # Include all attributes that are not private
-            **{k: v for k, v in vars(self).items() if not k.startswith("_")},
+            **{k: v for k, v in vars(self).items() if k not in hidden_attrs},
         }
-        exposed_attrs.pop("dynlib")
-        exposed_attrs.pop("parent")
-        return exposed_attrs
 
     def set_additional_attributes(self):
         """Set additional attributes meant to be exposed in the info dict"""

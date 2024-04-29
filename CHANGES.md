@@ -1,5 +1,5 @@
-3.5.0 (TDB)
-===========
+3.5.0 (2024-04-29)
+==================
 
 - Added support for the Scientific Python version of OpenBLAS
   (https://github.com/MacPython/openblas-libs), which exposes symbols with different

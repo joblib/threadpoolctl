@@ -24,7 +24,7 @@ from abc import ABC, abstractmethod
 from functools import lru_cache
 from contextlib import ContextDecorator
 
-__version__ = "3.5.0.dev0"
+__version__ = "3.5.0"
 __all__ = [
     "threadpool_limits",
     "threadpool_info",

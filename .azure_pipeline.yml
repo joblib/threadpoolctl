@@ -58,6 +58,12 @@ stages:
       name: Linux
       vmImage: ubuntu-20.04
       matrix:
+        # Linux environment with development versions of numpy and scipy
+        pylatest_pip_dev:
+          PACKAGER: 'pip-dev'
+          PYTHON_VERSION: '*'
+          CC_OUTER_LOOP: 'gcc'
+          CC_INNER_LOOP: 'gcc'
         # Linux environment to test that packages that comes with Ubuntu 20.04
         # are correctly handled.
         py38_ubuntu_atlas_gcc_gcc:

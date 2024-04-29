@@ -65,6 +65,15 @@ elif [[ "$PACKAGER" == "pip" ]]; then
         pip install numpy scipy
     fi
 
+elif [[ "$PACKAGER" == "pip-dev" ]]; then
+    # Use conda to build an empty python env and then use pip to install
+    # numpy and scipy dev versions
+    TO_INSTALL="python=$PYTHON_VERSION pip"
+    make_conda $TO_INSTALL
+
+    dev_anaconda_url=https://pypi.anaconda.org/scientific-python-nightly-wheels/simple
+    pip install --pre --upgrade --timeout=60 --extra-index $dev_anaconda_url numpy scipy
+
 elif [[ "$PACKAGER" == "ubuntu" ]]; then
     # Remove the ubuntu toolchain PPA that seems to be invalid:
     # https://github.com/scikit-learn/scikit-learn/pull/13934

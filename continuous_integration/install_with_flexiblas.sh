@@ -10,8 +10,7 @@ popd
 conda update -n base conda conda-libmamba-solver -q --yes
 conda config --set solver libmamba
 conda create -n $VIRTUALENV -q --yes -c conda-forge python=$PYTHON_VERSION \
-    pip cython openblas $PLATFORM_SPECIFIC_PACKAGES meson-python pkg-config compilers \
-    llvm-openmp=18.1.5
+    pip cython openblas $PLATFORM_SPECIFIC_PACKAGES meson-python pkg-config compilers
 source activate $VIRTUALENV
 
 pushd ..
@@ -20,6 +19,7 @@ pushd ..
 mkdir flexiblas_install
 git clone https://github.com/mpimd-csc/flexiblas.git
 pushd flexiblas
+git checkout v3.4.2
 
 mkdir build
 pushd build

@@ -19,7 +19,9 @@ pushd ..
 mkdir flexiblas_install
 git clone https://github.com/mpimd-csc/flexiblas.git
 pushd flexiblas
-git checkout v3.4.2
+
+# Temporary ping Flexiblas commit to avoid openmp symbols not found at link time
+git checkout v3.4.2 
 
 mkdir build
 pushd build

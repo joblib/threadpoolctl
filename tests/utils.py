@@ -6,7 +6,6 @@ from glob import glob
 from os.path import dirname, normpath
 from subprocess import check_output
 
-
 # Path to shipped openblas for libraries such as numpy or scipy
 libopenblas_patterns = []
 

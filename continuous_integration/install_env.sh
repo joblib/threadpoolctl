@@ -60,6 +60,8 @@ make_conda() {
     conda config --set solver libmamba
     conda create -n testenv -q --yes python=$PYTHON_VERSION $TO_INSTALL
     conda activate testenv
+
+    which clang
 }
 
 

@@ -12,7 +12,7 @@ if [[ "$CC_OUTER_LOOP" == "clang-10" ]] || \
 then
     wget https://apt.llvm.org/llvm.sh
     chmod +x llvm.sh
-    sudo ./llvm.sh 10
+    sudo ./llvm.sh 17
     sudo apt-get install libomp-dev
 fi
 

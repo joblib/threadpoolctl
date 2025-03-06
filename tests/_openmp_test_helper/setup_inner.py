@@ -1,7 +1,6 @@
 import os
-from distutils.core import setup
+from setuptools import Extension, setup
 from Cython.Build import cythonize
-from distutils.extension import Extension
 
 from build_utils import set_cc_variables
 from build_utils import get_openmp_flag
@@ -33,7 +32,6 @@ try:
             },
             compile_time_env={"CC_INNER_LOOP": inner_loop_cc_var or "unknown"},
         ),
-        verbose=True,
     )
 
 finally:

@@ -39,13 +39,11 @@ make_conda() {
             # Install a compiler with a working openmp
             HOMEBREW_NO_AUTO_UPDATE=1 brew install libomp
 
-            sudo find / -name "omp.h"
-
             # enable OpenMP support for Apple-clang
             export CC=/usr/bin/clang
             export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
-            export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
-            export LDFLAGS="$LDFLAGS -Wl,-rpath,/usr/local/opt/libomp/lib -L/usr/local/opt/libomp/lib -lomp"
+            export CFLAGS="$CFLAGS -I/opt/libomp/include"
+            export LDFLAGS="$LDFLAGS -Wl,-rpath,/opt/libomp/lib -L/opt/libomp/lib -lomp"
         fi
     fi
 

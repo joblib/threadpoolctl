@@ -9,13 +9,13 @@ UNAMESTR=`uname`
 
 # Install a recent version of clang and libomp if needed
 # Only applicable on linux jobs
-if [[ "$CC_OUTER_LOOP" == "clang-17" ]] || \
-   [[ "$CC_INNER_LOOP" == "clang-17" ]] || \
-   [[ "$BLIS_CC" == "clang-17" ]]
+if [[ "$CC_OUTER_LOOP" == "clang-18" ]] || \
+   [[ "$CC_INNER_LOOP" == "clang-18" ]] || \
+   [[ "$BLIS_CC" == "clang-18" ]]
 then
     wget https://apt.llvm.org/llvm.sh
     chmod +x llvm.sh
-    sudo ./llvm.sh 17
+    sudo ./llvm.sh 18
     sudo apt-get install libomp-dev
 
     sudo find / -name "omp.h"

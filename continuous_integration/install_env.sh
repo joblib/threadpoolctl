@@ -110,7 +110,7 @@ elif [[ "$INSTALL_BLAS" == "FlexiBLAS" ]]; then
 fi
 
 
-python -m pip install -q -r dev-requirements.txt
+python -m pip install -v -q -r dev-requirements.txt
 bash ./continuous_integration/build_test_ext.sh
 
 python --version

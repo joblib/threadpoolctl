@@ -46,7 +46,8 @@ make_conda() {
     fi
     conda update -n base conda conda-libmamba-solver -q --yes
     conda config --set solver libmamba
-    conda create -n testenv -q --yes -c $CHANNEL python=$PYTHON_VERSION $TO_INSTALL
+    conda config --add channels $CHANNEL
+    conda create -n testenv -q --yes python=$PYTHON_VERSION $TO_INSTALL
     conda activate testenv
 }
 
@@ -88,8 +89,8 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
     sudo add-apt-repository --remove ppa:ubuntu-toolchain-r/test
     sudo apt-get update
     sudo apt-get install python3-scipy python3-virtualenv $APT_BLAS
-    python3 -m virtualenv --system-site-packages --python=python3 $VIRTUALENV
-    source $VIRTUALENV/bin/activate
+    python3 -m virtualenv --system-site-packages --python=python3 testenv
+    source testenv/bin/activate
 
 elif [[ "$INSTALL_BLAS" == "BLIS" ]]; then
     TO_INSTALL="cython meson-python pkg-config"

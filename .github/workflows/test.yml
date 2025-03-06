@@ -132,8 +132,8 @@ jobs:
             PACKAGER: "conda"
             PYTHON_VERSION: "3.9"
             BLAS: "openblas"
-            CC_OUTER_LOOP: "clang-10"
-            CC_INNER_LOOP: "clang-10"
+            CC_OUTER_LOOP: "clang-17"
+            CC_INNER_LOOP: "clang-17"
           # Linux environment with MKL and Clang (known to be unsafe for
           # threadpoolctl) to only test the warning from multiple OpenMP.
           - name: pylatest_conda_mkl_clang_gcc
@@ -141,7 +141,7 @@ jobs:
             PYTHON_VERSION: "*"
             PACKAGER: "conda"
             BLAS: "mkl"
-            CC_OUTER_LOOP: "clang-10"
+            CC_OUTER_LOOP: "clang-17"
             CC_INNER_LOOP: "gcc"
             TESTS: "libomp_libiomp_warning"
           # Linux environment with MKL, safe for threadpoolctl.
@@ -160,7 +160,7 @@ jobs:
             PACKAGER: "pip"
             PYTHON_VERSION: "3.8"
             CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "clang-10"
+            CC_INNER_LOOP: "clang-17"
           # Linux environment with numpy from conda-forge channel and openblas-openmp
           - name: pylatest_conda_forge
             os: ubuntu-latest
@@ -177,7 +177,7 @@ jobs:
             PYTHON_VERSION: "*"
             NO_NUMPY: "true"
             CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "clang-10"
+            CC_INNER_LOOP: "clang-17"
 
           # Linux environments with numpy linked to BLIS
           - name: pylatest_blis_gcc_clang_openmp
@@ -187,15 +187,15 @@ jobs:
             BLIS_NUM_THREAEDS: "4"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
-            BLIS_CC: "clang-10"
+            BLIS_CC: "clang-17"
             BLIS_ENABLE_THREADING: "openmp"
           - name: pylatest_blis_clang_gcc_pthreads
             os: ubuntu-latest
             PYTHON_VERSION: "*"
             INSTALL_BLAS: "blis"
             BLIS_NUM_THREADS: "4"
-            CC_OUTER_LOOP: "clang-10"
-            CC_INNER_LOOP: "clang-10"
+            CC_OUTER_LOOP: "clang-17"
+            CC_INNER_LOOP: "clang-17"
             BLIS_CC: "gcc-8"
             BLIS_ENABLE_THREADING: "pthreads"
           - name: pylatest_blis_no_threading

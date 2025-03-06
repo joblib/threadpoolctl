@@ -6,9 +6,9 @@ set -xe
 
 # Install a recent version of clang and libomp if needed
 # Only applicable on linux jobs
-if [[ "$CC_OUTER_LOOP" == "clang-10" ]] || \
-   [[ "$CC_INNER_LOOP" == "clang-10" ]] || \
-   [[ "$BLIS_CC" == "clang-10" ]]
+if [[ "$CC_OUTER_LOOP" == "clang-17" ]] || \
+   [[ "$CC_INNER_LOOP" == "clang-17" ]] || \
+   [[ "$BLIS_CC" == "clang-17" ]]
 then
     wget https://apt.llvm.org/llvm.sh
     chmod +x llvm.sh

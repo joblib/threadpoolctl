@@ -70,13 +70,13 @@ if [[ "$PACKAGER" == "conda" ]]; then
     if [[ "$NO_NUMPY" != "true" ]]; then
         TO_INSTALL="$TO_INSTALL numpy scipy"
         if [[ -n "$BLAS" ]]; then
-            TO_INSTALL="$TO_INSTALL blas[build=$BLAS]"
+            TO_INSTALL="$TO_INSTALL blas=*=$BLAS"
         fi
     fi
 	make_conda "defaults" "$TO_INSTALL"
 
 elif [[ "$PACKAGER" == "conda-forge" ]]; then
-    TO_INSTALL="numpy scipy blas[build=$BLAS]"
+    TO_INSTALL="numpy scipy blas=*=$BLAS"
     if [[ "$BLAS" == "openblas" && "$OPENBLAS_THREADING_LAYER" == "openmp" ]]; then
         TO_INSTALL="$TO_INSTALL libopenblas=*=*openmp*"
     fi

@@ -6,7 +6,6 @@ import os
 import sys
 import xml.etree.ElementTree as ET
 
-
 base_dir = sys.argv[1]
 
 # dict {test: result} where result is False if the test was skipped in every

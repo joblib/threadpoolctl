@@ -3,7 +3,6 @@ from pathlib import Path
 
 from threadpoolctl import LibController, register
 
-
 path = Path(__file__).parent / "my_threaded_lib.so"
 ctypes.CDLL(path)
 

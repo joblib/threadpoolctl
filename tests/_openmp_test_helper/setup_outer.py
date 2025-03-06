@@ -6,7 +6,6 @@ from distutils.extension import Extension
 from build_utils import set_cc_variables
 from build_utils import get_openmp_flag
 
-
 original_environ = os.environ.copy()
 try:
     # Make it possible to compile the 2 OpenMP enabled Cython extensions

@@ -27,7 +27,7 @@ stages:
         inputs:
           versionSpec: '3.12'
       - script: |
-          pip install black
+          pip install black==25.1.0
         displayName: install black
       - script: |
           black --check --diff .

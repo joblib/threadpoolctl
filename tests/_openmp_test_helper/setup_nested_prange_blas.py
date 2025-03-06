@@ -6,7 +6,6 @@ from distutils.extension import Extension
 from build_utils import set_cc_variables
 from build_utils import get_openmp_flag
 
-
 original_environ = os.environ.copy()
 try:
     set_cc_variables("CC_OUTER_LOOP")

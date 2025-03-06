@@ -55,9 +55,9 @@ make_conda() {
         TO_INSTALL="$TO_INSTALL python-gil"
     fi
 
+    conda config --add channels $CHANNEL
     conda update -n base conda conda-libmamba-solver -q --yes
     conda config --set solver libmamba
-    conda config --add channels $CHANNEL
     conda create -n testenv -q --yes python=$PYTHON_VERSION $TO_INSTALL
     conda activate testenv
 }

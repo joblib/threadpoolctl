@@ -12,6 +12,8 @@ try:
     inner_loop_cc_var = set_cc_variables("CC_INNER_LOOP")
     openmp_flag = get_openmp_flag()
 
+    print(os.environ.get("CC"))
+
     ext_modules = [
         Extension(
             "openmp_helpers_inner",

@@ -49,6 +49,12 @@ make_conda() {
             export LDFLAGS="$LDFLAGS -Wl,-rpath,/usr/local/opt/libomp/lib -L/usr/local/opt/libomp/lib -lomp"
         fi
     fi
+
+    if [[ "$PYTHON_VERSION" == "*" ]]; then
+        # Avoid installing free-threaded python
+        TO_INSTALL="$TO_INSTALL python-gil"
+    fi
+
     conda update -n base conda conda-libmamba-solver -q --yes
     conda config --set solver libmamba
     conda config --add channels $CHANNEL

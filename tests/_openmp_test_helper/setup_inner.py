@@ -12,13 +12,6 @@ try:
     # with different compilers and therefore different OpenMP runtimes.
     inner_loop_cc_var = set_cc_variables("CC_INNER_LOOP")
     openmp_flag = get_openmp_flag()
-    print()
-    print("#################")
-    print("#################")
-    print(openmp_flag)
-    print("#################")
-    print("#################")
-    print()
 
     ext_modules = [
         Extension(
@@ -40,6 +33,7 @@ try:
             },
             compile_time_env={"CC_INNER_LOOP": inner_loop_cc_var or "unknown"},
         ),
+        verbose=True,
     )
 
 finally:

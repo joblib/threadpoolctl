@@ -242,7 +242,7 @@ jobs:
       - name: Install without custom BLAS
         if: ${{ matrix.INSTALL_BLAS == '' }}
         run: |
-          bash -el continuous_integration/install.sh
+          bash -el continuous_integration/install_env.sh
 
       - name: Install with BLIS
         if: ${{ matrix.INSTALL_BLAS == 'blis' }}

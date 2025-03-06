@@ -80,8 +80,8 @@ jobs:
             PYTHON_VERSION: "*"
             PACKAGER: "conda-forge"
             BLAS: "openblas"
-            CC_OUTER_LOOP: "clang"
-            CC_INNER_LOOP: "clang"
+            # CC_OUTER_LOOP: "clang"
+            # CC_INNER_LOOP: "clang"
             INSTALL_LIBOMP: "conda-forge"
           # MacOS env with MKL and with OpenMP installed through conda-forge compilers
           - name: pylatest_conda_forge_clang

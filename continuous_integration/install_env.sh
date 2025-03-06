@@ -62,20 +62,20 @@ if [[ "$PACKAGER" == "conda" ]]; then
     if [[ "$NO_NUMPY" != "true" ]]; then
         TO_INSTALL="$TO_INSTALL numpy scipy blas[build=$BLAS]"
     fi
-	make_conda "defaults" $TO_INSTALL
+	make_conda "defaults" "$TO_INSTALL"
 
 elif [[ "$PACKAGER" == "conda-forge" ]]; then
     TO_INSTALL="numpy scipy blas[build=$BLAS]"
     if [[ "$BLAS" == "openblas" && "$OPENBLAS_THREADING_LAYER" == "openmp" ]]; then
         TO_INSTALL="$TO_INSTALL libopenblas=*=*openmp*"
     fi
-    make_conda "conda-forge" $TO_INSTALL
+    make_conda "conda-forge" "$TO_INSTALL"
 
 elif [[ "$PACKAGER" == "pip" ]]; then
     # Use conda to build an empty python env and then use pip to install
     # numpy and scipy
     TO_INSTALL=""
-    make_conda "conda-forge" $TO_INSTALL
+    make_conda "conda-forge" "$TO_INSTALL"
     if [[ "$NO_NUMPY" != "true" ]]; then
         pip install numpy scipy
     fi
@@ -99,12 +99,12 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
 
 elif [[ "$INSTALL_BLAS" == "BLIS" ]]; then
     TO_INSTALL="cython meson-python pkg-config"
-    make_conda "conda-forge" $TO_INSTALL
+    make_conda "conda-forge" "$TO_INSTALL"
     bash ./continuous_integration/install_blis.sh
 
 elif [[ "$INSTALL_BLAS" == "FlexiBLAS" ]]; then
     TO_INSTALL="cython openblas $PLATFORM_SPECIFIC_PACKAGES meson-python pkg-config compilers"
-    make_conda "conda-forge" $TO_INSTALL
+    make_conda "conda-forge" "$TO_INSTALL"
     bash ./continuous_integration/install_flexiblas.sh
 
 fi

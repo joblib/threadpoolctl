@@ -57,7 +57,7 @@ if [[ "$PACKAGER" == "conda" ]]; then
     if [[ "$NO_NUMPY" != "true" ]]; then
         TO_INSTALL="$TO_INSTALL numpy scipy blas[build=$BLAS]"
     fi
-	make_conda "default" $TO_INSTALL
+	make_conda "defaults" $TO_INSTALL
 
 elif [[ "$PACKAGER" == "conda-forge" ]]; then
     TO_INSTALL="numpy scipy blas[build=$BLAS]"

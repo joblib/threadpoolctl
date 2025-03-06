@@ -46,7 +46,7 @@ jobs:
       matrix:
         include:
 
-          - name: pylatest_conda_forge_mkl:
+          - name: pylatest_conda_forge_mkl
             os: windows-latest
             PYTHON_VERSION: "*"
             PACKAGER: "conda-forge"

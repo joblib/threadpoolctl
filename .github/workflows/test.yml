@@ -46,21 +46,21 @@ jobs:
       matrix:
         include:
 
-          - pylatest_conda_forge_mkl:
+          - name: pylatest_conda_forge_mkl:
             os: windows-latest
             PYTHON_VERSION: "*"
             PACKAGER: "conda-forge"
             BLAS: "mkl"
-          - py310_conda_forge_openblas
+          - name: py310_conda_forge_openblas
             os: windows-latest
             PYTHON_VERSION: "3.10"
             PACKAGER: "conda-forge"
             BLAS: "openblas"
-          - py39_conda
+          - name: py39_conda
             os: windows-latest
             PYTHON_VERSION: "3.9"
             PACKAGER: "conda"
-          - py38_pip
+          - name: py38_pip
             os: windows-latest
             PYTHON_VERSION: "3.8"
             PACKAGER: "pip"

@@ -60,7 +60,10 @@ make_conda() {
 if [[ "$PACKAGER" == "conda" ]]; then
     TO_INSTALL=""
     if [[ "$NO_NUMPY" != "true" ]]; then
-        TO_INSTALL="$TO_INSTALL numpy scipy blas[build=$BLAS]"
+        TO_INSTALL="$TO_INSTALL numpy scipy"
+        if [[ -n "$BLAS" ]]; then
+            TO_INSTALL="$TO_INSTALL blas[build=$BLAS]"
+        fi
     fi
 	make_conda "defaults" "$TO_INSTALL"
 
@@ -74,8 +77,7 @@ elif [[ "$PACKAGER" == "conda-forge" ]]; then
 elif [[ "$PACKAGER" == "pip" ]]; then
     # Use conda to build an empty python env and then use pip to install
     # numpy and scipy
-    TO_INSTALL=""
-    make_conda "conda-forge" "$TO_INSTALL"
+    make_conda "conda-forge" ""
     if [[ "$NO_NUMPY" != "true" ]]; then
         pip install numpy scipy
     fi

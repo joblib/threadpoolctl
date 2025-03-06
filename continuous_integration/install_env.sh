@@ -35,8 +35,8 @@ make_conda() {
             # assumes conda-forge is set on priority channel
             TO_INSTALL="$TO_INSTALL compilers llvm-openmp"
 
-            export CFLAGS="$CFLAGS -I$CONDA/envs/testenv/include"
-            export LDFLAGS="$LDFLAGS -Wl,-rpath,$CONDA/envs/testenv/lib -L$CONDA/envs/testenv/lib"
+            # export CFLAGS="$CFLAGS -I$CONDA/envs/testenv/include"
+            # export LDFLAGS="$LDFLAGS -Wl,-rpath,$CONDA/envs/testenv/lib -L$CONDA/envs/testenv/lib"
 
         elif [[ "$INSTALL_LIBOMP" == "homebrew" ]]; then
             # Install a compiler with a working openmp

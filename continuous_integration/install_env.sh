@@ -4,6 +4,9 @@
 
 set -xe
 
+UNAMESTR=`uname`
+
+
 # Install a recent version of clang and libomp if needed
 # Only applicable on linux jobs
 if [[ "$CC_OUTER_LOOP" == "clang-17" ]] || \
@@ -14,6 +17,8 @@ then
     chmod +x llvm.sh
     sudo ./llvm.sh 17
     sudo apt-get install libomp-dev
+
+    sudo find / -name "omp.h"
 fi
 
 # Install gcc 8 to build BLIS

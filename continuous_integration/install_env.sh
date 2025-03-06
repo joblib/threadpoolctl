@@ -52,7 +52,7 @@ make_conda() {
     conda update -n base conda conda-libmamba-solver -q --yes
     conda config --set solver libmamba
     conda config --add channels $CHANNEL
-    conda create -n testenv -q --yes python=$PYTHON_VERSION $TO_INSTALL
+    conda create -n testenv -q --yes python=$PYTHON_VERSION python-gil $TO_INSTALL
     conda activate testenv
 }
 

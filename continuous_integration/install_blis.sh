@@ -37,8 +37,8 @@ PKG_CONFIG_PATH=$ABS_PATH/numpy/ pip install . -v --no-build-isolation -Csetup-a
 export CFLAGS=-I$ABS_PATH/BLIS_install/include/blis
 export LDFLAGS="-L$ABS_PATH/BLIS_install/lib -Wl,-rpath,$ABS_PATH/BLIS_install/lib"
 
-# popd
+popd
 
-# # back to threadpoolctl directory
-# popd
+# back to threadpoolctl directory
+popd
 

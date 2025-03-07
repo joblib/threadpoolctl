@@ -14,7 +14,8 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
     pip list
 fi
 
-echo $MKL_THREADING_LAYER
+dpkg --print-architecture
+
 
 # Use the CLI to display the effective runtime environment prior to
 # launching the tests:

@@ -138,7 +138,7 @@ jobs:
             BLAS: "mkl"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
-            MKL_THREADING_LAYER: "MKL_THREADING_INTEL"
+            MKL_THREADING_LAYER: "INTEL"
           # Linux + Python 3.8 with numpy / scipy installed with pip from PyPI
           # and heterogeneous OpenMP runtimes.
           - name: py38_pip_openblas_gcc_clang

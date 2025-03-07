@@ -39,6 +39,8 @@ make_conda() {
             # Install a compiler with a working openmp
             HOMEBREW_NO_AUTO_UPDATE=1 brew install libomp
 
+            brew info libomp
+
             # enable OpenMP support for Apple-clang
             export CC=/usr/bin/clang
             export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
@@ -55,9 +57,6 @@ make_conda() {
     conda config --add channels $CHANNEL
     conda update -n base conda conda-libmamba-solver -q --yes
     conda config --set solver libmamba
-
-    conda search blas --channel conda-forge
-
     conda create -n testenv -q --yes python=$PYTHON_VERSION $TO_INSTALL
     conda activate testenv
 

@@ -19,6 +19,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  JUNITXML: 'test-data.xml'
+
 jobs:
 
   linting:
@@ -38,7 +41,6 @@ jobs:
           black --check --diff .
 
   testing:
-    name: Testing
     needs: linting
     timeout-minutes: 30
     strategy:
@@ -233,7 +235,28 @@ jobs:
         run: |
           bash -el continuous_integration/run_tests.sh
 
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ${{ env.JUNITXML }}
+
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
         with:
           files: coverage.xml
+
+  # Meta-test to ensure that at least one of the above CI configurations had
+  # the necessary platform settings to execute each test without raising
+  # skipping.
+  post_testing:
+    needs: testing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download tests artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results
+      - name: Check no test always skipped
+        run: |
+          python continuous_integration/check_no_test_skipped.py 

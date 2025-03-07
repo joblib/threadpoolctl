@@ -17,8 +17,6 @@ then
     chmod +x llvm.sh
     sudo ./llvm.sh 18
     sudo apt-get install libomp-dev
-
-    sudo find / -name "omp.h"
 fi
 
 # Install gcc 8 to build BLIS
@@ -104,12 +102,12 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
     python3 -m virtualenv --system-site-packages --python=python3 testenv
     source testenv/bin/activate
 
-elif [[ "$INSTALL_BLAS" == "BLIS" ]]; then
+elif [[ "$INSTALL_BLAS" == "blis" ]]; then
     TO_INSTALL="cython meson-python pkg-config"
     make_conda "conda-forge" "$TO_INSTALL"
     bash ./continuous_integration/install_blis.sh
 
-elif [[ "$INSTALL_BLAS" == "FlexiBLAS" ]]; then
+elif [[ "$INSTALL_BLAS" == "flexiblas" ]]; then
     TO_INSTALL="cython openblas $PLATFORM_SPECIFIC_PACKAGES meson-python pkg-config compilers"
     make_conda "conda-forge" "$TO_INSTALL"
     bash ./continuous_integration/install_flexiblas.sh

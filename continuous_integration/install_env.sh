@@ -46,8 +46,10 @@ make_conda() {
         TO_INSTALL="$TO_INSTALL python-gil"
     fi
 
+    # prevent mixing conda channels
     conda config --set channel_priority strict
     conda config --add channels $CHANNEL
+
     conda update -n base conda conda-libmamba-solver -q --yes
     conda config --set solver libmamba
     conda create -n testenv -q --yes python=$PYTHON_VERSION $TO_INSTALL

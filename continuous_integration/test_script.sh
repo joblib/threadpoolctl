@@ -2,7 +2,7 @@
 
 set -xe
 
-if [[ "$PACKAGER" == conda* ]]; then
+if [[ "$PACKAGER" == conda* ]] || [[ -z "$PACKAGER" ]]; then
     conda activate testenv
     conda list
 elif [[ "$PACKAGER" == pip* ]]; then

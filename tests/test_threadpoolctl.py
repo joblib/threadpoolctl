@@ -624,6 +624,7 @@ def test_architecture():
         # XXX: add more as needed by CI or developer laptops
         "skx",
         "haswell",
+        "zen3",
     )
     for lib_info in threadpool_info():
         if lib_info["internal_api"] == "openblas":

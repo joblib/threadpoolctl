@@ -2,6 +2,12 @@
 
 set -xe
 
+
+# Install gcc 12 to build BLIS
+if [[ "$BLIS_CC" == "gcc-12" ]]; then
+    sudo apt install gcc-12
+fi
+
 # step outside of threadpoolctl directory
 pushd ..
 ABS_PATH=$(pwd)

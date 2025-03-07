@@ -19,10 +19,6 @@ then
     sudo apt-get install libomp-dev
 fi
 
-# Install gcc 8 to build BLIS
-if [[ "$BLIS_CC" == "gcc-12" ]]; then
-    sudo apt install gcc-12
-fi
 
 make_conda() {
     CHANNEL="$1"

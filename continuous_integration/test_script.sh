@@ -1,20 +1,18 @@
 #!/bin/bash
 
-set -e
+set -xe
 
 if [[ "$PACKAGER" == conda* ]]; then
-    source activate $VIRTUALENV
+    conda activate testenv
     conda list
 elif [[ "$PACKAGER" == pip* ]]; then
     # we actually use conda to install the base environment:
-    source activate $VIRTUALENV
+    conda activate testenv
     pip list
 elif [[ "$PACKAGER" == "ubuntu" ]]; then
-    source $VIRTUALENV/bin/activate
+    source testenv/bin/activate
     pip list
 fi
-
-set -x
 
 # Use the CLI to display the effective runtime environment prior to
 # launching the tests:

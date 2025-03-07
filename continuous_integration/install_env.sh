@@ -39,8 +39,6 @@ make_conda() {
             # Install a compiler with a working openmp
             HOMEBREW_NO_AUTO_UPDATE=1 brew install libomp
 
-            brew info libomp
-
             # enable OpenMP support for Apple-clang
             export CC=/usr/bin/clang
             export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"

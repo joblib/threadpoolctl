@@ -229,19 +229,19 @@ jobs:
           miniforge-version: latest
 
       - name: Install without custom BLAS
-        if: ${{ matrix.INSTALL_BLAS == '' }}
+        # if: ${{ matrix.INSTALL_BLAS == '' }}
         run: |
           bash -el continuous_integration/install_env.sh
 
-      - name: Install with BLIS
-        if: ${{ matrix.INSTALL_BLAS == 'blis' }}
-        run: |
-          bash -el continuous_integration/install_with_blis.sh
+      # - name: Install with BLIS
+      #   if: ${{ matrix.INSTALL_BLAS == 'blis' }}
+      #   run: |
+      #     bash -el continuous_integration/install_with_blis.sh
 
-      - name: Install with FlexiBLAS
-        if: ${{ matrix.INSTALL_BLAS == 'flexiblas' }}
-        run: |
-          bash -el continuous_integration/install_with_flexiblas.sh
+      # - name: Install with FlexiBLAS
+      #   if: ${{ matrix.INSTALL_BLAS == 'flexiblas' }}
+      #   run: |
+      #     bash -el continuous_integration/install_with_flexiblas.sh
 
       #- name: Test library
       #  run: |

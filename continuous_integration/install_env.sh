@@ -44,8 +44,8 @@ make_conda() {
             # enable OpenMP support for Apple-clang
             export CC=/usr/bin/clang
             export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
-            export CFLAGS="$CFLAGS -I/opt/libomp/include"
-            export LDFLAGS="$LDFLAGS -Wl,-rpath,/opt/libomp/lib -L/opt/libomp/lib -lomp"
+            export CFLAGS="$CFLAGS -I/opt/homebrew/opt/libomp/include"
+            export LDFLAGS="$LDFLAGS -Wl,-rpath,/opt/homebrew/opt/libomp/lib -L/opt/homebrew/opt/libomp/lib -lomp"
         fi
     fi
 

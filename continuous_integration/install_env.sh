@@ -105,12 +105,12 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
 elif [[ "$INSTALL_BLAS" == "blis" ]]; then
     TO_INSTALL="cython meson-python pkg-config"
     make_conda "conda-forge" "$TO_INSTALL"
-    bash ./continuous_integration/install_blis.sh
+    source ./continuous_integration/install_blis.sh
 
 elif [[ "$INSTALL_BLAS" == "flexiblas" ]]; then
     TO_INSTALL="cython openblas $PLATFORM_SPECIFIC_PACKAGES meson-python pkg-config compilers"
     make_conda "conda-forge" "$TO_INSTALL"
-    bash ./continuous_integration/install_flexiblas.sh
+    source ./continuous_integration/install_flexiblas.sh
 
 fi
 
@@ -120,7 +120,7 @@ python -m pip install -v -q -r dev-requirements.txt
 bash ./continuous_integration/build_test_ext.sh
 
 # Check which BLAS is linked (only available on linux)
-if [[ "$UNAMESTR" == "Linux" ]]; then
+if [[ "$UNAMESTR" == "Linux" && "$NO_NUMPY" != "true" ]]; then
     ldd tests/_openmp_test_helper/nested_prange_blas.cpython*.so
 fi
 

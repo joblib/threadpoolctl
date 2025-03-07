@@ -185,7 +185,7 @@ jobs:
             BLIS_NUM_THREADS: "4"
             CC_OUTER_LOOP: "clang-18"
             CC_INNER_LOOP: "clang-18"
-            BLIS_CC: "gcc-8"
+            BLIS_CC: "gcc-12"
             BLIS_ENABLE_THREADING: "pthreads"
           - name: pylatest_blis_no_threading
             os: ubuntu-latest
@@ -194,7 +194,7 @@ jobs:
             BLIS_NUM_THREADS: "1"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
-            BLIS_CC: "gcc-8"
+            BLIS_CC: "gcc-12"
             BLIS_ENABLE_THREADING: "no"
 
           # Linux env with FlexiBLAS

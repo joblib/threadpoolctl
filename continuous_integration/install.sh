@@ -6,11 +6,7 @@ set -xe
 
 UNAMESTR=`uname`
 
-echo $GITHUB_WORKFLOW
-echo $GITHUB_JOB
-echo $GITHUB_ACTION
-echo $GITHUB_RUN_ID
-echo $GITHUB_RUN_NUMBER
+echo $GITHUB_STEP_SUMMARY
 
 
 

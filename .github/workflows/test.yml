@@ -225,14 +225,13 @@ jobs:
           auto-update-conda: true
           miniforge-version: latest
 
-      - name: Install without custom BLAS
-        # if: ${{ matrix.INSTALL_BLAS == '' }}
+      - name: Install dependencies
         run: |
-          bash -el continuous_integration/install_env.sh
+          bash -el continuous_integration/install.sh
 
       - name: Test library
         run: |
-          bash -el continuous_integration/test_script.sh
+          bash -el continuous_integration/run_tests.sh
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5

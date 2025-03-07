@@ -1,27 +1,33 @@
 #!/bin/bash
 
-set -e
+# License: BSD 3-Clause
+
+set -xe
 
 UNAMESTR=`uname`
 
-if [[ "$CC_OUTER_LOOP" == "clang-10" || "$CC_INNER_LOOP" == "clang-10" ]]; then
-    # Assume Ubuntu: install a recent version of clang and libomp
+
+# Install a recent version of clang and libomp if needed
+# Only applicable on linux jobs
+if [[ "$CC_OUTER_LOOP" == "clang-18" ]] || \
+   [[ "$CC_INNER_LOOP" == "clang-18" ]] || \
+   [[ "$BLIS_CC" == "clang-18" ]]
+then
     wget https://apt.llvm.org/llvm.sh
     chmod +x llvm.sh
-    sudo ./llvm.sh 10
+    sudo ./llvm.sh 18
     sudo apt-get install libomp-dev
 fi
 
+
 make_conda() {
-    TO_INSTALL="$@"
+    CHANNEL="$1"
+    TO_INSTALL="setuptools $2"
     if [[ "$UNAMESTR" == "Darwin" ]]; then
         if [[ "$INSTALL_LIBOMP" == "conda-forge" ]]; then
             # Install an OpenMP-enabled clang/llvm from conda-forge
             # assumes conda-forge is set on priority channel
             TO_INSTALL="$TO_INSTALL compilers llvm-openmp"
-
-            export CFLAGS="$CFLAGS -I$CONDA/envs/$VIRTUALENV/include"
-            export LDFLAGS="$LDFLAGS -Wl,-rpath,$CONDA/envs/$VIRTUALENV/lib -L$CONDA/envs/$VIRTUALENV/lib"
 
         elif [[ "$INSTALL_LIBOMP" == "homebrew" ]]; then
             # Install a compiler with a working openmp
@@ -30,37 +36,50 @@ make_conda() {
             # enable OpenMP support for Apple-clang
             export CC=/usr/bin/clang
             export CPPFLAGS="$CPPFLAGS -Xpreprocessor -fopenmp"
-            export CFLAGS="$CFLAGS -I/usr/local/opt/libomp/include"
-            export LDFLAGS="$LDFLAGS -Wl,-rpath,/usr/local/opt/libomp/lib -L/usr/local/opt/libomp/lib -lomp"
+            export CFLAGS="$CFLAGS -I/opt/homebrew/opt/libomp/include"
+            export LDFLAGS="$LDFLAGS -Wl,-rpath,/opt/homebrew/opt/libomp/lib -L/opt/homebrew/opt/libomp/lib -lomp"
         fi
     fi
+
+    if [[ "$PYTHON_VERSION" == "*" ]]; then
+        # Avoid installing free-threaded python
+        TO_INSTALL="$TO_INSTALL python-gil"
+    fi
+
+    # prevent mixing conda channels
+    conda config --set channel_priority strict
+    conda config --add channels $CHANNEL
+
     conda update -n base conda conda-libmamba-solver -q --yes
     conda config --set solver libmamba
-    conda create -n $VIRTUALENV -q --yes $TO_INSTALL
-    source activate $VIRTUALENV
+    conda create -n testenv -q --yes python=$PYTHON_VERSION $TO_INSTALL
+    conda activate testenv
+
+    which clang
 }
 
+
 if [[ "$PACKAGER" == "conda" ]]; then
-    TO_INSTALL="python=$PYTHON_VERSION pip"
+    TO_INSTALL=""
     if [[ "$NO_NUMPY" != "true" ]]; then
-        TO_INSTALL="$TO_INSTALL numpy scipy blas[build=$BLAS]"
+        TO_INSTALL="$TO_INSTALL numpy scipy"
+        if [[ -n "$BLAS" ]]; then
+            TO_INSTALL="$TO_INSTALL blas=*=$BLAS"
+        fi
     fi
-	make_conda $TO_INSTALL
+	make_conda "defaults" "$TO_INSTALL"
 
 elif [[ "$PACKAGER" == "conda-forge" ]]; then
-    conda config --prepend channels conda-forge
-    conda config --set channel_priority strict
-    TO_INSTALL="python=$PYTHON_VERSION numpy scipy blas[build=$BLAS]"
+    TO_INSTALL="numpy scipy blas=*=$BLAS"
     if [[ "$BLAS" == "openblas" && "$OPENBLAS_THREADING_LAYER" == "openmp" ]]; then
         TO_INSTALL="$TO_INSTALL libopenblas=*=*openmp*"
     fi
-    make_conda $TO_INSTALL
+    make_conda "conda-forge" "$TO_INSTALL"
 
 elif [[ "$PACKAGER" == "pip" ]]; then
     # Use conda to build an empty python env and then use pip to install
     # numpy and scipy
-    TO_INSTALL="python=$PYTHON_VERSION pip"
-    make_conda $TO_INSTALL
+    make_conda "conda-forge" ""
     if [[ "$NO_NUMPY" != "true" ]]; then
         pip install numpy scipy
     fi
@@ -68,8 +87,7 @@ elif [[ "$PACKAGER" == "pip" ]]; then
 elif [[ "$PACKAGER" == "pip-dev" ]]; then
     # Use conda to build an empty python env and then use pip to install
     # numpy and scipy dev versions
-    TO_INSTALL="python=$PYTHON_VERSION pip"
-    make_conda $TO_INSTALL
+    make_conda "conda-forge" ""
 
     dev_anaconda_url=https://pypi.anaconda.org/scientific-python-nightly-wheels/simple
     pip install --pre --upgrade --timeout=60 --extra-index $dev_anaconda_url numpy scipy
@@ -80,13 +98,30 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
     sudo add-apt-repository --remove ppa:ubuntu-toolchain-r/test
     sudo apt-get update
     sudo apt-get install python3-scipy python3-virtualenv $APT_BLAS
-    python3 -m virtualenv --system-site-packages --python=python3 $VIRTUALENV
-    source $VIRTUALENV/bin/activate
+    python3 -m virtualenv --system-site-packages --python=python3 testenv
+    source testenv/bin/activate
+
+elif [[ "$INSTALL_BLAS" == "blis" ]]; then
+    TO_INSTALL="cython meson-python pkg-config"
+    make_conda "conda-forge" "$TO_INSTALL"
+    source ./continuous_integration/install_blis.sh
+
+elif [[ "$INSTALL_BLAS" == "flexiblas" ]]; then
+    TO_INSTALL="cython openblas $PLATFORM_SPECIFIC_PACKAGES meson-python pkg-config compilers"
+    make_conda "conda-forge" "$TO_INSTALL"
+    source ./continuous_integration/install_flexiblas.sh
+
 fi
 
+echo $CFLAGS
 
-python -m pip install -q -r dev-requirements.txt
+python -m pip install -v -q -r dev-requirements.txt
 bash ./continuous_integration/build_test_ext.sh
+
+# Check which BLAS is linked (only available on linux)
+if [[ "$UNAMESTR" == "Linux" && "$NO_NUMPY" != "true" ]]; then
+    ldd tests/_openmp_test_helper/nested_prange_blas.cpython*.so
+fi
 
 python --version
 python -c "import numpy; print(f'numpy {numpy.__version__}')" || echo "no numpy"

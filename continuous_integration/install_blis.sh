@@ -9,8 +9,8 @@ ABS_PATH=$(pwd)
 # build & install blis
 mkdir BLIS_install
 git clone https://github.com/flame/blis.git
-
 pushd blis
+
 ./configure --prefix=$ABS_PATH/BLIS_install --enable-cblas --enable-threading=$BLIS_ENABLE_THREADING CC=$BLIS_CC auto
 make -j4
 make install
@@ -41,4 +41,3 @@ popd
 
 # back to threadpoolctl directory
 popd
-

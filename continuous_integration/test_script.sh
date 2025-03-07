@@ -14,8 +14,10 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
     pip list
 fi
 
+echo $MKL_THREADING_LAYER
+
 # Use the CLI to display the effective runtime environment prior to
 # launching the tests:
 python -m threadpoolctl -i numpy scipy.linalg tests._openmp_test_helper.openmp_helpers_inner
 
-pytest -vlrxXs -W error -k "$TESTS" --junitxml=$JUNITXML --cov=threadpoolctl
+pytest -vlrxXs -W error -k "$TESTS" --junitxml=$JUNITXML --cov=threadpoolctl --cov-report xml

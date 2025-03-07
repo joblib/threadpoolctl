@@ -231,8 +231,8 @@ jobs:
           bash -el continuous_integration/install_env.sh
 
       - name: Test library
-       run: |
-         bash -el continuous_integration/runtest.sh
+        run: |
+          bash -el continuous_integration/test_script.sh
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5

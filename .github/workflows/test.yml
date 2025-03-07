@@ -86,7 +86,7 @@ jobs:
             os: macos-latest
             PYTHON_VERSION: "*"
             INSTALL_BLAS: "flexiblas"
-            PLATFORM_SPECIFIC_PACKAGES: "mkl llvm-openmp"
+            PLATFORM_SPECIFIC_PACKAGES: "llvm-openmp"
 
           # Linux environments to test that packages that comes with Ubuntu 20.04
           # are correctly handled.

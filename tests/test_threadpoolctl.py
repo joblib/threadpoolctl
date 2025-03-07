@@ -717,13 +717,13 @@ def test_flexiblas_switch():
     assert fb_controller.current_backend == "NETLIB"
     assert fb_controller.loaded_backends == ["OPENBLAS_CONDA", "NETLIB"]
 
-    ext = ".so" if sys.platform == "linux" else ".dylib"
-    mkl_path = f"{os.getenv('CONDA_PREFIX')}/lib/libmkl_rt{ext}"
-    fb_controller.switch_backend(mkl_path)
-    assert fb_controller.current_backend == mkl_path
-    assert fb_controller.loaded_backends == ["OPENBLAS_CONDA", "NETLIB", mkl_path]
-    # switching the backend triggered a new search for loaded shared libs
-    assert len(controller.select(internal_api="mkl").lib_controllers) == 1
+    if sys.platform == "linux":
+        mkl_path = f"{os.getenv('CONDA_PREFIX')}/lib/libmkl_rt.so"
+        fb_controller.switch_backend(mkl_path)
+        assert fb_controller.current_backend == mkl_path
+        assert fb_controller.loaded_backends == ["OPENBLAS_CONDA", "NETLIB", mkl_path]
+        # switching the backend triggered a new search for loaded shared libs
+        assert len(controller.select(internal_api="mkl").lib_controllers) == 1
 
     # switch back to default to avoid side effects
     fb_controller.switch_backend("OPENBLAS_CONDA")

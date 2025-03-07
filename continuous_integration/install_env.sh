@@ -114,6 +114,7 @@ elif [[ "$INSTALL_BLAS" == "flexiblas" ]]; then
 
 fi
 
+echo $CFLAGS
 
 python -m pip install -v -q -r dev-requirements.txt
 bash ./continuous_integration/build_test_ext.sh

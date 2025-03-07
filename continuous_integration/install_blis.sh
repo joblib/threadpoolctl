@@ -34,8 +34,8 @@ Cflags: -I\${includedir}" > blis.pc
 
 PKG_CONFIG_PATH=$ABS_PATH/numpy/ pip install . -v --no-build-isolation -Csetup-args=-Dblas=blis
 
-export CFLAGS=-I$ABS_PATH/BLIS_install/include/blis \
-    LDFLAGS="-L$ABS_PATH/BLIS_install/lib -Wl,-rpath,$ABS_PATH/BLIS_install/lib" \
+export CFLAGS=-I$ABS_PATH/BLIS_install/include/blis
+export LDFLAGS="-L$ABS_PATH/BLIS_install/lib -Wl,-rpath,$ABS_PATH/BLIS_install/lib"
 
 # popd
 

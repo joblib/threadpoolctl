@@ -88,8 +88,6 @@ jobs:
             PACKAGER: "conda"
             INSTALL_BLAS: "flexiblas"
             PLATFORM_SPECIFIC_PACKAGES: "mkl"
-            CC_OUTER_LOOP: "clang"
-            CC_INNER_LOOP: "clang"
 
           # Linux environments to test that packages that comes with Ubuntu 20.04
           # are correctly handled.

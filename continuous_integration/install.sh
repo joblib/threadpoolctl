@@ -6,6 +6,13 @@ set -xe
 
 UNAMESTR=`uname`
 
+echo $GITHUB_WORKFLOW
+echo $GITHUB_JOB
+echo $GITHUB_ACTION
+echo $GITHUB_RUN_ID
+echo $GITHUB_RUN_NUMBER
+
+
 
 # Install a recent version of clang and libomp if needed
 # Only applicable on linux jobs

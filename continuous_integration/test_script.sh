@@ -14,7 +14,7 @@ elif [[ "$PACKAGER" == "ubuntu" ]]; then
     pip list
 fi
 
-dpkg --print-architecture
+export MKL_THREADING_LAYER=INTEL
 
 
 # Use the CLI to display the effective runtime environment prior to

@@ -33,21 +33,12 @@ Libs.private: \${extralib}
 Cflags: -I\${includedir}" > blis.pc
 
 PKG_CONFIG_PATH=$ABS_PATH/numpy/ pip install . -v --no-build-isolation -Csetup-args=-Dblas=blis
-popd
 
-# back to threadpoolctl directory
-popd
-
-ython -m pip install -q -r dev-requirements.txt
-CFLAGS=-I$ABS_PATH/BLIS_install/include/blis \
+export CFLAGS=-I$ABS_PATH/BLIS_install/include/blis \
     LDFLAGS="-L$ABS_PATH/BLIS_install/lib -Wl,-rpath,$ABS_PATH/BLIS_install/lib" \
-    bash ./continuous_integration/build_test_ext.sh
 
-# Check that BLIS is linked
-ldd tests/_openmp_test_helper/nested_prange_blas.cpython*.so
+# popd
 
-python --version
-python -c "import numpy; print(f'numpy {numpy.__version__}')" || echo "no numpy"
-python -c "import scipy; print(f'scipy {scipy.__version__}')" || echo "no scipy"
+# # back to threadpoolctl directory
+# popd
 
-python -m flit install --symlink

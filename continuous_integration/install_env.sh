@@ -120,6 +120,9 @@ fi
 python -m pip install -v -q -r dev-requirements.txt
 bash ./continuous_integration/build_test_ext.sh
 
+# Check which BLAS is linked
+ldd tests/_openmp_test_helper/nested_prange_blas.cpython*.so
+
 python --version
 python -c "import numpy; print(f'numpy {numpy.__version__}')" || echo "no numpy"
 python -c "import scipy; print(f'scipy {scipy.__version__}')" || echo "no scipy"

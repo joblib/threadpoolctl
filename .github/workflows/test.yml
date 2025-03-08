@@ -267,6 +267,5 @@ jobs:
 
       - name: Check no test always skipped
         run: |
-          ls -al
-          pwd
+          ls test_results
           python continuous_integration/check_no_test_skipped.py 

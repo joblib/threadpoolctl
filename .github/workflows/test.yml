@@ -45,47 +45,47 @@ jobs:
       matrix:
         include:
 
-          # - name: pylatest_conda_forge_mkl
-          #   os: windows-latest
-          #   PYTHON_VERSION: "*"
-          #   PACKAGER: "conda-forge"
-          #   BLAS: "mkl"
-          # - name: py310_conda_forge_openblas
-          #   os: windows-latest
-          #   PYTHON_VERSION: "3.10"
-          #   PACKAGER: "conda-forge"
-          #   BLAS: "openblas"
-          # - name: py39_conda
-          #   os: windows-latest
-          #   PYTHON_VERSION: "3.9"
-          #   PACKAGER: "conda"
-          # - name: py38_pip
-          #   os: windows-latest
-          #   PYTHON_VERSION: "3.8"
-          #   PACKAGER: "pip"
+          - name: pylatest_conda_forge_mkl
+            os: windows-latest
+            PYTHON_VERSION: "*"
+            PACKAGER: "conda-forge"
+            BLAS: "mkl"
+          - name: py310_conda_forge_openblas
+            os: windows-latest
+            PYTHON_VERSION: "3.10"
+            PACKAGER: "conda-forge"
+            BLAS: "openblas"
+          - name: py39_conda
+            os: windows-latest
+            PYTHON_VERSION: "3.9"
+            PACKAGER: "conda"
+          - name: py38_pip
+            os: windows-latest
+            PYTHON_VERSION: "3.8"
+            PACKAGER: "pip"
 
-          # # MacOS env with OpenMP installed through homebrew
-          # - name: py38_conda_homebrew_libomp
-          #   os: macos-latest
-          #   PYTHON_VERSION: "3.8"
-          #   PACKAGER: "conda"
-          #   BLAS: "openblas"
-          #   CC_OUTER_LOOP: "clang"
-          #   CC_INNER_LOOP: "clang"
-          #   INSTALL_LIBOMP: "homebrew"
-          # # MacOS env with OpenBLAS and OpenMP installed through conda-forge compilers
-          # - name: pylatest_conda_forge_clang_openblas
-          #   os: macos-latest
-          #   PYTHON_VERSION: "*"
-          #   PACKAGER: "conda-forge"
-          #   BLAS: "openblas"
-          #   INSTALL_LIBOMP: "conda-forge"
-          # # MacOS env with FlexiBLAS
-          # - name: pylatest_flexiblas
-          #   os: macos-latest
-          #   PYTHON_VERSION: "*"
-          #   INSTALL_BLAS: "flexiblas"
-          #   PLATFORM_SPECIFIC_PACKAGES: "llvm-openmp"
+          # MacOS env with OpenMP installed through homebrew
+          - name: py38_conda_homebrew_libomp
+            os: macos-latest
+            PYTHON_VERSION: "3.8"
+            PACKAGER: "conda"
+            BLAS: "openblas"
+            CC_OUTER_LOOP: "clang"
+            CC_INNER_LOOP: "clang"
+            INSTALL_LIBOMP: "homebrew"
+          # MacOS env with OpenBLAS and OpenMP installed through conda-forge compilers
+          - name: pylatest_conda_forge_clang_openblas
+            os: macos-latest
+            PYTHON_VERSION: "*"
+            PACKAGER: "conda-forge"
+            BLAS: "openblas"
+            INSTALL_LIBOMP: "conda-forge"
+          # MacOS env with FlexiBLAS
+          - name: pylatest_flexiblas
+            os: macos-latest
+            PYTHON_VERSION: "*"
+            INSTALL_BLAS: "flexiblas"
+            PLATFORM_SPECIFIC_PACKAGES: "llvm-openmp"
 
           # Linux environments to test that packages that comes with Ubuntu 20.04
           # are correctly handled.
@@ -164,43 +164,43 @@ jobs:
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "clang-18"
 
-          # # Linux environments with numpy linked to BLIS
-          # - name: pylatest_blis_gcc_clang_openmp
-          #   os: ubuntu-latest
-          #   PYTHON_VERSION: "*"
-          #   INSTALL_BLAS: "blis"
-          #   BLIS_NUM_THREAEDS: "4"
-          #   CC_OUTER_LOOP: "gcc"
-          #   CC_INNER_LOOP: "gcc"
-          #   BLIS_CC: "clang-18"
-          #   BLIS_ENABLE_THREADING: "openmp"
-          # - name: pylatest_blis_clang_gcc_pthreads
-          #   os: ubuntu-latest
-          #   PYTHON_VERSION: "*"
-          #   INSTALL_BLAS: "blis"
-          #   BLIS_NUM_THREADS: "4"
-          #   CC_OUTER_LOOP: "clang-18"
-          #   CC_INNER_LOOP: "clang-18"
-          #   BLIS_CC: "gcc-12"
-          #   BLIS_ENABLE_THREADING: "pthreads"
-          # - name: pylatest_blis_no_threading
-          #   os: ubuntu-latest
-          #   PYTHON_VERSION: "*"
-          #   INSTALL_BLAS: "blis"
-          #   BLIS_NUM_THREADS: "1"
-          #   CC_OUTER_LOOP: "gcc"
-          #   CC_INNER_LOOP: "gcc"
-          #   BLIS_CC: "gcc-12"
-          #   BLIS_ENABLE_THREADING: "no"
+          # Linux environments with numpy linked to BLIS
+          - name: pylatest_blis_gcc_clang_openmp
+            os: ubuntu-latest
+            PYTHON_VERSION: "*"
+            INSTALL_BLAS: "blis"
+            BLIS_NUM_THREAEDS: "4"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+            BLIS_CC: "clang-18"
+            BLIS_ENABLE_THREADING: "openmp"
+          - name: pylatest_blis_clang_gcc_pthreads
+            os: ubuntu-latest
+            PYTHON_VERSION: "*"
+            INSTALL_BLAS: "blis"
+            BLIS_NUM_THREADS: "4"
+            CC_OUTER_LOOP: "clang-18"
+            CC_INNER_LOOP: "clang-18"
+            BLIS_CC: "gcc-12"
+            BLIS_ENABLE_THREADING: "pthreads"
+          - name: pylatest_blis_no_threading
+            os: ubuntu-latest
+            PYTHON_VERSION: "*"
+            INSTALL_BLAS: "blis"
+            BLIS_NUM_THREADS: "1"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+            BLIS_CC: "gcc-12"
+            BLIS_ENABLE_THREADING: "no"
 
-          # # Linux env with FlexiBLAS
-          # - name: pylatest_flexiblas
-          #   os: ubuntu-latest
-          #   PYTHON_VERSION: "*"
-          #   INSTALL_BLAS: "flexiblas"
-          #   PLATFORM_SPECIFIC_PACKAGES: "mkl"
-          #   CC_OUTER_LOOP: "gcc"
-          #   CC_INNER_LOOP: "gcc"
+          # Linux env with FlexiBLAS
+          - name: pylatest_flexiblas
+            os: ubuntu-latest
+            PYTHON_VERSION: "*"
+            INSTALL_BLAS: "flexiblas"
+            PLATFORM_SPECIFIC_PACKAGES: "mkl"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
 
     env: ${{ matrix }}
 

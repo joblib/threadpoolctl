@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -xe
 
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     pushd tests/_pyMylib

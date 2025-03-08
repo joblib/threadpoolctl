@@ -239,7 +239,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: ${{ env.JUNITXML }}
+          path: ${{ env.JUNITXML }}*
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
@@ -259,4 +259,5 @@ jobs:
           name: test-results
       - name: Check no test always skipped
         run: |
+          ls -al
           python continuous_integration/check_no_test_skipped.py 

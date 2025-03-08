@@ -17,7 +17,8 @@ for name in os.listdir(base_dir):
     if name.startswith("test_result_"):
         print(f"> processing test result {name}")
         print("  > tests skipped:")
-        root = ET.parse(name).getroot()
+        result_file = os.path.join(base_dir, name)
+        root = ET.parse(result_file).getroot()
 
         # All tests are identified by the xml tag testcase.
         for test in root.iter("testcase"):

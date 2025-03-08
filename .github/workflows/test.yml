@@ -202,8 +202,7 @@ jobs:
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
 
-    env: 
-      ${{ matrix }}
+    env: ${{ matrix }}
       JUNITXML: test_result_${{github.run_id}}_${{ matrix.os }}_${{ matrix.name }}.xml
 
     runs-on: ${{ matrix.os }}

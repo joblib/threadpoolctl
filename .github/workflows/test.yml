@@ -19,9 +19,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  JUNITXML: 'test-data.xml'
-
 jobs:
 
   linting:
@@ -232,13 +229,15 @@ jobs:
           bash -el continuous_integration/install.sh
 
       - name: Test library
+        env:
+          JUNITXML: test_result_${{ env.RUN_UNIQUE_ID }}_${{ matrix.name }}.xml
         run: |
           bash -el continuous_integration/run_tests.sh
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         with:
-          name: test_result_${{ matrix.name }}
+          name: test_result_${{ env.RUN_UNIQUE_ID }}_${{ matrix.name }}
           path: ${{ env.JUNITXML }}*
 
       - name: Upload to Codecov

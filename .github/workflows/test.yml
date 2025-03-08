@@ -238,7 +238,7 @@ jobs:
       - name: Upload test results
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test_result_${{ env.RUN_UNIQUE_ID }}_${{ matrix.step }}
           path: ${{ env.JUNITXML }}*
 
       - name: Upload to Codecov
@@ -256,7 +256,7 @@ jobs:
       - name: Download tests artifacts
         uses: actions/download-artifact@v4
         with:
-          name: test-results
+          name: test_result_${{ env.RUN_UNIQUE_ID }}_*
       - name: Check no test always skipped
         run: |
           ls -al

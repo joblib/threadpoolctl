@@ -6,16 +6,6 @@ set -xe
 
 UNAMESTR=`uname`
 
-echo $GITHUB_STEP_SUMMARY
-
-ls -a -l -F /Users/runner/work/_temp/_runner_file_commands/
-
-FNAME=$(basename $GITHUB_STEP_SUMMARY)
-echo $FNAME
-
-cat $GITHUB_STEP_SUMMARY
-
-
 
 # Install a recent version of clang and libomp if needed
 # Only applicable on linux jobs

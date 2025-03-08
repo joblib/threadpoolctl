@@ -230,14 +230,14 @@ jobs:
 
       - name: Test library
         env:
-          JUNITXML: test_result_${{github.run_id}}_${{ matrix.name }}.xml
+          JUNITXML: test_result_${{github.run_id}}_${{ matrix.os }}_${{ matrix.name }}.xml
         run: |
           bash -el continuous_integration/run_tests.sh
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         with:
-          name: test_result_${{github.run_id}}_${{ matrix.name }}
+          name: test_result_${{github.run_id}}_${{ matrix.os }}_${{ matrix.name }}
           path: ${{ env.JUNITXML }}*
 
       - name: Upload to Codecov

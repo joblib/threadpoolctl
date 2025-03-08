@@ -238,7 +238,7 @@ jobs:
       - name: Upload test results
         uses: actions/upload-artifact@v4
         with:
-          name: test_result_${{ env.RUN_UNIQUE_ID }}_${{ matrix.step }}
+          name: test_result_${{ matrix.name }}
           path: ${{ env.JUNITXML }}*
 
       - name: Upload to Codecov

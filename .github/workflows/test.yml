@@ -238,7 +238,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test_result_${{github.run_id}}_${{ matrix.os }}_${{ matrix.name }}
-          path: ${{ env.JUNITXML }}
+          path: test_result_*
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5

@@ -202,7 +202,9 @@ jobs:
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
 
-    env: ${{ matrix }}
+    env: 
+      ${{ matrix }}
+      JUNITXML: test_result_${{github.run_id}}_${{ matrix.os }}_${{ matrix.name }}.xml
 
     runs-on: ${{ matrix.os }}
 
@@ -229,8 +231,6 @@ jobs:
           bash -el continuous_integration/install.sh
 
       - name: Test library
-        env:
-          JUNITXML: test_result_${{github.run_id}}_${{ matrix.os }}_${{ matrix.name }}.xml
         run: |
           bash -el continuous_integration/run_tests.sh
 
@@ -238,7 +238,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test_result_${{github.run_id}}_${{ matrix.os }}_${{ matrix.name }}
-          path: ${{ env.JUNITXML }}*
+          path: ${{ env.JUNITXML }}
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5

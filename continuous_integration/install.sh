@@ -10,7 +10,7 @@ echo $GITHUB_STEP_SUMMARY
 
 ls -al /Users/runner/work/_temp/_runner_file_commands/
 
-FNAME = $(basename $GITHUB_STEP_SUMMARY)
+FNAME=$(basename $GITHUB_STEP_SUMMARY)
 echo $FNAME
 
 

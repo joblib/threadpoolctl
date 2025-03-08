@@ -255,7 +255,7 @@ jobs:
       - name: Download tests artifacts
         uses: actions/download-artifact@v4
         with:
-          name: test_result_${{github.run_id}}_*
+          path: test_result_*
       - name: Check no test always skipped
         run: |
           ls -al

@@ -252,11 +252,16 @@ jobs:
     needs: testing
     runs-on: ubuntu-latest
     steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
       - name: Download tests artifacts
         uses: actions/download-artifact@v4
         with:
-          path: test_result_*
+          name: test_results
       - name: Check no test always skipped
         run: |
           ls -al
+          pwd
           python continuous_integration/check_no_test_skipped.py 

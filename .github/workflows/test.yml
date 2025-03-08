@@ -229,8 +229,6 @@ jobs:
           bash -el continuous_integration/install.sh
 
       - name: Test library
-        env:
-          JUNITXML: test_result_${{github.run_id}}_${{ matrix.os }}_${{ matrix.name }}.xml
         run: |
           bash -el continuous_integration/run_tests.sh
 
@@ -239,7 +237,7 @@ jobs:
         with:
           # Requires a unique name for each job in the matrix of this run
           name: test_result_${{github.run_id}}_${{ matrix.os }}_${{ matrix.name }}
-          path: test_result_*
+          path: test_result.xml
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5

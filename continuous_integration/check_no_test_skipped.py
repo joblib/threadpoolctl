@@ -13,11 +13,11 @@ base_dir = sys.argv[1]
 always_skipped = {}
 
 for name in os.listdir(base_dir):
-    # all test result files are in base_dir/
+    # all test result files are in base_dir/test_result_*/ dirs
     if name.startswith("test_result_"):
-        print(f"> processing test result {name}")
+        print(f"> processing test result from job {name.replace('test_result_', '')}")
         print("  > tests skipped:")
-        result_file = os.path.join(base_dir, name)
+        result_file = os.path.join(base_dir, name, "test_result.xml")
         root = ET.parse(result_file).getroot()
 
         # All tests are identified by the xml tag testcase.

@@ -237,6 +237,7 @@ jobs:
       - name: Upload test results
         uses: actions/upload-artifact@v4
         with:
+          # Requires a unique name for each job in the matrix of this run
           name: test_result_${{github.run_id}}_${{ matrix.os }}_${{ matrix.name }}
           path: test_result_*
 
@@ -267,5 +268,4 @@ jobs:
 
       - name: Check no test always skipped
         run: |
-          ls test_results
-          python continuous_integration/check_no_test_skipped.py 
+          python continuous_integration/check_no_test_skipped.py test_results

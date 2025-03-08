@@ -203,7 +203,6 @@ jobs:
             CC_INNER_LOOP: "gcc"
 
     env: ${{ matrix }}
-      JUNITXML: test_result_${{github.run_id}}_${{ matrix.os }}_${{ matrix.name }}.xml
 
     runs-on: ${{ matrix.os }}
 
@@ -230,6 +229,8 @@ jobs:
           bash -el continuous_integration/install.sh
 
       - name: Test library
+        env:
+          JUNITXML: test_result_${{github.run_id}}_${{ matrix.os }}_${{ matrix.name }}.xml
         run: |
           bash -el continuous_integration/run_tests.sh
 

@@ -45,20 +45,24 @@ jobs:
       matrix:
         include:
 
+          # Windows env with numpy, scipy,MKL installed through conda-forge
           - name: pylatest_conda_forge_mkl
             os: windows-latest
             PYTHON_VERSION: "*"
             PACKAGER: "conda-forge"
             BLAS: "mkl"
+          # Windows env with numpy, scipy, OpenBLAS installed through conda-forge
           - name: py310_conda_forge_openblas
             os: windows-latest
             PYTHON_VERSION: "3.10"
             PACKAGER: "conda-forge"
             BLAS: "openblas"
+          # Windows env with numpy, scipy installed through conda
           - name: py39_conda
             os: windows-latest
             PYTHON_VERSION: "3.9"
             PACKAGER: "conda"
+          # Windows env with numpy, scipy installed through pip
           - name: py38_pip
             os: windows-latest
             PYTHON_VERSION: "3.8"

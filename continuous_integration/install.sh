@@ -8,7 +8,7 @@ UNAMESTR=`uname`
 
 
 # Install a recent version of clang and libomp if needed
-# Only applicable on linux jobs
+# Only applicable to linux jobs
 if [[ "$CC_OUTER_LOOP" == "clang-18" ]] || \
    [[ "$CC_INNER_LOOP" == "clang-18" ]] || \
    [[ "$BLIS_CC" == "clang-18" ]]
@@ -22,7 +22,7 @@ fi
 
 make_conda() {
     CHANNEL="$1"
-    TO_INSTALL="setuptools $2"
+    TO_INSTALL="$2"
     if [[ "$UNAMESTR" == "Darwin" ]]; then
         if [[ "$INSTALL_LIBOMP" == "conda-forge" ]]; then
             # Install an OpenMP-enabled clang/llvm from conda-forge
@@ -52,10 +52,9 @@ make_conda() {
 
     conda update -n base conda conda-libmamba-solver -q --yes
     conda config --set solver libmamba
+
     conda create -n testenv -q --yes python=$PYTHON_VERSION $TO_INSTALL
     conda activate testenv
-
-    which clang
 }
 
 
@@ -112,8 +111,6 @@ elif [[ "$INSTALL_BLAS" == "flexiblas" ]]; then
     source ./continuous_integration/install_flexiblas.sh
 
 fi
-
-echo $CFLAGS
 
 python -m pip install -v -q -r dev-requirements.txt
 bash ./continuous_integration/build_test_ext.sh

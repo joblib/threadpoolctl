@@ -658,7 +658,7 @@ def test_openblas_threading_layer():
 # skip test if not run in a azure pipelines job since it relies on a specific flexiblas
 # installation.
 @pytest.mark.skipif(
-    "TF_BUILD" not in os.environ, reason="not running in azure pipelines"
+    "GITHUB_ACTIONS" not in os.environ, reason="not running in azure pipelines"
 )
 def test_flexiblas():
     # Check that threadpool_info correctly recovers the FlexiBLAS backends.
@@ -696,7 +696,7 @@ def test_flexiblas_switch_error():
 # skip test if not run in a azure pipelines job since it relies on a specific flexiblas
 # installation.
 @pytest.mark.skipif(
-    "TF_BUILD" not in os.environ, reason="not running in azure pipelines"
+    "GITHUB_ACTIONS" not in os.environ, reason="not running in azure pipelines"
 )
 def test_flexiblas_switch():
     # Check that the backend can be switched.

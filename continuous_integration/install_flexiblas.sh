@@ -1,19 +1,10 @@
 #!/bin/bash
 
-set -e
+set -xe
 
+# step outside of threadpoolctl directory
 pushd ..
 ABS_PATH=$(pwd)
-popd
-
-# create conda env
-conda update -n base conda conda-libmamba-solver -q --yes
-conda config --set solver libmamba
-conda create -n $VIRTUALENV -q --yes -c conda-forge python=$PYTHON_VERSION \
-    pip cython openblas $PLATFORM_SPECIFIC_PACKAGES meson-python pkg-config compilers
-source activate $VIRTUALENV
-
-pushd ..
 
 # build & install FlexiBLAS
 mkdir flexiblas_install
@@ -66,22 +57,11 @@ Libs.private: \${extralib}
 Cflags: -I\${includedir}" > flexiblas.pc
 
 PKG_CONFIG_PATH=$ABS_PATH/numpy/ pip install . -v --no-build-isolation -Csetup-args=-Dblas=flexiblas -Csetup-args=-Dlapack=flexiblas
-popd
+
+export CFLAGS=-I$ABS_PATH/flexiblas_install/include/flexiblas \
+export LDFLAGS="-L$ABS_PATH/flexiblas_install/lib -Wl,-rpath,$ABS_PATH/flexiblas_install/lib" \
 
 popd
 
-python -m pip install -q -r dev-requirements.txt
-CFLAGS=-I$ABS_PATH/flexiblas_install/include/flexiblas \
-    LDFLAGS="-L$ABS_PATH/flexiblas_install/lib -Wl,-rpath,$ABS_PATH/flexiblas_install/lib" \
-    bash ./continuous_integration/build_test_ext.sh
-
-# Check that FlexiBLAS is linked
-if [[ $(uname) != "Darwin" ]]; then
-    ldd tests/_openmp_test_helper/nested_prange_blas.cpython*.so
-fi
-
-python --version
-python -c "import numpy; print(f'numpy {numpy.__version__}')" || echo "no numpy"
-python -c "import scipy; print(f'scipy {scipy.__version__}')" || echo "no scipy"
-
-python -m flit install --symlink
+# back to threadpoolctl directory
+popd

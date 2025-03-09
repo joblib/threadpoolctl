@@ -9,6 +9,15 @@ on:
   pull_request:
     branches:
       - master
+  schedule:
+    # Daily build at 1:00 AM UTC
+    - cron: "0 1 * * *"
+
+# Cancel in-progress workflows when pushing
+# a new commit on the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
 
@@ -27,3 +36,239 @@ jobs:
       - name: Run black
         run: |
           black --check --diff .
+
+  testing:
+    needs: linting
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+
+          # Windows env with numpy, scipy,MKL installed through conda-forge
+          - name: pylatest_conda_forge_mkl
+            os: windows-latest
+            PYTHON_VERSION: "*"
+            PACKAGER: "conda-forge"
+            BLAS: "mkl"
+          # Windows env with numpy, scipy, OpenBLAS installed through conda-forge
+          - name: py310_conda_forge_openblas
+            os: windows-latest
+            PYTHON_VERSION: "3.10"
+            PACKAGER: "conda-forge"
+            BLAS: "openblas"
+          # Windows env with numpy, scipy installed through conda
+          - name: py39_conda
+            os: windows-latest
+            PYTHON_VERSION: "3.9"
+            PACKAGER: "conda"
+          # Windows env with numpy, scipy installed through pip
+          - name: py38_pip
+            os: windows-latest
+            PYTHON_VERSION: "3.8"
+            PACKAGER: "pip"
+
+          # MacOS env with OpenMP installed through homebrew
+          - name: py38_conda_homebrew_libomp
+            os: macos-latest
+            PYTHON_VERSION: "3.8"
+            PACKAGER: "conda"
+            BLAS: "openblas"
+            CC_OUTER_LOOP: "clang"
+            CC_INNER_LOOP: "clang"
+            INSTALL_LIBOMP: "homebrew"
+          # MacOS env with OpenBLAS and OpenMP installed through conda-forge compilers
+          - name: pylatest_conda_forge_clang_openblas
+            os: macos-latest
+            PYTHON_VERSION: "*"
+            PACKAGER: "conda-forge"
+            BLAS: "openblas"
+            INSTALL_LIBOMP: "conda-forge"
+          # MacOS env with FlexiBLAS
+          - name: pylatest_flexiblas
+            os: macos-latest
+            PYTHON_VERSION: "*"
+            INSTALL_BLAS: "flexiblas"
+            PLATFORM_SPECIFIC_PACKAGES: "llvm-openmp"
+
+          # Linux environments to test that packages that comes with Ubuntu 20.04
+          # are correctly handled.
+          - name: py38_ubuntu_atlas_gcc_gcc
+            os: ubuntu-20.04
+            PYTHON_VERSION: "3.8"
+            PACKAGER: "ubuntu"
+            APT_BLAS: "libatlas3-base libatlas-base-dev"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+          - name: py38_ubuntu_openblas_gcc_gcc
+            os: ubuntu-20.04
+            PYTHON_VERSION: "3.8"
+            PACKAGER: "ubuntu"
+            APT_BLAS: "libopenblas-base libopenblas-dev"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+
+          # Linux environment with development versions of numpy and scipy
+          - name: pylatest_pip_dev
+            os : ubuntu-latest
+            PACKAGER: "pip-dev"
+            PYTHON_VERSION: "*"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+          # Linux + Python 3.9 and homogeneous runtime nesting.
+          - name: py39_conda_openblas_clang_clang
+            os: ubuntu-latest
+            PACKAGER: "conda"
+            PYTHON_VERSION: "3.9"
+            BLAS: "openblas"
+            CC_OUTER_LOOP: "clang-18"
+            CC_INNER_LOOP: "clang-18"
+          # Linux environment with MKL and Clang (known to be unsafe for
+          # threadpoolctl) to only test the warning from multiple OpenMP.
+          - name: pylatest_conda_mkl_clang_gcc
+            os: ubuntu-latest
+            PYTHON_VERSION: "*"
+            PACKAGER: "conda"
+            BLAS: "mkl"
+            CC_OUTER_LOOP: "clang-18"
+            CC_INNER_LOOP: "gcc"
+            TESTS: "libomp_libiomp_warning"
+          # Linux environment with MKL, safe for threadpoolctl.
+          - name: pylatest_conda_mkl_gcc_gcc
+            os: ubuntu-latest
+            PYTHON_VERSION: "*"
+            PACKAGER: "conda"
+            BLAS: "mkl"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+            MKL_THREADING_LAYER: "INTEL"
+          # Linux + Python 3.8 with numpy / scipy installed with pip from PyPI
+          # and heterogeneous OpenMP runtimes.
+          - name: py38_pip_openblas_gcc_clang
+            os: ubuntu-latest
+            PACKAGER: "pip"
+            PYTHON_VERSION: "3.8"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "clang-18"
+          # Linux environment with numpy from conda-forge channel and openblas-openmp
+          - name: pylatest_conda_forge
+            os: ubuntu-latest
+            PACKAGER: "conda-forge"
+            PYTHON_VERSION: "*"
+            BLAS: "openblas"
+            OPENBLAS_THREADING_LAYER: "openmp"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+          # Linux environment with no numpy and heterogeneous OpenMP runtimes.
+          - name: pylatest_conda_nonumpy_gcc_clang
+            os: ubuntu-latest
+            PACKAGER: "conda"
+            PYTHON_VERSION: "*"
+            NO_NUMPY: "true"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "clang-18"
+
+          # Linux environments with numpy linked to BLIS
+          - name: pylatest_blis_gcc_clang_openmp
+            os: ubuntu-latest
+            PYTHON_VERSION: "*"
+            INSTALL_BLAS: "blis"
+            BLIS_NUM_THREAEDS: "4"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+            BLIS_CC: "clang-18"
+            BLIS_ENABLE_THREADING: "openmp"
+          - name: pylatest_blis_clang_gcc_pthreads
+            os: ubuntu-latest
+            PYTHON_VERSION: "*"
+            INSTALL_BLAS: "blis"
+            BLIS_NUM_THREADS: "4"
+            CC_OUTER_LOOP: "clang-18"
+            CC_INNER_LOOP: "clang-18"
+            BLIS_CC: "gcc-12"
+            BLIS_ENABLE_THREADING: "pthreads"
+          - name: pylatest_blis_no_threading
+            os: ubuntu-latest
+            PYTHON_VERSION: "*"
+            INSTALL_BLAS: "blis"
+            BLIS_NUM_THREADS: "1"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+            BLIS_CC: "gcc-12"
+            BLIS_ENABLE_THREADING: "no"
+
+          # Linux env with FlexiBLAS
+          - name: pylatest_flexiblas
+            os: ubuntu-latest
+            PYTHON_VERSION: "*"
+            INSTALL_BLAS: "flexiblas"
+            PLATFORM_SPECIFIC_PACKAGES: "mkl"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+
+    env: ${{ matrix }}
+
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        # Need to use this shell to get conda working properly.
+        # See https://github.com/marketplace/actions/setup-miniconda#important
+        shell: ${{ matrix.os == 'windows-latest' && 'cmd /C CALL {0}' || 'bash -el {0}' }}
+
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-activate-base: true
+          auto-update-conda: true
+          miniforge-version: latest
+
+      - name: Install dependencies
+        run: |
+          bash -el continuous_integration/install.sh
+
+      - name: Test library
+        run: |
+          bash -el continuous_integration/run_tests.sh
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          # Requires a unique name for each job in the matrix of this run
+          name: test_result_${{github.run_id}}_${{ matrix.os }}_${{ matrix.name }}
+          path: test_result.xml
+          retention-days: 1
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+
+  # Meta-test to ensure that at least one of the above CI configurations had
+  # the necessary platform settings to execute each test without raising
+  # skipping.
+  meta_test:
+    needs: testing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Download tests results
+        uses: actions/download-artifact@v4
+        with:
+          path: test_results
+
+      - name: Check no test always skipped
+        run: |
+          python continuous_integration/check_no_test_skipped.py test_results

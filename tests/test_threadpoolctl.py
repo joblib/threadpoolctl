@@ -624,6 +624,7 @@ def test_architecture():
         # XXX: add more as needed by CI or developer laptops
         "skx",
         "haswell",
+        "zen3",
     )
     for lib_info in threadpool_info():
         if lib_info["internal_api"] == "openblas":
@@ -657,7 +658,7 @@ def test_openblas_threading_layer():
 # skip test if not run in a azure pipelines job since it relies on a specific flexiblas
 # installation.
 @pytest.mark.skipif(
-    "TF_BUILD" not in os.environ, reason="not running in azure pipelines"
+    "GITHUB_ACTIONS" not in os.environ, reason="not running in azure pipelines"
 )
 def test_flexiblas():
     # Check that threadpool_info correctly recovers the FlexiBLAS backends.
@@ -695,7 +696,7 @@ def test_flexiblas_switch_error():
 # skip test if not run in a azure pipelines job since it relies on a specific flexiblas
 # installation.
 @pytest.mark.skipif(
-    "TF_BUILD" not in os.environ, reason="not running in azure pipelines"
+    "GITHUB_ACTIONS" not in os.environ, reason="not running in azure pipelines"
 )
 def test_flexiblas_switch():
     # Check that the backend can be switched.
@@ -717,13 +718,13 @@ def test_flexiblas_switch():
     assert fb_controller.current_backend == "NETLIB"
     assert fb_controller.loaded_backends == ["OPENBLAS_CONDA", "NETLIB"]
 
-    ext = ".so" if sys.platform == "linux" else ".dylib"
-    mkl_path = f"{os.getenv('CONDA_PREFIX')}/lib/libmkl_rt{ext}"
-    fb_controller.switch_backend(mkl_path)
-    assert fb_controller.current_backend == mkl_path
-    assert fb_controller.loaded_backends == ["OPENBLAS_CONDA", "NETLIB", mkl_path]
-    # switching the backend triggered a new search for loaded shared libs
-    assert len(controller.select(internal_api="mkl").lib_controllers) == 1
+    if sys.platform == "linux":
+        mkl_path = f"{os.getenv('CONDA_PREFIX')}/lib/libmkl_rt.so"
+        fb_controller.switch_backend(mkl_path)
+        assert fb_controller.current_backend == mkl_path
+        assert fb_controller.loaded_backends == ["OPENBLAS_CONDA", "NETLIB", mkl_path]
+        # switching the backend triggered a new search for loaded shared libs
+        assert len(controller.select(internal_api="mkl").lib_controllers) == 1
 
     # switch back to default to avoid side effects
     fb_controller.switch_backend("OPENBLAS_CONDA")

@@ -238,6 +238,7 @@ jobs:
           # Requires a unique name for each job in the matrix of this run
           name: test_result_${{github.run_id}}_${{ matrix.os }}_${{ matrix.name }}
           path: test_result.xml
+          retention-days: 1
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
@@ -247,7 +248,7 @@ jobs:
   # Meta-test to ensure that at least one of the above CI configurations had
   # the necessary platform settings to execute each test without raising
   # skipping.
-  post_testing:
+  meta_test:
     needs: testing
     runs-on: ubuntu-latest
     steps:
@@ -259,7 +260,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Download tests artifacts
+      - name: Download tests results
         uses: actions/download-artifact@v4
         with:
           path: test_results

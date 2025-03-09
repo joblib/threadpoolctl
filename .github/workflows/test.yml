@@ -91,17 +91,17 @@ jobs:
             INSTALL_BLAS: "flexiblas"
             PLATFORM_SPECIFIC_PACKAGES: "llvm-openmp"
 
-          # Linux environments to test that packages that comes with Ubuntu 20.04
+          # Linux environments to test that packages that comes with Ubuntu 22.04
           # are correctly handled.
           - name: py39_ubuntu_atlas_gcc_gcc
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             PYTHON_VERSION: "3.9"
             PACKAGER: "ubuntu"
             APT_BLAS: "libatlas3-base libatlas-base-dev"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
           - name: py39_ubuntu_openblas_gcc_gcc
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             PYTHON_VERSION: "3.9"
             PACKAGER: "ubuntu"
             APT_BLAS: "libopenblas-base libopenblas-dev"

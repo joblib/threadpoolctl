@@ -1,6 +1,10 @@
 3.6.0 (TBD)
 ===========
 
+- Added support for libraries with a path longer than 260 on Windows. The supported path
+  length is now 10 times higher but not unlimited for security reasons.
+  https://github.com/joblib/threadpoolctl/pull/189
+
 - Dropped official support for Python 3.8.
   https://github.com/joblib/threadpoolctl/pull/186
 

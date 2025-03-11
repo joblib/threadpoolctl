@@ -1086,7 +1086,10 @@ class ThreadpoolController:
             h_modules = map(HMODULE, buf[:count])
 
             # Loop through all the module headers and get the library path
-            buf = ctypes.create_unicode_buffer(MAX_PATH)
+            # Allocate a buffer for the path 10 times the size of MAX_PATH to take
+            # into account long path names.
+            max_path = 10 * MAX_PATH
+            buf = ctypes.create_unicode_buffer(max_path)
             n_size = DWORD()
             for h_module in h_modules:
                 # Get the path of the current module
@@ -1096,8 +1099,17 @@ class ThreadpoolController:
                     raise OSError("GetModuleFileNameEx failed")
                 filepath = buf.value
 
-                # Store the library controller if it is supported and selected
-                self._make_controller_from_path(filepath)
+                if len(filepath) == max_path:  # pragma: no cover
+                    warnings.warn(
+                        "Could not get the full path of a dynamic library (path too "
+                        "long). This library will be ignored and threadpoolctl might "
+                        "not be able to control or display information about all loaded"
+                        f" libraries. Here's the truncated path: {filepath!r}",
+                        RuntimeWarning,
+                    )
+                else:
+                    # Store the library controller if it is supported and selected
+                    self._make_controller_from_path(filepath)
         finally:
             kernel_32.CloseHandle(h_process)
 

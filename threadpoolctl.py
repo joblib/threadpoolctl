@@ -1103,8 +1103,8 @@ class ThreadpoolController:
                     warnings.warn(
                         "Could not get the full path of a dynamic library (path too "
                         "long). This library will be ignored and threadpoolctl might "
-                        "not be able to control or display information about all loaded"
-                        f" libraries. Here's the truncated path: {filepath!r}",
+                        "not be able to control or display information about all "
+                        f"loaded libraries. Here's the truncated path: {filepath!r}",
                         RuntimeWarning,
                     )
                 else:

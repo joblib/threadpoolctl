@@ -7,6 +7,7 @@
 
 - Dropped official support for Python 3.8.
   https://github.com/joblib/threadpoolctl/pull/186
+  https://github.com/joblib/threadpoolctl/pull/191
 
 3.5.0 (2024-04-29)
 ==================

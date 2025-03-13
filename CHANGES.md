@@ -1,5 +1,5 @@
-3.6.0 (TBD)
-===========
+3.6.0 (2025-03-13)
+==================
 
 - Added support for libraries with a path longer than 260 on Windows. The supported path
   length is now 10 times higher but not unlimited for security reasons.

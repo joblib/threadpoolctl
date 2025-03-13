@@ -332,39 +332,47 @@ https://github.com/xianyi/OpenBLAS/issues/2985).
 
 To make a release:
 
-- Bump the version number (`__version__`) in `threadpoolctl.py` and update the
-  release date in `CHANGES.md`.
+- Create a PR to bump the version number (`__version__`) in `threadpoolctl.py` and
+  update the release date in `CHANGES.md`.
+
+- Merge the PR and check that the `Publish threadpoolctl distribution to TestPyPI` job
+  of the `publish-to-pypi.yml` workflow successfully uploaded the wheel and source
+  distribution to Test PyPI.
+
+- If everything is fine create a tag for the release and push it to github:
+
+  ```bash
+  git tag -a X.Y.Z
+  git push git@github.com:joblib/threadpoolctl.git X.Y.Z
+  ```
+
+- Check that the `Publish threadpoolctl distribution to PyPI` job of the
+  `publish-to-pypi.yml` workflow successfully uploaded the wheel and source distribution
+  to PyPI this time.
+
+- Create a PR for the release on the [conda-forge feedstock](https://github.com/conda-forge/threadpoolctl-feedstock) (or wait for the bot to make it).
+
+- Publish the release on github.
+
+If for some reason the steps above can't be achieved and a munual upload of the wheel
+and source distribution is needed:
 
 - Build the distribution archives:
 
-```bash
-pip install flit
-flit build
-```
-
-and check the contents of `dist/`.
-
-- If everything is fine, make a commit for the release, tag it and push the
-tag to github:
-
-```bash
-git tag -a X.Y.Z
-git push git@github.com:joblib/threadpoolctl.git X.Y.Z
-```
+  ```bash
+  pip install flit
+  flit build
+  ```
 
 - Upload the wheels and source distribution to PyPI using flit. Since PyPI doesn't
   allow password authentication anymore, the username needs to be changed to the
   generic name `__token__`:
 
-```bash
-FLIT_USERNAME=__token__ flit publish
-```
+  ```bash
+  FLIT_USERNAME=__token__ flit publish
+  ```
 
   and a PyPI token has to be passed in place of the password.
-
-- Create a PR for the release on the [conda-forge feedstock](https://github.com/conda-forge/threadpoolctl-feedstock) (or wait for the bot to make it).
-
-- Publish the release on github.
 
 ### Credits
 

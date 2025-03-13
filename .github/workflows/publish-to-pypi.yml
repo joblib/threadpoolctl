@@ -35,8 +35,7 @@ jobs:
   publish-to-pypi:
     name: >-
       Publish threadpoolctl 🎮 distribution 📦 to PyPI
-    # temp: always publish to PyPI because the tag is already pushed
-    # if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+    if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
     needs:
     - build
     runs-on: ubuntu-latest

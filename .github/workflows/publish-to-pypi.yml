@@ -2,9 +2,7 @@ name: Publish threadpoolctl 🎮 distribution 📦 to PyPI and TestPyPI
 # Taken from:
 # https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
 
-on:
-  push:
-    branches: master
+on: push
 
 jobs:
   build:

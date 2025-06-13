@@ -10,7 +10,9 @@ from typing_extensions import Never, Self, TypeAlias, TypedDict, TypeVar, overri
 
 _CDataT = TypeVar("_CDataT", bound=ctypes._CData)  # pyright: ignore[reportPrivateUsage]
 _PythonT = TypeVar("_PythonT")  # pyright: ignore[reportPrivateUsage]
-_CField: TypeAlias = ctypes._CField[_CDataT, _PythonT, _CDataT | _PythonT]  # pyright: ignore[reportPrivateUsage]
+_CField: TypeAlias = ctypes._CField[  # pyright: ignore[reportPrivateUsage]
+    _CDataT, _PythonT, _CDataT | _PythonT
+]
 
 _ThreadingLayerOpenBLAS: TypeAlias = _ThreadingLayerBLIS | Literal["unknown"]
 _ThreadingLayerBLIS: TypeAlias = Literal["openmp", "pthreads", "disabled"]
@@ -283,7 +285,9 @@ class ThreadpoolController:
 
     if sys.platform == "win32":
         @classmethod
-        def _get_windll(cls, dll_name: str) -> ctypes.WinDLL: ...  # pyright: ignore[reportRedeclaration]
+        def _get_windll(  # pyright: ignore[reportRedeclaration]
+            cls, dll_name: str
+        ) -> ctypes.WinDLL: ...
 
     else:
         @classmethod

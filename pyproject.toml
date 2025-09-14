@@ -22,9 +22,26 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 
 [tool.black]
 line-length = 88
 target_version = ['py39', 'py310', 'py311', 'py312', 'py313']
 preview = true
+
+[tool.mypy]
+exclude = ["benchmarks", "continuous_integration", "tests"]
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+strict = true
+warn_unreachable = true
+local_partial_types = true
+allow_redefinition_new = true
+
+[tool.pyright]
+exclude = ["benchmarks", "continuous_integration", "tests"]
+ignore = [".venv"]
+stubPath = "."
+typeCheckingMode = "strict"
+reportPrivateUsage = false
+reportConstantRedefinition = false

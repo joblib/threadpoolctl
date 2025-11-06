@@ -1132,10 +1132,10 @@ class ThreadpoolController:
             )
             return
         
-        if hasattr(LDSO.loadedLibsByName, 'as_py_json'): # Pyodide >= 0.29
+        if hasattr(LDSO.loadedLibsByName, 'as_py_json'):  # Pyodide >= 0.29
             libs_iter = LDSO.loadedLibsByName.as_py_json()
         else:
-            libs_iter = LDSO.loadedLibsByName.as_object_map() # Pyodide < 0.29
+            libs_iter = LDSO.loadedLibsByName.as_object_map()  # Pyodide < 0.29
 
 
         for filepath in libs_iter:

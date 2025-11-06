@@ -1132,7 +1132,7 @@ class ThreadpoolController:
             )
             return
 
-        for filepath in LDSO.loadedLibsByName.as_object_map():
+        for filepath in LDSO.loadedLibsByName.as_py_json():
             # Some libraries are duplicated by Pyodide and do not exist in the
             # filesystem, so we first check for the existence of the file. For
             # more details, see

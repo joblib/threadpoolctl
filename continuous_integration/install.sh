@@ -112,6 +112,18 @@ elif [[ "$INSTALL_BLAS" == "flexiblas" ]]; then
 
 fi
 
+if [[ "$PACKAGER" == conda* ]] || [[ -z "$PACKAGER" ]]; then
+    conda activate testenv
+    conda list
+elif [[ "$PACKAGER" == pip* ]]; then
+    # we actually use conda to install the base environment:
+    conda activate testenv
+    pip list
+elif [[ "$PACKAGER" == "ubuntu" ]]; then
+    source testenv/bin/activate
+    pip list
+fi
+
 python -m pip install -v -q -r dev-requirements.txt
 bash ./continuous_integration/build_test_ext.sh
 

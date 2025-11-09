@@ -74,6 +74,7 @@ elif [[ "$PACKAGER" == "conda-forge" ]]; then
         TO_INSTALL="$TO_INSTALL libopenblas=*=*openmp*"
     fi
     make_conda "conda-forge" "$TO_INSTALL"
+    conda list -n testenv
 
 elif [[ "$PACKAGER" == "pip" ]]; then
     # Use conda to build an empty python env and then use pip to install

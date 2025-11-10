@@ -13,6 +13,7 @@ pushd flexiblas
 
 # Temporary ping Flexiblas commit to avoid openmp symbols not found at link time
 git checkout v3.5.0
+head contributed/lapack-3.12.0/CMakeLists.txt
 
 mkdir build
 pushd build

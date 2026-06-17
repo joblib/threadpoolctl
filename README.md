@@ -8,13 +8,16 @@ Fine control of the underlying thread-pool size can be useful in
 workloads that involve nested parallelism so as to mitigate
 oversubscription issues.
 
-> **Important:** In its current state, `threadpoolctl` is only designed for situations where BLAS/OpenMP are called from the main thread.
-> Once you start calling code from a Python thread pool, behavior will be very inconsistent.
+> **Important:** In its current state, `threadpoolctl` is only designed for
+> situations where BLAS/OpenMP are called from the main thread. Once you start
+> calling BLAS or OpenMP from a Python thread pool, the impact of the
+> `threadpoolctl` limiting APIs will be very inconsistent.
 >
 > Examples where it will work fine:
 >
-> * When you're using it to configure a worker in a process pool (as long as the workers don't starts their own Python thread pool.)
-> * A Jupyter notebook, again so long as you don't call BLAS/OpenMP from a Python thread pool.
+> * When you're using it to configure a worker in a process pool (as long as the
+>   workers don't starts their own Python thread pool.) * A Jupyter notebook,
+>   again so long as you don't call BLAS/OpenMP from a Python thread pool.
 >
 > For more details and a plan to fix this, see https://github.com/joblib/threadpoolctl/issues/208
 

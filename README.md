@@ -322,10 +322,12 @@ https://github.com/xianyi/OpenBLAS/issues/2985).
   and workarounds:
   https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
 
-- Setting the maximum number of threads of the OpenMP and BLAS libraries has a global
-  effect and impacts the whole Python process. There is no thread level isolation as
-  these libraries do not offer thread-local APIs to configure the number of threads to
-  use in nested parallel calls.
+- Setting the maximum number of threads of BLAS libraries such as OpenBLAS with
+  the pthreads threading layer and MKL has a global effect and impacts the whole
+  Python process. By contrast, for OpenMP runtimes such as libgomp and libomp,
+  `omp_set_num_threads` applies to the calling thread. Therefore, when
+  `threadpool_limits` limits OpenMP libraries, the limit is applied on the
+  current thread and does not propagate to threads spawned afterward.
 
 
 ## Maintainers

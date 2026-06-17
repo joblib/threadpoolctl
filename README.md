@@ -8,6 +8,16 @@ Fine control of the underlying thread-pool size can be useful in
 workloads that involve nested parallelism so as to mitigate
 oversubscription issues.
 
+> **Important:** In its current state, `threadpoolctl` is only designed for situations where BLAS/OpenMP are called from the main thread.
+> Once you start calling code from a Python thread pool, behavior will be very inconsistent.
+>
+> Examples where it will work fine:
+>
+> * When you're using it to configure a worker in a process pool (as long as the workers don't starts their own Python thread pool.)
+> * A Jupyter notebook, again so long as you don't call BLAS/OpenMP from a Python thread pool.
+>
+> For more details and a plan to fix this, see https://github.com/joblib/threadpoolctl/issues/208
+
 ## Installation
 
 - For users, install the last published version from PyPI:
@@ -322,11 +332,16 @@ https://github.com/xianyi/OpenBLAS/issues/2985).
   and workarounds:
   https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
 
-- Setting the maximum number of threads of the OpenMP and BLAS libraries has a global
-  effect and impacts the whole Python process. There is no thread level isolation as
-  these libraries do not offer thread-local APIs to configure the number of threads to
-  use in nested parallel calls.
+- Setting the maximum number of threads of the OpenMP and BLAS libraries has
+  inconsistent scope (thread-local vs process-wide) and semantics (thread-local
+  vs process-wide) depending on the underlying library. For more details see
+  https://github.com/joblib/threadpoolctl/issues/208
 
+  For example, if you're using OpenMP with libgomp (gcc) or libomp (clang), the
+  setting is thread-local and sets how many OpenMP threads will be started in
+  the current thread. On the other hand, with OpenBLAS with pthreads backend or
+  on Windows, the setting is process-wide and impacts the size of a process-wide
+  thread pool shared across all threads in the process.
 
 ## Maintainers
 

@@ -16,8 +16,9 @@ oversubscription issues.
 > Examples where it will work fine:
 >
 > * When you're using it to configure a worker in a process pool (as long as the
->   workers don't starts their own Python thread pool.) * A Jupyter notebook,
->   again so long as you don't call BLAS/OpenMP from a Python thread pool.
+>   workers don't starts their own Python thread pool.)
+> * A Jupyter notebook, again so long as you don't call BLAS/OpenMP from a
+>   Python thread pool.
 >
 > For more details and a plan to fix this, see https://github.com/joblib/threadpoolctl/issues/208
 

@@ -9,18 +9,13 @@ workloads that involve nested parallelism so as to mitigate
 oversubscription issues.
 
 > **Important:** In its current state, `threadpoolctl` is only designed for
-> situations where BLAS/OpenMP are called from the main thread. Once you start
-> calling BLAS or OpenMP from a Python thread pool, the impact of the
-> `threadpoolctl` limiting APIs will be very inconsistent.
+> situations where BLAS and OpenMP are called from the main Python thread. For
+> example:
 >
-> Examples where it will work fine:
+> * When you're using it to configure a worker in a process pool, which then calls BLAS or OpenMP APIs directly in the main thread.
+> * A Jupyter notebook, where the BLAS or OpenMP APIs are being called from code running in the cell's thread.
 >
-> * When you're using it to configure a worker in a process pool (as long as the
->   workers don't starts their own Python thread pool.)
-> * A Jupyter notebook, again so long as you don't call BLAS/OpenMP from a
->   Python thread pool.
->
-> For more details and a plan to fix this, see https://github.com/joblib/threadpoolctl/issues/208
+> However, once you start calling BLAS or OpenMP APIs from another, new Python thread, the impact of the `threadpoolctl` limiting APIs will be very inconsistent. For more details and a plan to fix this, see https://github.com/joblib/threadpoolctl/issues/208
 
 ## Installation
 
@@ -337,8 +332,8 @@ https://github.com/xianyi/OpenBLAS/issues/2985).
   https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
 
 - Setting the maximum number of threads of the OpenMP and BLAS libraries has
-  inconsistent scope (thread-local vs process-wide) and semantics (thread-local
-  vs process-wide) depending on the underlying library. For more details see
+  inconsistent scope and semantics (thread-local vs process-wide) depending on
+  the underlying library. For more details see
   https://github.com/joblib/threadpoolctl/issues/208
 
   For example, if you're using OpenMP with libgomp (gcc) or libomp (clang), the

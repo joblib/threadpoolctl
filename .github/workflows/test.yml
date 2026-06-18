@@ -272,3 +272,22 @@ jobs:
       - name: Check no test always skipped
         run: |
           python continuous_integration/check_no_test_skipped.py test_results
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: mypy
+        run: uvx mypy --no-incremental --cache-dir=/dev/null --python-version=3.9 threadpoolctl
+
+      - name: pyright
+        run: uvx pyright --pythonversion=3.9 threadpoolctl
+
+      - name: basedpyright
+        run: uvx pyright --pythonversion=3.9 threadpoolctl
+
+      - name: ty check
+        run: uvx ty check --python-version=3.9 threadpoolctl

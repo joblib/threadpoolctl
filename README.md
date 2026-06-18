@@ -8,6 +8,19 @@ Fine control of the underlying thread-pool size can be useful in
 workloads that involve nested parallelism so as to mitigate
 oversubscription issues.
 
+> **Important:** In its current state, `threadpoolctl` is only designed for
+> situations where BLAS and OpenMP are only called from the main Python thread.
+> Or, to be more accurate, `threadpoolctl` and BLAS/OpenMP APIs should only ever
+> called from the same, single Python thread. For example:
+>
+> * When you're using it to configure a worker in a process pool, which then calls BLAS or OpenMP APIs directly in the main thread.
+> * A Jupyter notebook, where the BLAS or OpenMP APIs are being called from code running in the cell's main thread.
+>
+> However, once you start calling BLAS or OpenMP APIs and `threadpoolctl` from
+> multiple different Python threads, the impact of the `threadpoolctl` limiting
+> APIs will be very inconsistent. For more details and a plan to fix this, see
+> https://github.com/joblib/threadpoolctl/issues/208
+
 ## Installation
 
 - For users, install the last published version from PyPI:
@@ -322,11 +335,16 @@ https://github.com/xianyi/OpenBLAS/issues/2985).
   and workarounds:
   https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
 
-- Setting the maximum number of threads of the OpenMP and BLAS libraries has a global
-  effect and impacts the whole Python process. There is no thread level isolation as
-  these libraries do not offer thread-local APIs to configure the number of threads to
-  use in nested parallel calls.
+- Setting the maximum number of threads of the OpenMP and BLAS libraries has
+  inconsistent scope and semantics (thread-local vs process-wide) depending on
+  the underlying library. For more details see
+  https://github.com/joblib/threadpoolctl/issues/208
 
+  For example, if you're using OpenMP with libgomp (gcc) or libomp (clang), the
+  setting is thread-local and sets how many OpenMP threads will be started in
+  the current thread. On the other hand, with OpenBLAS with pthreads backend or
+  on Windows, the setting is process-wide and impacts the size of a process-wide
+  thread pool shared across all threads in the process.
 
 ## Maintainers
 

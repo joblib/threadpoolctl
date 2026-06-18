@@ -9,11 +9,12 @@ workloads that involve nested parallelism so as to mitigate
 oversubscription issues.
 
 > **Important:** In its current state, `threadpoolctl` is only designed for
-> situations where BLAS and OpenMP are called from the main Python thread. For
-> example:
+> situations where BLAS and OpenMP are only called from the main Python thread.
+> Or, to be more accurate, `threadpoolctl` and BLAS/OpenMP APIs should only ever
+> called from the same, single Python thread. For example:
 >
 > * When you're using it to configure a worker in a process pool, which then calls BLAS or OpenMP APIs directly in the main thread.
-> * A Jupyter notebook, where the BLAS or OpenMP APIs are being called from code running in the cell's thread.
+> * A Jupyter notebook, where the BLAS or OpenMP APIs are being called from code running in the cell's main thread.
 >
 > However, once you start calling BLAS or OpenMP APIs from another, new Python thread, the impact of the `threadpoolctl` limiting APIs will be very inconsistent. For more details and a plan to fix this, see https://github.com/joblib/threadpoolctl/issues/208
 

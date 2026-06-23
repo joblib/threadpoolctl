@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import os
 import pytest
@@ -792,3 +794,24 @@ def test_custom_controller():
         assert mylib_controller.num_threads == 1
 
     assert ThreadpoolController().info() == original_info
+
+
+@pytest.mark.parametrize(
+    ["select_filter", "expected_api_scope"],
+    [
+        ({"internal_api": "openblas"}, "process"),
+        ({"internal_api": "mkl"}, "process"),
+        ({"internal_api": "blis"}, "process"),
+        ({"user_api": "openmp"}, "current_thread"),
+    ],
+)
+def test_api_scope(select_filter: dict[str, str], expected_api_scope: str) -> None:
+    """
+    For the given controller, expect the given API scope.
+    """
+    controller = ThreadpoolController().select(**select_filter)
+    if not controller.lib_controllers:
+        pytest.skip(f"{select_filter} controller not found")
+
+    for lib in controller.lib_controllers:
+        assert lib.info()["api_scope"] == expected_api_scope

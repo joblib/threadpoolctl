@@ -24,12 +24,10 @@ from ctypes.util import find_library
 from abc import ABC, abstractmethod
 from functools import lru_cache
 from contextlib import ContextDecorator
-from enum import Enum, auto
+from enum import StrEnum, auto
 
 __version__ = "3.7.0.dev0"
 __all__ = [
-    "APIScope",
-    "determine_api_scope",
     "threadpool_limits",
     "threadpool_info",
     "ThreadpoolController",
@@ -73,7 +71,7 @@ except AttributeError:
     _RTLD_NOLOAD = ctypes.DEFAULT_MODE
 
 
-class APIScope(Enum):
+class _APIScope(StrEnum):
     """
     What scope does the API affect.
     """
@@ -89,9 +87,9 @@ class APIScope(Enum):
     UNKNOWN = auto()
 
 
-def determine_api_scope(
+def _determine_api_scope(
     get_n_threads: Callable[[], int], set_n_threads: Callable[[int], None]
-) -> APIScope:
+) -> _APIScope:
     """
     Run some experiments to determine the scope of the given get/set API.
 
@@ -140,18 +138,18 @@ def determine_api_scope(
         # the start of the function. Perhaps cpu_count() from loky should be
         # moved into this package...
         if thread_result != [expected]:
-            return APIScope.UNKNOWN
+            return _APIScope.UNKNOWN
 
         # Now, check this thread:
         if get_n_threads() == expected:
             # Setting is process-wide.
-            return APIScope.PROCESSWIDE
+            return _APIScope.PROCESSWIDE
         elif get_n_threads() == previous:
             # Setting modified the other thread, but not this one.
-            return APIScope.THREAD_LOCAL
+            return _APIScope.THREAD_LOCAL
         else:
             # No idea what's going on:
-            return APIScope.UNKNOWN
+            return _APIScope.UNKNOWN
     finally:
         set_n_threads(previous)
 
@@ -210,6 +208,9 @@ class LibController(ABC):
             "user_api": self.user_api,
             "internal_api": self.internal_api,
             "num_threads": self.num_threads,
+            "api_scope": _determine_api_scope(
+                self.get_num_threads, self.set_num_threads
+            ).value.lower(),
             **{k: v for k, v in vars(self).items() if k not in hidden_attrs},
         }
 

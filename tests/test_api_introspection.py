@@ -3,9 +3,11 @@ Tests for get/set number of threads API introspection.
 """
 
 from threading import local as threadlocal
-from threadpoolctl import APIScope, determine_api_scope
 
 import pytest
+
+from threadpoolctl import _APIScope, _determine_api_scope
+
 
 
 class FakeThreadLocalAPI(threadlocal):
@@ -33,11 +35,11 @@ class FakeProcesswideAPI:
 
 def test_determine_api_scope_thread_local():
     """
-    Check ``determine_api_scope()`` can correctly diagnose a trivial
+    Check ``_determine_api_scope()`` can correctly diagnose a trivial
     thread-local implementation.
     """
     api = FakeThreadLocalAPI()
-    assert determine_api_scope(api.get, api.set) == APIScope.THREAD_LOCAL
+    assert _determine_api_scope(api.get, api.set) == _APIScope.THREAD_LOCAL
 
 
 @pytest.mark.parametrize("default", [1, 17])
@@ -47,4 +49,4 @@ def test_determine_api_scope_processiwde(default: int):
     process-wide implementation.
     """
     api = FakeProcesswideAPI(default)
-    assert determine_api_scope(api.get, api.set) == APIScope.PROCESSWIDE
+    assert _determine_api_scope(api.get, api.set) == _APIScope.PROCESSWIDE

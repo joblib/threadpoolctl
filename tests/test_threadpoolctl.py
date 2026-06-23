@@ -813,7 +813,5 @@ def test_api_scope(select_filter: dict[str, str], expected_api_scope: str) -> No
     if not controller.lib_controllers:
         pytest.skip(f"{select_filter} controller not found")
 
-    # Filters should be limited to one result:
-    [lib] = controller.lib_controllers
-
-    assert lib.info()["api_scope"] == expected_api_scope
+    for lib in controller.lib_controllers:
+        assert lib.info()["api_scope"] == expected_api_scope

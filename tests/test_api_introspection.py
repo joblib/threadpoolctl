@@ -38,7 +38,7 @@ def test_determine_api_scope_thread_local():
     thread-local implementation.
     """
     api = FakeThreadLocalAPI()
-    assert _determine_api_scope(api.get, api.set) == _APIScope.THREAD_LOCAL
+    assert _determine_api_scope(api.get, api.set) == _APIScope.CURRENT_THREAD
 
 
 @pytest.mark.parametrize("default", [1, 17])
@@ -48,4 +48,4 @@ def test_determine_api_scope_processiwde(default: int):
     process-wide implementation.
     """
     api = FakeProcesswideAPI(default)
-    assert _determine_api_scope(api.get, api.set) == _APIScope.PROCESSWIDE
+    assert _determine_api_scope(api.get, api.set) == _APIScope.PROCESS

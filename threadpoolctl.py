@@ -76,14 +76,14 @@ class _APIScope(Enum):
     What scope does the API affect.
     """
 
-    # Using the API sets a limit only on the current thread:
-    THREAD_LOCAL = auto()
+    # Using the API sets a limit only on the current thread.
+    CURRENT_THREAD = auto()
     # Using the API sets a limit for every thread in the process; whether or
     # not it's a shared process-wide pool or per-thread limit needs to be
     # determined some other way.
-    PROCESSWIDE = auto()
-    # Something else, unexpected; perhaps an unknown API, perhaps information
-    # can't be determined under current configuration:
+    PROCESS = auto()
+    # Something else, unexpected; perhaps another variant, perhaps information
+    # can't be determined under the current configuration.
     UNKNOWN = auto()
 
 
@@ -95,7 +95,7 @@ def _determine_api_scope(
 
     An attempt will be made to restore all settings to their previous state.
 
-    This won't work reliably if you only have one core available.
+    This won't work if you only have one core available.
     """
     if os.cpu_count() == 1 or (
         hasattr(os, "process_cpu_count") and os.process_cpu_count() == 1
@@ -142,11 +142,11 @@ def _determine_api_scope(
 
         # Now, check this thread:
         if get_n_threads() == expected:
-            # Setting is process-wide.
-            return _APIScope.PROCESSWIDE
+            # Setting modified this thread's results too:
+            return _APIScope.PROCESS
         elif get_n_threads() == previous:
-            # Setting modified the other thread, but not this one.
-            return _APIScope.THREAD_LOCAL
+            # Setting modified the other thread, but not this one:
+            return _APIScope.CURRENT_THREAD
         else:
             # No idea what's going on:
             return _APIScope.UNKNOWN

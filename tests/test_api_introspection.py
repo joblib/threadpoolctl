@@ -9,7 +9,6 @@ import pytest
 from threadpoolctl import _APIScope, _determine_api_scope
 
 
-
 class FakeThreadLocalAPI(threadlocal):
     """Thread-local num threads setting API."""
 

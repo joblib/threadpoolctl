@@ -12,7 +12,8 @@ git clone https://github.com/mpimd-csc/flexiblas.git
 pushd flexiblas
 
 # Temporary ping Flexiblas commit to avoid openmp symbols not found at link time
-git checkout v3.4.2 
+git checkout v3.5.0
+head contributed/lapack-3.12.0/CMakeLists.txt
 
 mkdir build
 pushd build
@@ -32,6 +33,7 @@ cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
     -DEXTRA="OPENBLAS_CONDA" \
     -DFLEXIBLAS_DEFAULT="OPENBLAS_CONDA" \
     -DOPENBLAS_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libopenblas"$EXTENSION \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
 make
 make install
 

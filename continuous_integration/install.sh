@@ -69,11 +69,12 @@ if [[ "$PACKAGER" == "conda" ]]; then
 	make_conda "defaults" "$TO_INSTALL"
 
 elif [[ "$PACKAGER" == "conda-forge" ]]; then
-    TO_INSTALL="numpy scipy blas=*=$BLAS"
+    TO_INSTALL="numpy scipy blas=*=$BLAS llvm-openmp=20.1.8=*_1"
     if [[ "$BLAS" == "openblas" && "$OPENBLAS_THREADING_LAYER" == "openmp" ]]; then
         TO_INSTALL="$TO_INSTALL libopenblas=*=*openmp*"
     fi
     make_conda "conda-forge" "$TO_INSTALL"
+    conda list -n testenv
 
 elif [[ "$PACKAGER" == "pip" ]]; then
     # Use conda to build an empty python env and then use pip to install
@@ -110,6 +111,18 @@ elif [[ "$INSTALL_BLAS" == "flexiblas" ]]; then
     make_conda "conda-forge" "$TO_INSTALL"
     source ./continuous_integration/install_flexiblas.sh
 
+fi
+
+if [[ "$PACKAGER" == conda* ]] || [[ -z "$PACKAGER" ]]; then
+    conda activate testenv
+    conda list
+elif [[ "$PACKAGER" == pip* ]]; then
+    # we actually use conda to install the base environment:
+    conda activate testenv
+    pip list
+elif [[ "$PACKAGER" == "ubuntu" ]]; then
+    source testenv/bin/activate
+    pip list
 fi
 
 python -m pip install -v -q -r dev-requirements.txt

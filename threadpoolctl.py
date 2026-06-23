@@ -17,15 +17,19 @@ import sys
 import ctypes
 import itertools
 import textwrap
-from typing import final
+from threading import Thread
+from typing import Callable, final
 import warnings
 from ctypes.util import find_library
 from abc import ABC, abstractmethod
 from functools import lru_cache
 from contextlib import ContextDecorator
+from enum import Enum, auto
 
 __version__ = "3.7.0.dev0"
 __all__ = [
+    "APIScope",
+    "determine_api_scope",
     "threadpool_limits",
     "threadpool_info",
     "ThreadpoolController",
@@ -67,6 +71,89 @@ try:
     _RTLD_NOLOAD = os.RTLD_NOLOAD
 except AttributeError:
     _RTLD_NOLOAD = ctypes.DEFAULT_MODE
+
+
+class APIScope(Enum):
+    """
+    What scope does the API affect.
+    """
+
+    # Using the API sets a limit only on the current thread:
+    THREAD_LOCAL = auto()
+    # Using the API sets a limit for every thread in the process; whether or
+    # not it's a shared process-wide pool or per-thread limit needs to be
+    # determined some other way.
+    PROCESSWIDE = auto()
+    # Something else, unexpected; perhaps an unknown API, perhaps information
+    # can't be determined under current configuration:
+    UNKNOWN = auto()
+
+
+def determine_api_scope(
+    get_n_threads: Callable[[], int], set_n_threads: Callable[[int], None]
+) -> APIScope:
+    """
+    Run some experiments to determine the scope of the given get/set API.
+
+    An attempt will be made to restore all settings to their previous state.
+
+    This won't work reliably if you only have one core available.
+    """
+    if os.cpu_count() == 1 or (
+        hasattr(os, "process_cpu_count") and os.process_cpu_count() == 1
+    ):
+        raise RuntimeError("Cannot determine API meaning if only one core is available")
+
+    previous = get_n_threads()
+
+    # Some plausible constraints we need to keep in mind:
+    #
+    # 1. The API might not allow setting more than the number of (available, or
+    #    physical) cores.
+    # 2. ...
+    try:
+        # Choose a desired number of threads that is different than the current
+        # number, and hopefully achievable under the current configuration:
+        if previous < 2:
+            expected = 2
+        else:
+            # It's 2 or more, so shrink it slightly:
+            expected = previous - 1
+
+        thread_result = []
+
+        def get_and_set() -> None:
+            set_n_threads(expected)
+            thread_result.append(get_n_threads())
+
+        thread = Thread(target=get_and_set)
+        thread.start()
+        thread.join()
+
+        # First, getting in the same thread as a set should always give same
+        # number, if it's a number in a reasonable range. A possible exception
+        # is if the number of thread is limited by available CPU, and only one
+        # CPU is available. In that case we can't empirically determine how the
+        # API works. We try to not reach that point here, but you can imagine a
+        # thread pool implementation that is aware of cgroups, in which case a
+        # Docker container limited to one core will pass the safety check at
+        # the start of the function. Perhaps cpu_count() from loky should be
+        # moved into this package...
+        if thread_result != [expected]:
+            return APIScope.UNKNOWN
+
+        # Now, check this thread:
+        if get_n_threads() == expected:
+            # Setting is process-wide.
+            return APIScope.PROCESSWIDE
+        elif get_n_threads() == previous:
+            # Setting modified the other thread, but not this one.
+            return APIScope.THREAD_LOCAL
+        else:
+            # No idea what's going on:
+            return APIScope.UNKNOWN
+    finally:
+        set_n_threads(previous)
 
 
 class LibController(ABC):

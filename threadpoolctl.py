@@ -24,7 +24,7 @@ from ctypes.util import find_library
 from abc import ABC, abstractmethod
 from functools import lru_cache
 from contextlib import ContextDecorator
-from enum import StrEnum, auto
+from enum import Enum, auto
 
 __version__ = "3.7.0.dev0"
 __all__ = [
@@ -71,7 +71,7 @@ except AttributeError:
     _RTLD_NOLOAD = ctypes.DEFAULT_MODE
 
 
-class _APIScope(StrEnum):
+class _APIScope(Enum):
     """
     What scope does the API affect.
     """
@@ -211,7 +211,7 @@ class LibController(ABC):
             "api_scope": (
                 _determine_api_scope(
                     self.get_num_threads, self.set_num_threads
-                ).value.lower()
+                ).name.lower()
             ),
             **{k: v for k, v in vars(self).items() if k not in hidden_attrs},
         }

@@ -208,9 +208,11 @@ class LibController(ABC):
             "user_api": self.user_api,
             "internal_api": self.internal_api,
             "num_threads": self.num_threads,
-            "api_scope": _determine_api_scope(
-                self.get_num_threads, self.set_num_threads
-            ).value.lower(),
+            "api_scope": (
+                _determine_api_scope(
+                    self.get_num_threads, self.set_num_threads
+                ).value.lower()
+            ),
             **{k: v for k, v in vars(self).items() if k not in hidden_attrs},
         }
 

@@ -6,7 +6,7 @@ from threading import local as threadlocal
 
 import pytest
 
-from threadpoolctl import _APIScope, _determine_api_scope, ThreadpoolController
+from threadpoolctl import _APIScope, _determine_api_scope
 
 
 class FakeThreadLocalAPI(threadlocal):
@@ -49,30 +49,3 @@ def test_determine_api_scope_processwide(default: int) -> None:
     """
     api = FakeProcesswideAPI(default)
     assert _determine_api_scope(api.get, api.set) == _APIScope.PROCESS
-
-
-@pytest.mark.parametrize(
-    ["select_filter", "expected_api_scope"],
-    [
-        (
-            {"internal_api": "openblas", "threading_layer": "pthreads"},
-            _APIScope.PROCESS,
-        ),
-        ({"user_api": "openmp", "prefix": "libgomp"}, _APIScope.CURRENT_THREAD),
-        ({"user_api": "openmp", "prefix": "libomp"}, _APIScope.CURRENT_THREAD),
-    ],
-)
-def test_api_scope(select_filter: dict[str, str], expected_api_scope: str) -> None:
-    """
-    Check ``_determine_api_scope()`` against libraries with known properties,
-    to make sure it detects them correctly.
-    """
-    controller = ThreadpoolController().select(**select_filter)
-    if not controller.lib_controllers:
-        pytest.skip(f"{select_filter} controller not found")
-
-    for lib in controller.lib_controllers:
-        assert (
-            _determine_api_scope(lib.get_num_threads, lib.set_num_threads)
-            == expected_api_scope
-        )

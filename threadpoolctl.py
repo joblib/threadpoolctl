@@ -201,20 +201,28 @@ class LibController(ABC):
         self.version = self.get_version()
         self.set_additional_attributes()
 
-    def info(self):
-        """Return relevant info wrapped in a dict"""
+    def info(self, extra_info: bool = False):
+        """Return relevant info wrapped in a dict.
+
+        Parameters
+        ----------
+        extra_info : bool
+
+            Include extra fields which requires more intrusive actions to
+            obtain.
+        """
         hidden_attrs = ("dynlib", "parent", "_symbol_prefix", "_symbol_suffix")
-        return {
+        result = {
             "user_api": self.user_api,
             "internal_api": self.internal_api,
             "num_threads": self.num_threads,
-            "api_scope": (
-                _determine_api_scope(
-                    self.get_num_threads, self.set_num_threads
-                ).name.lower()
-            ),
             **{k: v for k, v in vars(self).items() if k not in hidden_attrs},
         }
+        if extra_info:
+            result["api_scope"] = _determine_api_scope(
+                self.get_num_threads, self.set_num_threads
+            ).name.lower()
+        return result
 
     def set_additional_attributes(self):
         """Set additional attributes meant to be exposed in the info dict"""
@@ -639,7 +647,7 @@ def _realpath(filepath):
 
 
 @_format_docstring(USER_APIS=list(_ALL_USER_APIS), INTERNAL_APIS=_ALL_INTERNAL_APIS)
-def threadpool_info():
+def threadpool_info(extra_info: bool = False):
     """Return the maximal number of threads for each detected library.
 
     Return a list with all the supported libraries that have been found. Each
@@ -653,8 +661,18 @@ def threadpool_info():
       - "num_threads": the current thread limit.
 
     In addition, each library may contain internal_api specific entries.
+
+    Parameters
+        ----------
+        extra_info : bool
+
+            Include extra fields which requires more intrusive actions to
+            obtain.
+
+            - "api_scope": When setting the number of threads, what is affected.
+                           Possible values are "process", "current_thread".
     """
-    return ThreadpoolController().info()
+    return ThreadpoolController().info(extra_info)
 
 
 class _ThreadpoolLimiter:
@@ -914,9 +932,20 @@ class ThreadpoolController:
         new_controller.lib_controllers = lib_controllers
         return new_controller
 
-    def info(self):
-        """Return lib_controllers info as a list of dicts"""
-        return [lib_controller.info() for lib_controller in self.lib_controllers]
+    def info(self, extra_info: bool = False):
+        """Return lib_controllers info as a list of dicts.
+
+        Parameters
+        ----------
+        extra_info : bool
+
+            Include extra fields which requires more intrusive actions to
+            obtain.
+        """
+        return [
+            lib_controller.info(extra_info=extra_info)
+            for lib_controller in self.lib_controllers
+        ]
 
     def select(self, **kwargs):
         """Return a ThreadpoolController containing a subset of its current
@@ -1380,7 +1409,7 @@ def _main():
     if options.command:
         exec(options.command)
 
-    print(json.dumps(threadpool_info(), indent=2))
+    print(json.dumps(threadpool_info(extra_info=True), indent=2))
 
 
 if __name__ == "__main__":

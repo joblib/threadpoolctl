@@ -93,9 +93,16 @@ def _determine_api_scope(
     """
     Run some experiments to determine the scope of the given get/set API.
 
-    An attempt will be made to restore all settings to their previous state.
+    This function might not work if you only have one core available.
 
-    This won't work if you only have one core available.
+    This function might not work if you set a limit on a library with an
+    environment variable.
+
+    The function works by changing the number of threads in loaded controllers,
+    which can be a process-wide change. As such, it is not always thread-safe.
+    An attempt will be made to restore all settings to their previous state,
+    but the result may be subtly different, e.g. if "unset" has different
+    semantics than "set to the default returned value".
     """
     if os.cpu_count() == 1 or (
         hasattr(os, "process_cpu_count") and os.process_cpu_count() == 1
@@ -108,7 +115,7 @@ def _determine_api_scope(
     #
     # 1. The API might not allow setting more than the number of (available, or
     #    physical) cores.
-    # 2. ...
+    # 2. Some hard limit on number of threads.
     try:
         # Choose a desired number of threads that is different than the current
         # number, and hopefully achievable under the current configuration:
@@ -130,13 +137,13 @@ def _determine_api_scope(
 
         # First, getting in the same thread as a set should always give same
         # number, if it's a number in a reasonable range. A possible exception
-        # is if the number of thread is limited by available CPU, and only one
-        # CPU is available. In that case we can't empirically determine how the
-        # API works. We try to not reach that point here, but you can imagine a
-        # thread pool implementation that is aware of cgroups, in which case a
-        # Docker container limited to one core will pass the safety check at
-        # the start of the function. Perhaps cpu_count() from loky should be
-        # moved into this package...
+        # fo failing this is if the number of thread is limited by available
+        # CPU, and only one CPU is available. In that case we can't empirically
+        # determine how the API works. We try to not reach that point here, but
+        # you can imagine a thread pool implementation that is aware of
+        # cgroups, in which case a Docker container limited to one core will
+        # pass the safety check at the start of the function. Perhaps
+        # cpu_count() from loky should be moved into this package...
         if thread_result != [expected]:
             return _APIScope.UNKNOWN
 

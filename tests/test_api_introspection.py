@@ -32,7 +32,7 @@ class FakeProcesswideAPI:
         self.num_threads = n
 
 
-def test_determine_api_scope_thread_local():
+def test_determine_api_scope_thread_local() -> None:
     """
     Check ``_determine_api_scope()`` can correctly diagnose a trivial
     thread-local implementation.
@@ -42,7 +42,7 @@ def test_determine_api_scope_thread_local():
 
 
 @pytest.mark.parametrize("default", [1, 17])
-def test_determine_api_scope_processiwde(default: int):
+def test_determine_api_scope_processwide(default: int) -> None:
     """
     Check ``_determine_api_scope()`` can correctly diagnose a trivial
     process-wide implementation.
@@ -64,8 +64,8 @@ def test_determine_api_scope_processiwde(default: int):
 )
 def test_api_scope(select_filter: dict[str, str], expected_api_scope: str) -> None:
     """
-    Check ``determine_api_scope()`` against known values, to make sure it
-    detects them correctly.
+    Check ``_determine_api_scope()`` against libraries with known properties,
+    to make sure it detects them correctly.
     """
     controller = ThreadpoolController().select(**select_filter)
     if not controller.lib_controllers:

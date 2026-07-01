@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import os
 import pytest
@@ -570,7 +572,7 @@ def test_command_line_command_flag():
     )
     cli_info = json.loads(output.decode("utf-8"))
 
-    this_process_info = threadpool_info()
+    this_process_info = threadpool_info(extra_info=True)
     for lib_info in cli_info:
         assert lib_info in this_process_info
 
@@ -596,7 +598,7 @@ def test_command_line_import_flag():
     )
     cli_info = json.loads(result.stdout)
 
-    this_process_info = threadpool_info()
+    this_process_info = threadpool_info(extra_info=True)
     for lib_info in cli_info:
         assert lib_info in this_process_info
 

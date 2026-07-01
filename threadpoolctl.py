@@ -670,14 +670,12 @@ def threadpool_info(extra_info: bool = False):
     In addition, each library may contain internal_api specific entries.
 
     Parameters
-        ----------
-        extra_info : bool
-
-            Include extra fields which requires more intrusive actions to
-            obtain.
-
-            - "api_scope": When setting the number of threads, what is affected.
-                           Possible values are "process", "current_thread".
+    ----------
+    extra_info : bool
+        Include extra fields which requires more intrusive actions to obtain.
+ 
+        - "api_scope": When setting the number of threads, what is affected.
+          Possible values are "process", "current_thread".
     """
     return ThreadpoolController().info(extra_info)
 
@@ -945,7 +943,6 @@ class ThreadpoolController:
         Parameters
         ----------
         extra_info : bool
-
             Include extra fields which requires more intrusive actions to
             obtain.
         """

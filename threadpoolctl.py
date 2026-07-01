@@ -71,7 +71,7 @@ except AttributeError:
     _RTLD_NOLOAD = ctypes.DEFAULT_MODE
 
 
-class _APIScope(Enum):
+class _ThreadLimitScope(Enum):
     """
     What scope does the API affect.
     """
@@ -87,9 +87,9 @@ class _APIScope(Enum):
     UNKNOWN = auto()
 
 
-def _determine_api_scope(
+def _determine_thread_limit_scope(
     get_n_threads: Callable[[], int], set_n_threads: Callable[[int], None]
-) -> _APIScope:
+) -> _ThreadLimitScope:
     """
     Run some experiments to determine the scope of the given get/set API.
 
@@ -104,11 +104,6 @@ def _determine_api_scope(
     but the result may be subtly different, e.g. if "unset" has different
     semantics than "set to the default returned value".
     """
-    if os.cpu_count() == 1 or (
-        hasattr(os, "process_cpu_count") and os.process_cpu_count() == 1
-    ):
-        raise RuntimeError("Cannot determine API meaning if only one core is available")
-
     previous = get_n_threads()
 
     # Some plausible constraints we need to keep in mind:
@@ -145,18 +140,18 @@ def _determine_api_scope(
         # pass the safety check at the start of the function. Perhaps
         # cpu_count() from loky should be moved into this package...
         if thread_result != [expected]:
-            return _APIScope.UNKNOWN
+            return _ThreadLimitScope.UNKNOWN
 
         # Now, check this thread:
         if get_n_threads() == expected:
             # Setting modified this thread's results too:
-            return _APIScope.PROCESS
+            return _ThreadLimitScope.PROCESS
         elif get_n_threads() == previous:
             # Setting modified the other thread, but not this one:
-            return _APIScope.CURRENT_THREAD
+            return _ThreadLimitScope.CURRENT_THREAD
         else:
             # No idea what's going on:
-            return _APIScope.UNKNOWN
+            return _ThreadLimitScope.UNKNOWN
     finally:
         set_n_threads(previous)
 
@@ -226,7 +221,7 @@ class LibController(ABC):
             **{k: v for k, v in vars(self).items() if k not in hidden_attrs},
         }
         if extra_info:
-            result["api_scope"] = _determine_api_scope(
+            result["thread_limit_scope"] = _determine_thread_limit_scope(
                 self.get_num_threads, self.set_num_threads
             ).name.lower()
         return result
@@ -673,9 +668,9 @@ def threadpool_info(extra_info: bool = False):
     ----------
     extra_info : bool
         Include extra fields which requires more intrusive actions to obtain.
- 
-        - "api_scope": When setting the number of threads, what is affected.
-          Possible values are "process", "current_thread".
+
+        - "thread_limit_scope": When setting the number of threads, what is
+          affected. Possible values are "process", "current_thread".
     """
     return ThreadpoolController().info(extra_info)
 

@@ -109,7 +109,16 @@ def select(info, **kwargs):
 def get_openblas_dll_path():
     """Return a path to an OpenBLAS DLL that can be copied for Windows tests."""
     if libopenblas_paths:
-        return next(iter(libopenblas_paths))
+        return sorted(
+            libopenblas_paths,
+            key=lambda path: (
+                0
+                if "libscipy_openblas" in os.path.basename(path).lower()
+                else 1
+                if "libopenblas" in os.path.basename(path).lower()
+                else 2
+            ),
+        )[0]
 
     from threadpoolctl import ThreadpoolController
 
@@ -121,6 +130,20 @@ def get_openblas_dll_path():
     if os.path.isfile(filepath):
         return filepath
     return None
+
+
+def normalize_windows_path(path):
+    """Normalize Windows paths for stable comparisons in tests."""
+    path = os.path.abspath(str(path))
+    if path.startswith("\\\\?\\"):
+        path = path[4:]
+        if path.startswith("UNC\\"):
+            path = "\\\\" + path[4:]
+    return os.path.normcase(os.path.normpath(path))
+
+
+LONG_PATH_OPENBLAS_DLL = "libopenblas_long_path_test.dll"
+TRUNCATED_PATH_OPENBLAS_DLL = "libopenblas_path_too_long.dll"
 
 
 def make_long_windows_path(base_dir, filename, min_length=261):

@@ -1206,7 +1206,7 @@ class ThreadpoolController:
 
         if ps_api.GetModuleFileNameExW(h_process, h_module, path_buf, max_path):
             filepath = path_buf.value
-            if len(filepath) == max_path:  # pragma: no cover
+            if len(filepath) >= max_path - 1:  # pragma: no cover
                 warnings.warn(
                     "Could not get the full path of a dynamic library (path too "
                     "long). This library will be ignored and threadpoolctl might "

@@ -7,9 +7,6 @@
   graceful per-module fallbacks.
   https://github.com/joblib/threadpoolctl/issues/217
 
-- Added Windows integration tests for library paths longer than `MAX_PATH`.
-  https://github.com/joblib/threadpoolctl/pull/189
-
 3.6.0 (2025-03-13)
 ==================
 

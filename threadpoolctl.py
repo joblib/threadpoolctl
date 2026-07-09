@@ -1251,7 +1251,7 @@ class ThreadpoolController:
             buf_size = ctypes.sizeof(buf)
             if not ps_api.EnumProcessModulesEx(
                 h_process,
-                ctypes.byref(buf),
+                buf,
                 buf_size,
                 ctypes.byref(needed),
                 LIST_LIBRARIES_ALL,

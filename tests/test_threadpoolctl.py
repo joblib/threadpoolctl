@@ -2,10 +2,8 @@ import json
 import os
 import pytest
 import re
-import shutil
 import subprocess
 import sys
-import ctypes
 
 import threadpoolctl
 from threadpoolctl import threadpool_limits, threadpool_info
@@ -15,6 +13,7 @@ from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 from .utils import cython_extensions_compiled
 from .utils import check_nested_prange_blas
 from .utils import libopenblas_paths
+from .utils import copy_and_load_dll
 from .utils import get_openblas_dll_path
 from .utils import make_long_windows_path
 from .utils import scipy
@@ -823,8 +822,7 @@ def test_windows_library_path_longer_than_max_path(tmp_path):
 
     dll_name = os.path.basename(src_dll)
     long_path = make_long_windows_path(tmp_path, dll_name, min_length=261)
-    shutil.copy2(src_dll, long_path)
-    ctypes.CDLL(str(long_path))
+    copy_and_load_dll(src_dll, long_path)
 
     expected_path = _realpath(str(long_path))
     openblas_info = ThreadpoolController().select(internal_api="openblas").info()
@@ -851,8 +849,7 @@ def test_windows_library_path_exceeds_internal_limit(tmp_path, monkeypatch):
 
     dll_name = "libopenblas_path_too_long.dll"
     long_path = make_long_windows_path(tmp_path, dll_name, min_length=301)
-    shutil.copy2(src_dll, long_path)
-    ctypes.CDLL(str(long_path))
+    copy_and_load_dll(src_dll, long_path)
 
     expected_path = _realpath(str(long_path))
     with pytest.warns(RuntimeWarning, match="path too long"):

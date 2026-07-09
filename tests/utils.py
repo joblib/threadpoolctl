@@ -1,6 +1,8 @@
-import os
 import json
+import os
 import sys
+import ctypes
+import shutil
 import threadpoolctl
 from glob import glob
 from os.path import dirname, normpath
@@ -135,3 +137,19 @@ def make_long_windows_path(base_dir, filename, min_length=261):
 
     target.parent.mkdir(parents=True, exist_ok=True)
     return target
+
+
+def to_extended_windows_path(path):
+    """Return an extended-length path for Windows APIs (> MAX_PATH)."""
+    path = os.path.abspath(str(path))
+    if path.startswith("\\\\?\\"):
+        return path
+    if path.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + path[2:]
+    return "\\\\?\\" + path
+
+
+def copy_and_load_dll(src_dll, destination):
+    """Copy a DLL to destination and load it in the current process."""
+    shutil.copy2(src_dll, to_extended_windows_path(destination))
+    ctypes.CDLL(to_extended_windows_path(destination))

@@ -2,16 +2,20 @@ import json
 import os
 import pytest
 import re
+import shutil
 import subprocess
 import sys
+import ctypes
 
+import threadpoolctl
 from threadpoolctl import threadpool_limits, threadpool_info
-from threadpoolctl import ThreadpoolController
+from threadpoolctl import ThreadpoolController, _realpath
 from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 
 from .utils import cython_extensions_compiled
 from .utils import check_nested_prange_blas
 from .utils import libopenblas_paths
+from .utils import make_long_windows_path
 from .utils import scipy
 from .utils import threadpool_info_from_subprocess
 from .utils import select
@@ -792,3 +796,67 @@ def test_custom_controller():
         assert mylib_controller.num_threads == 1
 
     assert ThreadpoolController().info() == original_info
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-only test")
+def test_threadpool_controller_repeated_init_on_windows():
+    """Stress-test Windows module enumeration for concurrent DLL load/unload.
+
+    Regression test for https://github.com/joblib/threadpoolctl/issues/217
+    """
+    for _ in range(100):
+        ThreadpoolController()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-only test")
+def test_windows_library_path_longer_than_max_path(tmp_path):
+    """OpenBLAS loaded from a path longer than MAX_PATH is discovered.
+
+    Regression test inspired by the local repro in
+    https://github.com/joblib/threadpoolctl/pull/189#issuecomment-2714235916
+    """
+    if not libopenblas_paths:
+        pytest.skip("Requires numpy with shipped OpenBLAS on Windows")
+
+    src_dll = next(iter(libopenblas_paths))
+    dll_name = os.path.basename(src_dll)
+    long_path = make_long_windows_path(tmp_path, dll_name, min_length=261)
+    shutil.copy2(src_dll, long_path)
+    ctypes.CDLL(str(long_path))
+
+    expected_path = _realpath(str(long_path))
+    openblas_info = ThreadpoolController().select(internal_api="openblas").info()
+
+    long_path_entries = [
+        info for info in openblas_info if len(info["filepath"]) > 260
+    ]
+    assert len(long_path_entries) >= 1
+    assert any(
+        _realpath(info["filepath"]) == expected_path for info in long_path_entries
+    )
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-only test")
+def test_windows_library_path_exceeds_internal_limit(tmp_path, monkeypatch):
+    """Libraries with a path longer than the internal limit are ignored.
+
+    Regression test inspired by the local repro in
+    https://github.com/joblib/threadpoolctl/pull/189#issuecomment-2714235916
+    """
+    if not libopenblas_paths:
+        pytest.skip("Requires numpy with shipped OpenBLAS on Windows")
+
+    monkeypatch.setattr(threadpoolctl, "_WINDOWS_MAX_LIBRARY_PATH_LENGTH", 300)
+
+    src_dll = next(iter(libopenblas_paths))
+    dll_name = "libopenblas_path_too_long.dll"
+    long_path = make_long_windows_path(tmp_path, dll_name, min_length=301)
+    shutil.copy2(src_dll, long_path)
+    ctypes.CDLL(str(long_path))
+
+    expected_path = _realpath(str(long_path))
+    with pytest.warns(RuntimeWarning, match="path too long"):
+        info = ThreadpoolController().info()
+
+    filepaths = {_realpath(entry["filepath"]) for entry in info if "filepath" in entry}
+    assert expected_path not in filepaths

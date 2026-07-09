@@ -1,3 +1,15 @@
+3.7.0 (TBD)
+===========
+
+- Fixed an intermittent `OSError` on Windows when DLLs are loaded or unloaded
+  concurrently during library discovery (for example when importing conda-forge
+  OpenCV). Windows module enumeration now uses a snapshot-first approach with
+  graceful per-module fallbacks.
+  https://github.com/joblib/threadpoolctl/issues/217
+
+- Added Windows integration tests for library paths longer than `MAX_PATH`.
+  https://github.com/joblib/threadpoolctl/pull/189
+
 3.6.0 (2025-03-13)
 ==================
 

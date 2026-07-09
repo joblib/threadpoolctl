@@ -36,7 +36,12 @@ print("\n------------------------------------------------------------------\n")
 # List of tests that we don't want to fail the CI if they are skipped in
 # every job. This is useful for tests that depend on specific versions of
 # numpy or scipy and we don't want to pin old versions of these libraries.
-SAFE_SKIPPED_TESTS = ["test_multiple_shipped_openblas"]
+SAFE_SKIPPED_TESTS = [
+    "test_multiple_shipped_openblas",
+    # Requires Windows with shipped OpenBLAS (e.g. py311_conda_forge_openblas).
+    "test_windows_library_path_longer_than_max_path",
+    "test_windows_library_path_exceeds_internal_limit",
+]
 
 fail = False
 for test, skipped in always_skipped.items():

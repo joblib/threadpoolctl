@@ -4,6 +4,7 @@ import sys
 import threadpoolctl
 from glob import glob
 from os.path import dirname, normpath
+from pathlib import Path
 from subprocess import check_output
 
 # Path to shipped openblas for libraries such as numpy or scipy
@@ -17,6 +18,13 @@ try:
     np.dot(np.ones(1000), np.ones(1000))
 
     libopenblas_patterns.append(os.path.join(np.__path__[0], ".libs", "libopenblas*"))
+    if sys.platform == "win32":
+        libopenblas_patterns.append(
+            os.path.join(np.__path__[0], "numpy.libs", "libscipy_openblas*.dll")
+        )
+        libopenblas_patterns.append(
+            os.path.join(np.__path__[0], "numpy.libs", "libopenblas*.dll")
+        )
 except ImportError:
     pass
 
@@ -86,3 +94,19 @@ def select(info, **kwargs):
     ]
 
     return selected_info
+
+
+def make_long_windows_path(base_dir, filename, min_length=261):
+    """Nest padded directories under base_dir until base/.../filename >= min_length."""
+    padding_segments = ["a" * 100, "b" * 100, "c" * 100, "d" * 100]
+    current = Path(base_dir)
+    segment_index = 0
+    target = current / filename
+
+    while len(str(target)) < min_length:
+        current = current / padding_segments[segment_index % len(padding_segments)]
+        segment_index += 1
+        target = current / filename
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    return target

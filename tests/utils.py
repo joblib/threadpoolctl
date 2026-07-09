@@ -114,9 +114,7 @@ def get_openblas_dll_path():
             key=lambda path: (
                 0
                 if "libscipy_openblas" in os.path.basename(path).lower()
-                else 1
-                if "libopenblas" in os.path.basename(path).lower()
-                else 2
+                else 1 if "libopenblas" in os.path.basename(path).lower() else 2
             ),
         )[0]
 

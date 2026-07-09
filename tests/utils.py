@@ -18,13 +18,9 @@ try:
     np.dot(np.ones(1000), np.ones(1000))
 
     libopenblas_patterns.append(os.path.join(np.__path__[0], ".libs", "libopenblas*"))
-    if sys.platform == "win32":
-        libopenblas_patterns.append(
-            os.path.join(np.__path__[0], "numpy.libs", "libscipy_openblas*.dll")
-        )
-        libopenblas_patterns.append(
-            os.path.join(np.__path__[0], "numpy.libs", "libopenblas*.dll")
-        )
+    libopenblas_patterns.append(
+        os.path.join(np.__path__[0], "numpy.libs", "libscipy_openblas*.dll")
+    )
 except ImportError:
     pass
 

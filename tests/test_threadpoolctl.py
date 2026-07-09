@@ -798,11 +798,12 @@ def test_custom_controller():
     assert ThreadpoolController().info() == original_info
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="Windows-only test")
-def test_threadpool_controller_repeated_init_on_windows():
-    """Stress-test Windows module enumeration for concurrent DLL load/unload.
+def test_threadpool_controller_repeated_init():
+    """Stress-test repeated library discovery.
 
-    Regression test for https://github.com/joblib/threadpoolctl/issues/217
+    Non-regression test for a Windows-specific problem where DLLs loaded or
+    unloaded concurrently during discovery could raise an OSError; see
+    https://github.com/joblib/threadpoolctl/issues/217
     """
     for _ in range(100):
         ThreadpoolController()
@@ -827,9 +828,7 @@ def test_windows_library_path_longer_than_max_path(tmp_path):
     expected_path = _realpath(str(long_path))
     openblas_info = ThreadpoolController().select(internal_api="openblas").info()
 
-    long_path_entries = [
-        info for info in openblas_info if len(info["filepath"]) > 260
-    ]
+    long_path_entries = [info for info in openblas_info if len(info["filepath"]) > 260]
     assert len(long_path_entries) >= 1
     assert any(
         _realpath(info["filepath"]) == expected_path for info in long_path_entries

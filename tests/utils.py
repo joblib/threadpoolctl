@@ -18,9 +18,17 @@ try:
     np.dot(np.ones(1000), np.ones(1000))
 
     libopenblas_patterns.append(os.path.join(np.__path__[0], ".libs", "libopenblas*"))
+    numpy_site_packages = os.path.dirname(np.__path__[0])
     libopenblas_patterns.append(
-        os.path.join(np.__path__[0], "numpy.libs", "libscipy_openblas*.dll")
+        os.path.join(numpy_site_packages, "numpy.libs", "libscipy_openblas*.dll")
     )
+    if sys.platform == "win32":
+        libopenblas_patterns.append(
+            os.path.join(sys.prefix, "Library", "bin", "openblas*.dll")
+        )
+        libopenblas_patterns.append(
+            os.path.join(sys.prefix, "Library", "bin", "libopenblas*.dll")
+        )
 except ImportError:
     pass
 
@@ -33,6 +41,10 @@ try:
 
     libopenblas_patterns.append(
         os.path.join(scipy.__path__[0], ".libs", "libopenblas*")
+    )
+    scipy_site_packages = os.path.dirname(scipy.__path__[0])
+    libopenblas_patterns.append(
+        os.path.join(scipy_site_packages, "scipy.libs", "libscipy_openblas*.dll")
     )
 except ImportError:
     scipy = None
@@ -90,6 +102,23 @@ def select(info, **kwargs):
     ]
 
     return selected_info
+
+
+def get_openblas_dll_path():
+    """Return a path to an OpenBLAS DLL that can be copied for Windows tests."""
+    if libopenblas_paths:
+        return next(iter(libopenblas_paths))
+
+    from threadpoolctl import ThreadpoolController
+
+    controllers = ThreadpoolController().select(internal_api="openblas").lib_controllers
+    if not controllers:
+        return None
+
+    filepath = controllers[0].filepath
+    if os.path.isfile(filepath):
+        return filepath
+    return None
 
 
 def make_long_windows_path(base_dir, filename, min_length=261):

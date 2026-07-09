@@ -15,6 +15,7 @@ from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 from .utils import cython_extensions_compiled
 from .utils import check_nested_prange_blas
 from .utils import libopenblas_paths
+from .utils import get_openblas_dll_path
 from .utils import make_long_windows_path
 from .utils import scipy
 from .utils import threadpool_info_from_subprocess
@@ -816,10 +817,10 @@ def test_windows_library_path_longer_than_max_path(tmp_path):
     Regression test inspired by the local repro in
     https://github.com/joblib/threadpoolctl/pull/189#issuecomment-2714235916
     """
-    if not libopenblas_paths:
-        pytest.skip("Requires numpy with shipped OpenBLAS on Windows")
+    src_dll = get_openblas_dll_path()
+    if src_dll is None:
+        pytest.skip("Requires OpenBLAS on Windows")
 
-    src_dll = next(iter(libopenblas_paths))
     dll_name = os.path.basename(src_dll)
     long_path = make_long_windows_path(tmp_path, dll_name, min_length=261)
     shutil.copy2(src_dll, long_path)
@@ -842,12 +843,12 @@ def test_windows_library_path_exceeds_internal_limit(tmp_path, monkeypatch):
     Regression test inspired by the local repro in
     https://github.com/joblib/threadpoolctl/pull/189#issuecomment-2714235916
     """
-    if not libopenblas_paths:
-        pytest.skip("Requires numpy with shipped OpenBLAS on Windows")
+    src_dll = get_openblas_dll_path()
+    if src_dll is None:
+        pytest.skip("Requires OpenBLAS on Windows")
 
     monkeypatch.setattr(threadpoolctl, "_WINDOWS_MAX_LIBRARY_PATH_LENGTH", 300)
 
-    src_dll = next(iter(libopenblas_paths))
     dll_name = "libopenblas_path_too_long.dll"
     long_path = make_long_windows_path(tmp_path, dll_name, min_length=301)
     shutil.copy2(src_dll, long_path)

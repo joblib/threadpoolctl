@@ -11,6 +11,7 @@ import ctypes as ct
 import ctypes.wintypes as wt
 import sys
 import threading
+import time
 import uuid
 
 from threadpoolctl._thread_tracer._parsing import (
@@ -338,6 +339,7 @@ class WindowsThreadSpawnTracer(object):
             return self._stats.snapshot()
 
         self._stop_event.set()
+        time.sleep(0.2)
         if self._trace_handle.value:
             CloseTrace(self._trace_handle)
         if self._consumer_thread is not None:

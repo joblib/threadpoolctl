@@ -143,7 +143,12 @@ class LibController(ABC):
 
     @abstractmethod
     def set_num_threads(self, num_threads):
-        """Set the maximum number of threads to use"""
+        """Set the maximum number of threads to use
+
+        If the underlying library supports multiple APIs where the choice is
+        between setting process-wide or current thread limits, the limiting API
+        should be the one that only applies to the current thread.
+        """
 
     @abstractmethod
     def get_version(self):
@@ -158,24 +163,6 @@ class LibController(ABC):
         return getattr(
             self.dynlib, f"{self._symbol_prefix}{name}{self._symbol_suffix}", None
         )
-
-
-class ThreadScopedController(ABC):
-    """
-    Provides a thread-number-setting API that only affects the current thread.
-
-    Useful in cases where there are two different APIs provided by the underlying library.
-    """
-
-    @abstractmethod
-    def set_num_threads_current_thread(self, num_threads: int) -> Any:
-        """
-        Set the maximum number of threads to use in library operations started
-        from the current thread.
-
-        Unlike ``set_num_threads``, which may have different scopes, this must
-        have thread-local scope only.
-        """
 
 
 class OpenBLASController(LibController):
@@ -441,7 +428,7 @@ class FlexiBLASController(LibController):
             raise RuntimeError(f"Failed to switch to backend {backend!r}.")
 
 
-class MKLController(LibController, ThreadScopedController):
+class MKLController(LibController):
     """Controller class for MKL"""
 
     user_api = "blas"
@@ -449,7 +436,7 @@ class MKLController(LibController, ThreadScopedController):
     filename_prefixes = ("libmkl_rt", "mkl_rt", "libblas")
     check_symbols = (
         "MKL_Get_Max_Threads",
-        "MKL_Set_Num_Threads",
+        "MKL_Set_Num_Threads_Local",
         "MKL_Get_Version_String",
         "MKL_Set_Threading_Layer",
     )
@@ -462,13 +449,7 @@ class MKLController(LibController, ThreadScopedController):
         return get_func()
 
     def set_num_threads(self, num_threads):
-        set_func = getattr(self.dynlib, "MKL_Set_Num_Threads", lambda num_threads: None)
-        return set_func(num_threads)
-
-    def set_num_threads_current_thread(self, num_threads: int) -> Any:
-        set_func = getattr(
-            self.dynlib, "MKL_Set_Num_Threads_Local", lambda num_threads: None
-        )
+        set_func = getattr(self.dynlib, "MKL_Set_Num_Threads_Local", lambda: None)
         return set_func(num_threads)
 
     def get_version(self):

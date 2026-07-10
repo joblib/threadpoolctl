@@ -14,13 +14,13 @@ import threading
 import time
 import uuid
 
-from threadpoolctl._thread_tracer._parsing import (
+from _thread_tracer._parsing import (
     EVENT_TRACE_TYPE_DCSTART,
     EVENT_TRACE_TYPE_START,
     classify_kernel_thread_event,
     parse_kernel_thread_payload,
 )
-from threadpoolctl._thread_tracer._types import ThreadSpawnStats, ThreadTracerError
+from _thread_tracer._types import ThreadSpawnStats, ThreadTracerError
 
 ERROR_SUCCESS = 0
 ERROR_ALREADY_EXISTS = 183

@@ -8,7 +8,9 @@ from pathlib import Path
 import pytest
 
 from threadpoolctl import threadpool_info
-from threadpoolctl._thread_tracer import ThreadTracerError, WindowsThreadSpawnTracer
+
+from _thread_tracer import ThreadTracerError, WindowsThreadSpawnTracer
+from tests.utils import cython_extensions_compiled
 
 pytestmark = [
     pytest.mark.skipif(
@@ -21,7 +23,7 @@ pytestmark = [
     ),
 ]
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[1]
 TRACER_ATTACH_DELAY_SECONDS = 0.5
 TRACER_FLUSH_DELAY_SECONDS = 0.3
 SUBPROCESS_TIMEOUT_SECONDS = 60
@@ -123,23 +125,24 @@ def test_tracer_counts_python_thread_spawns():
     _run_traced_child(body, minimum_spawn_count=3)
 
 
+@pytest.mark.skipif(
+    not cython_extensions_compiled,
+    reason="OpenMP test helper is not built",
+)
 def test_tracer_counts_openmp_thread_spawns():
-    try:
-        from threadpoolctl.tests._openmp_test_helper import check_openmp_n_threads
-    except ImportError:
-        pytest.skip("OpenMP test helper is not built")
+    from tests._openmp_test_helper.openmp_helpers_inner import check_openmp_num_threads
 
     os.environ["OMP_NUM_THREADS"] = "4"
-    check_openmp_n_threads(10)
+    check_openmp_num_threads(10)
     expected_spawn_count = _expected_pool_thread_count("openmp")
 
     body = """
     import os
 
     os.environ["OMP_NUM_THREADS"] = "4"
-    from threadpoolctl.tests._openmp_test_helper import check_openmp_n_threads
+    from tests._openmp_test_helper.openmp_helpers_inner import check_openmp_num_threads
 
-    used = check_openmp_n_threads(1000)
+    used = check_openmp_num_threads(1000)
     assert used >= 1
     """
     _run_traced_child(body, minimum_spawn_count=expected_spawn_count)

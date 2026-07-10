@@ -2,7 +2,7 @@ import struct
 
 import pytest
 
-from threadpoolctl._thread_tracer._parsing import (
+from _thread_tracer._parsing import (
     EVENT_TRACE_TYPE_DCSTART,
     EVENT_TRACE_TYPE_END,
     EVENT_TRACE_TYPE_START,

@@ -1215,6 +1215,13 @@ class ThreadpoolController:
 
     def _warn_if_incompatible_openmp(self):
         """Raise a warning if llvm-OpenMP and intel-OpenMP are both loaded"""
+        if sys.platform != "linux":
+            # The incompatibility between libomp and libiomp is known to cause
+            # crashes on Linux. On other platforms, conda-forge may expose both
+            # libraries without the same runtime conflict (for instance when
+            # libiomp forwards to libomp on Windows).
+            return
+
         prefixes = [lib_controller.prefix for lib_controller in self.lib_controllers]
         msg = textwrap.dedent(
             """

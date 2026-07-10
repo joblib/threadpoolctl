@@ -28,6 +28,7 @@ fi
 # specific BLAS implementations such as MKL that cannot be installed on
 # arm64 hardware.
 cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DBLAS_AUTO_DETECT="OFF" \
     -DEXTRA="OPENBLAS_CONDA" \
     -DFLEXIBLAS_DEFAULT="OPENBLAS_CONDA" \

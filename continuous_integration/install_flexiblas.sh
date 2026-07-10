@@ -28,8 +28,11 @@ fi
 # provided backends such as macOS' Apple/Accelerate/vecLib nor plaftorm
 # specific BLAS implementations such as MKL that cannot be installed on
 # arm64 hardware.
+FLEXIBLAS_LIB=$ABS_PATH/flexiblas_install/lib
 cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    -DCMAKE_INSTALL_RPATH=$FLEXIBLAS_LIB \
+    -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=TRUE \
     -DCMAKE_C_COMPILER_LAUNCHER=ccache \
     -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
     -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
@@ -39,6 +42,11 @@ cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
     -DOPENBLAS_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libopenblas"$EXTENSION \
 make
 make install
+
+export LD_LIBRARY_PATH=$FLEXIBLAS_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+if [[ $(uname) == "Darwin" ]]; then
+    export DYLD_LIBRARY_PATH=$FLEXIBLAS_LIB${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}
+fi
 
 # Check that all 3 BLAS are listed in FlexiBLAS configuration
 $ABS_PATH/flexiblas_install/bin/flexiblas list
@@ -65,8 +73,8 @@ PKG_CONFIG_PATH=$ABS_PATH/numpy/ pip install . -v --no-build-isolation -Csetup-a
 
 ccache -s || true
 
-export CFLAGS=-I$ABS_PATH/flexiblas_install/include/flexiblas \
-export LDFLAGS="-L$ABS_PATH/flexiblas_install/lib -Wl,-rpath,$ABS_PATH/flexiblas_install/lib" \
+export CFLAGS=-I$ABS_PATH/flexiblas_install/include/flexiblas
+export LDFLAGS="-L$FLEXIBLAS_LIB -Wl,-rpath,$FLEXIBLAS_LIB"
 
 popd
 

@@ -2,8 +2,7 @@
 ===========
 
 - Only warn about simultaneous `libomp` and `libiomp` usage on Linux, where the
-  incompatibility is known to cause crashes. This avoids spurious test failures on
-  Windows CI jobs that load both libraries via conda-forge MKL stacks.
+  incompatibility is known to cause crashes.
 
 3.6.0 (2025-03-13)
 ==================

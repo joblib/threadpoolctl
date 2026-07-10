@@ -5,7 +5,10 @@
   concurrently during library discovery (for example when importing conda-forge
   OpenCV). Windows module enumeration now uses a snapshot-first approach with
   graceful per-module fallbacks.
-  https://github.com/joblib/threadpoolctl/issues/217
+  https://github.com/joblib/threadpoolctl/pull/219
+
+- Only warn about simultaneous `libomp` and `libiomp` usage on Linux, where the
+  incompatibility is known to cause crashes.
 
 3.6.0 (2025-03-13)
 ==================

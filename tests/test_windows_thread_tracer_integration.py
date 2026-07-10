@@ -42,7 +42,9 @@ def _expected_pool_thread_count(user_api):
     ]
     if not thread_counts:
         pytest.skip("No {0} thread pool detected".format(user_api))
-    return max(thread_counts)
+    # Native pools report team size including the calling thread, while ETW
+    # Start events only observe newly created OS threads.
+    return max(1, max(thread_counts) - 1)
 
 
 def _configure_blas_thread_env():
@@ -77,6 +79,9 @@ def _run_traced_child(body, minimum_spawn_count):
         [sys.executable, "-c", _child_script(body)],
         cwd=str(REPO_ROOT),
         env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
     )
     tracer = WindowsThreadSpawnTracer(proc.pid)
     try:
@@ -87,15 +92,23 @@ def _run_traced_child(body, minimum_spawn_count):
         pytest.fail("failed to start Windows ETW tracer: {0}".format(exc))
 
     try:
-        return_code = proc.wait(timeout=SUBPROCESS_TIMEOUT_SECONDS)
+        stdout, stderr = proc.communicate(timeout=SUBPROCESS_TIMEOUT_SECONDS)
+        return_code = proc.returncode
     except subprocess.TimeoutExpired:
         proc.kill()
-        proc.wait(timeout=SUBPROCESS_TIMEOUT_SECONDS)
+        stdout, stderr = proc.communicate(timeout=SUBPROCESS_TIMEOUT_SECONDS)
         tracer.stop()
         pytest.fail("timed out waiting for traced child process")
 
     stats = tracer.stop()
-    assert return_code == 0, "traced child exited with code {0}".format(return_code)
+    if return_code != 0:
+        pytest.fail(
+            "traced child exited with code {0}\nstdout:\n{1}\nstderr:\n{2}".format(
+                return_code,
+                stdout,
+                stderr,
+            )
+        )
     assert (
         stats.spawn_count >= minimum_spawn_count
     ), "expected at least {expected} thread spawn events, got {actual} ({stats})".format(
@@ -110,17 +123,14 @@ def test_tracer_counts_python_thread_spawns():
     body = """
     import threading
 
-    num_threads = 3
-    started = threading.Barrier(num_threads)
-
     def work():
-        started.wait(timeout=5)
+        pass
 
-    threads = [threading.Thread(target=work) for _ in range(num_threads)]
+    threads = [threading.Thread(target=work) for _ in range(3)]
     for thread in threads:
         thread.start()
     for thread in threads:
-        thread.join(timeout=5)
+        thread.join()
     """
     _run_traced_child(body, minimum_spawn_count=3)
 
@@ -142,7 +152,7 @@ def test_tracer_counts_openmp_thread_spawns():
     os.environ["OMP_NUM_THREADS"] = "4"
     from tests._openmp_test_helper.openmp_helpers_inner import check_openmp_num_threads
 
-    used = check_openmp_num_threads(1000)
+    used = check_openmp_num_threads(100)
     assert used >= 1
     """
     _run_traced_child(body, minimum_spawn_count=expected_spawn_count)

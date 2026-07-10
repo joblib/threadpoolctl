@@ -117,9 +117,11 @@ def get_openblas_dll_path():
             ),
         )[0]
 
-    controllers = threadpoolctl.ThreadpoolController().select(
-        internal_api="openblas"
-    ).lib_controllers
+    controllers = (
+        threadpoolctl.ThreadpoolController()
+        .select(internal_api="openblas")
+        .lib_controllers
+    )
     if not controllers:
         return None
 

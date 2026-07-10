@@ -1053,7 +1053,9 @@ class ThreadpoolController:
         complete and shorter than ``MAX_PATH``. When the snapshot fails (for
         example because a loaded DLL lives on a long path), enumeration falls
         back to ``EnumProcessModulesEx`` and resolves paths with
-        ``GetModuleFileNameExW`` using a larger buffer.
+        ``GetModuleFileNameExW`` using a larger buffer. The snapshot based
+        approach is more robust in case of concurrent DLL loading/unloading,
+        however it cannot handle long paths, hence the need for the fallback.
         """
         ps_api = self._get_windll("Psapi")
         kernel_32 = self._get_windll("kernel32")

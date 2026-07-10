@@ -221,6 +221,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Restore ccache
+        if: matrix.INSTALL_BLAS == 'flexiblas'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-flexiblas-${{ matrix.os }}-${{ hashFiles('continuous_integration/install_flexiblas.sh') }}
+          restore-keys: |
+            ccache-flexiblas-${{ matrix.os }}-
+
       - name: Setup conda
         uses: conda-incubator/setup-miniconda@v3
         with:

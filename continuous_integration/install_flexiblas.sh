@@ -11,6 +11,10 @@ mkdir flexiblas_install
 git clone https://github.com/mpimd-csc/flexiblas.git
 pushd flexiblas
 
+export CCACHE_DIR="${CCACHE_DIR:-$HOME/.cache/ccache}"
+mkdir -p "$CCACHE_DIR"
+ccache --max-size=500M
+
 mkdir build
 pushd build
 
@@ -26,6 +30,9 @@ fi
 # arm64 hardware.
 cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+    -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+    -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
     -DBLAS_AUTO_DETECT="OFF" \
     -DEXTRA="OPENBLAS_CONDA" \
     -DFLEXIBLAS_DEFAULT="OPENBLAS_CONDA" \
@@ -55,6 +62,8 @@ Libs.private: \${extralib}
 Cflags: -I\${includedir}" > flexiblas.pc
 
 PKG_CONFIG_PATH=$ABS_PATH/numpy/ pip install . -v --no-build-isolation -Csetup-args=-Dblas=flexiblas -Csetup-args=-Dlapack=flexiblas
+
+ccache -s || true
 
 export CFLAGS=-I$ABS_PATH/flexiblas_install/include/flexiblas \
 export LDFLAGS="-L$ABS_PATH/flexiblas_install/lib -Wl,-rpath,$ABS_PATH/flexiblas_install/lib" \

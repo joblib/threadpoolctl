@@ -34,7 +34,7 @@ BLAS_THREAD_ENV_VARS = {
 }
 
 
-def _expected_pool_thread_count(user_api):
+def _expected_pool_spawn_count(user_api):
     thread_counts = [
         module["num_threads"]
         for module in threadpool_info()
@@ -68,7 +68,7 @@ def _child_script(body):
     )
 
 
-def _run_traced_child(body, minimum_spawn_count):
+def _run_traced_child(body):
     env = os.environ.copy()
     pythonpath = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = (
@@ -109,13 +109,6 @@ def _run_traced_child(body, minimum_spawn_count):
                 stderr,
             )
         )
-    assert (
-        stats.spawn_count >= minimum_spawn_count
-    ), "expected at least {expected} thread spawn events, got {actual} ({stats})".format(
-        expected=minimum_spawn_count,
-        actual=stats.spawn_count,
-        stats=stats,
-    )
     return stats
 
 
@@ -132,7 +125,9 @@ def test_tracer_counts_python_thread_spawns():
     for thread in threads:
         thread.join()
     """
-    _run_traced_child(body, minimum_spawn_count=3)
+    stats = _run_traced_child(body)
+    assert stats.spawn_count == 3
+    assert stats.existing_thread_count == 0
 
 
 @pytest.mark.skipif(
@@ -144,7 +139,7 @@ def test_tracer_counts_openmp_thread_spawns():
 
     os.environ["OMP_NUM_THREADS"] = "4"
     check_openmp_num_threads(10)
-    expected_spawn_count = _expected_pool_thread_count("openmp")
+    expected_spawn_count = _expected_pool_spawn_count("openmp")
 
     body = """
     import os
@@ -155,7 +150,9 @@ def test_tracer_counts_openmp_thread_spawns():
     used = check_openmp_num_threads(100)
     assert used >= 1
     """
-    _run_traced_child(body, minimum_spawn_count=expected_spawn_count)
+    stats = _run_traced_child(body)
+    assert stats.spawn_count == expected_spawn_count
+    assert stats.existing_thread_count == 0
 
 
 def test_tracer_counts_blas_thread_spawns():
@@ -167,7 +164,7 @@ def test_tracer_counts_blas_thread_spawns():
     rng = np.random.RandomState(0)
     warmup = rng.rand(100, 100)
     np.dot(warmup, warmup)
-    expected_spawn_count = _expected_pool_thread_count("blas")
+    expected_spawn_count = _expected_pool_spawn_count("blas")
 
     body = """
     import os
@@ -182,4 +179,6 @@ def test_tracer_counts_blas_thread_spawns():
     a = rng.rand(2000, 2000)
     np.dot(a, a)
     """
-    _run_traced_child(body, minimum_spawn_count=expected_spawn_count)
+    stats = _run_traced_child(body)
+    assert stats.spawn_count == expected_spawn_count
+    assert stats.existing_thread_count == 0

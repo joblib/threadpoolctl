@@ -36,7 +36,11 @@ print("\n------------------------------------------------------------------\n")
 # List of tests that we don't want to fail the CI if they are skipped in
 # every job. This is useful for tests that depend on specific versions of
 # numpy or scipy and we don't want to pin old versions of these libraries.
-SAFE_SKIPPED_TESTS = ["test_multiple_shipped_openblas"]
+SAFE_SKIPPED_TESTS = [
+    "test_multiple_shipped_openblas",
+    "test_threadpool_limits_by_prefix[1-libblas]",
+    "test_threadpool_limits_by_prefix[3-libblas]",
+]
 
 fail = False
 for test, skipped in always_skipped.items():

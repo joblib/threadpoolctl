@@ -11,8 +11,9 @@ mkdir flexiblas_install
 git clone https://github.com/mpimd-csc/flexiblas.git
 pushd flexiblas
 
-# Temporary ping Flexiblas commit to avoid openmp symbols not found at link time
-git checkout v3.4.2 
+export CCACHE_DIR="${CCACHE_DIR:-$HOME/.cache/ccache}"
+mkdir -p "$CCACHE_DIR"
+ccache --max-size=500M
 
 mkdir build
 pushd build
@@ -27,13 +28,25 @@ fi
 # provided backends such as macOS' Apple/Accelerate/vecLib nor plaftorm
 # specific BLAS implementations such as MKL that cannot be installed on
 # arm64 hardware.
+FLEXIBLAS_LIB=$ABS_PATH/flexiblas_install/lib
 cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    -DCMAKE_INSTALL_RPATH=$FLEXIBLAS_LIB \
+    -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=TRUE \
+    -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+    -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+    -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
     -DBLAS_AUTO_DETECT="OFF" \
     -DEXTRA="OPENBLAS_CONDA" \
     -DFLEXIBLAS_DEFAULT="OPENBLAS_CONDA" \
     -DOPENBLAS_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libopenblas"$EXTENSION \
 make
 make install
+
+export LD_LIBRARY_PATH=$FLEXIBLAS_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+if [[ $(uname) == "Darwin" ]]; then
+    export DYLD_LIBRARY_PATH=$FLEXIBLAS_LIB${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}
+fi
 
 # Check that all 3 BLAS are listed in FlexiBLAS configuration
 $ABS_PATH/flexiblas_install/bin/flexiblas list
@@ -58,8 +71,10 @@ Cflags: -I\${includedir}" > flexiblas.pc
 
 PKG_CONFIG_PATH=$ABS_PATH/numpy/ pip install . -v --no-build-isolation -Csetup-args=-Dblas=flexiblas -Csetup-args=-Dlapack=flexiblas
 
-export CFLAGS=-I$ABS_PATH/flexiblas_install/include/flexiblas \
-export LDFLAGS="-L$ABS_PATH/flexiblas_install/lib -Wl,-rpath,$ABS_PATH/flexiblas_install/lib" \
+ccache -s || true
+
+export CFLAGS=-I$ABS_PATH/flexiblas_install/include/flexiblas
+export LDFLAGS="-L$FLEXIBLAS_LIB -Wl,-rpath,$FLEXIBLAS_LIB"
 
 popd
 

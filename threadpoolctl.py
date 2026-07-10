@@ -169,7 +169,11 @@ class OpenBLASController(LibController):
 
     user_api = "blas"
     internal_api = "openblas"
-    filename_prefixes = ("libopenblas", "libblas", "libscipy_openblas")
+    filename_prefixes = (
+        "libopenblas",
+        "libblas",  # legacy conda-forge Windows shim, see _make_controller_from_path
+        "libscipy_openblas",
+    )
 
     _symbol_prefixes = ("", "scipy_")
     _symbol_suffixes = ("", "64_", "_64")
@@ -241,7 +245,10 @@ class BLISController(LibController):
 
     user_api = "blas"
     internal_api = "blis"
-    filename_prefixes = ("libblis", "libblas")
+    filename_prefixes = (
+        "libblis",
+        "libblas",
+    )  # libblas: legacy conda-forge Windows shim
     check_symbols = (
         "bli_thread_get_num_threads",
         "bli_thread_set_num_threads",
@@ -432,7 +439,11 @@ class MKLController(LibController):
 
     user_api = "blas"
     internal_api = "mkl"
-    filename_prefixes = ("libmkl_rt", "mkl_rt", "libblas")
+    filename_prefixes = (
+        "libmkl_rt",
+        "mkl_rt",
+        "libblas",  # legacy conda-forge Windows shim, see _make_controller_from_path
+    )
     check_symbols = (
         "MKL_Get_Max_Threads",
         "MKL_Set_Num_Threads",
@@ -1330,10 +1341,11 @@ class ThreadpoolController:
             if prefix is None:
                 continue
 
-            # workaround for BLAS libraries packaged by conda-forge on windows, which
-            # are all renamed "libblas.dll". We thus have to check to which BLAS
-            # implementation it actually corresponds looking for implementation
-            # specific symbols.
+            # Legacy workaround for BLAS libraries that conda-forge used to expose
+            # on Windows as libblas.dll, disambiguated via implementation-specific
+            # symbols. Current conda-forge stacks no longer load libblas.dll (e.g.
+            # MKL is exposed as mkl_rt.<version>.dll instead), so this path is
+            # kept for older installs but cannot be exercised in today's CI.
             if prefix == "libblas":
                 if filename.endswith(".dll"):
                     libblas = ctypes.CDLL(filepath, _RTLD_NOLOAD)
@@ -1343,11 +1355,8 @@ class ThreadpoolController:
                     ):
                         continue
                 else:
-                    # We ignore libblas on other platforms than windows because there
-                    # might be a libblas dso comming with openblas for instance that
-                    # can't be used to instantiate a pertinent LibController (many
-                    # symbols are missing) and would create confusion by making a
-                    # duplicate entry in threadpool_info.
+                    # Non-Windows libblas DSOs (e.g. from openblas) lack the symbols
+                    # needed to instantiate a controller and would duplicate entries.
                     continue
 
             # filename matches a prefix. Now we check if the library has the symbols we

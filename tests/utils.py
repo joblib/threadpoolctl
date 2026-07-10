@@ -1,8 +1,6 @@
 import json
 import os
 import sys
-import ctypes
-import shutil
 import threadpoolctl
 from glob import glob
 from os.path import dirname, normpath
@@ -24,15 +22,16 @@ try:
     libopenblas_patterns.append(
         os.path.join(numpy_site_packages, "numpy.libs", "libscipy_openblas*.dll")
     )
-    if sys.platform == "win32":
-        libopenblas_patterns.append(
-            os.path.join(sys.prefix, "Library", "bin", "openblas*.dll")
-        )
-        libopenblas_patterns.append(
-            os.path.join(sys.prefix, "Library", "bin", "libopenblas*.dll")
-        )
 except ImportError:
     pass
+
+if sys.platform == "win32":
+    libopenblas_patterns.append(
+        os.path.join(sys.prefix, "Library", "bin", "openblas*.dll")
+    )
+    libopenblas_patterns.append(
+        os.path.join(sys.prefix, "Library", "bin", "libopenblas*.dll")
+    )
 
 
 try:
@@ -118,9 +117,9 @@ def get_openblas_dll_path():
             ),
         )[0]
 
-    from threadpoolctl import ThreadpoolController
-
-    controllers = ThreadpoolController().select(internal_api="openblas").lib_controllers
+    controllers = threadpoolctl.ThreadpoolController().select(
+        internal_api="openblas"
+    ).lib_controllers
     if not controllers:
         return None
 
@@ -128,20 +127,6 @@ def get_openblas_dll_path():
     if os.path.isfile(filepath):
         return filepath
     return None
-
-
-def normalize_windows_path(path):
-    """Normalize Windows paths for stable comparisons in tests."""
-    path = os.path.abspath(str(path))
-    if path.startswith("\\\\?\\"):
-        path = path[4:]
-        if path.startswith("UNC\\"):
-            path = "\\\\" + path[4:]
-    return os.path.normcase(os.path.normpath(path))
-
-
-LONG_PATH_OPENBLAS_DLL = "libopenblas_long_path_test.dll"
-TRUNCATED_PATH_OPENBLAS_DLL = "libopenblas_path_too_long.dll"
 
 
 def make_long_windows_path(base_dir, filename, min_length=261):
@@ -158,19 +143,3 @@ def make_long_windows_path(base_dir, filename, min_length=261):
 
     target.parent.mkdir(parents=True, exist_ok=True)
     return target
-
-
-def to_extended_windows_path(path):
-    """Return an extended-length path for Windows APIs (> MAX_PATH)."""
-    path = os.path.abspath(str(path))
-    if path.startswith("\\\\?\\"):
-        return path
-    if path.startswith("\\\\"):
-        return "\\\\?\\UNC\\" + path[2:]
-    return "\\\\?\\" + path
-
-
-def copy_and_load_dll(src_dll, destination):
-    """Copy a DLL to destination and load it in the current process."""
-    shutil.copy2(src_dll, to_extended_windows_path(destination))
-    ctypes.CDLL(to_extended_windows_path(destination))

@@ -4,6 +4,8 @@ import pytest
 import re
 import subprocess
 import sys
+import ctypes
+import shutil
 
 import threadpoolctl
 from threadpoolctl import threadpool_limits, threadpool_info
@@ -13,12 +15,8 @@ from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 from .utils import cython_extensions_compiled
 from .utils import check_nested_prange_blas
 from .utils import libopenblas_paths
-from .utils import copy_and_load_dll
 from .utils import get_openblas_dll_path
-from .utils import LONG_PATH_OPENBLAS_DLL
 from .utils import make_long_windows_path
-from .utils import normalize_windows_path
-from .utils import TRUNCATED_PATH_OPENBLAS_DLL
 from .utils import scipy
 from .utils import threadpool_info_from_subprocess
 from .utils import select
@@ -811,7 +809,6 @@ def test_threadpool_controller_repeated_init():
     see https://github.com/joblib/threadpoolctl/issues/217
     """
     pytest.importorskip("cv2")
-    import cv2  # noqa: F401
 
     for _ in range(100):
         ThreadpoolController()
@@ -828,18 +825,37 @@ def test_windows_library_path_longer_than_max_path(tmp_path):
     if src_dll is None:
         pytest.skip("Requires OpenBLAS on Windows")
 
-    long_path = make_long_windows_path(tmp_path, LONG_PATH_OPENBLAS_DLL, min_length=261)
-    copy_and_load_dll(src_dll, long_path)
+    long_path = make_long_windows_path(
+        tmp_path, "libopenblas_long_path_test.dll", min_length=261
+    )
+    extended_path = os.path.abspath(str(long_path))
+    if not extended_path.startswith("\\\\?\\"):
+        if extended_path.startswith("\\\\"):
+            extended_path = "\\\\?\\UNC\\" + extended_path[2:]
+        else:
+            extended_path = "\\\\?\\" + extended_path
+    shutil.copy2(src_dll, extended_path)
+    ctypes.CDLL(extended_path)
 
-    expected_path = normalize_windows_path(long_path)
+    expected_path = os.path.abspath(str(long_path))
+    if expected_path.startswith("\\\\?\\"):
+        expected_path = expected_path[4:]
+        if expected_path.startswith("UNC\\"):
+            expected_path = "\\\\" + expected_path[4:]
+    expected_path = os.path.normcase(os.path.normpath(expected_path))
     openblas_info = ThreadpoolController().select(internal_api="openblas").info()
 
     long_path_entries = [info for info in openblas_info if len(info["filepath"]) > 260]
     assert len(long_path_entries) >= 1
-    assert any(
-        normalize_windows_path(info["filepath"]) == expected_path
-        for info in long_path_entries
-    )
+    normalized_filepaths = []
+    for info in long_path_entries:
+        filepath = info["filepath"]
+        if filepath.startswith("\\\\?\\"):
+            filepath = filepath[4:]
+            if filepath.startswith("UNC\\"):
+                filepath = "\\\\" + filepath[4:]
+        normalized_filepaths.append(os.path.normcase(os.path.normpath(filepath)))
+    assert expected_path in normalized_filepaths
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-only test")
@@ -856,17 +872,34 @@ def test_windows_library_path_exceeds_internal_limit(tmp_path, monkeypatch):
     monkeypatch.setattr(threadpoolctl, "_WINDOWS_MAX_LIBRARY_PATH_LENGTH", 300)
 
     long_path = make_long_windows_path(
-        tmp_path, TRUNCATED_PATH_OPENBLAS_DLL, min_length=400
+        tmp_path, "libopenblas_path_too_long.dll", min_length=400
     )
-    copy_and_load_dll(src_dll, long_path)
+    extended_path = os.path.abspath(str(long_path))
+    if not extended_path.startswith("\\\\?\\"):
+        if extended_path.startswith("\\\\"):
+            extended_path = "\\\\?\\UNC\\" + extended_path[2:]
+        else:
+            extended_path = "\\\\?\\" + extended_path
+    shutil.copy2(src_dll, extended_path)
+    ctypes.CDLL(extended_path)
 
-    expected_path = normalize_windows_path(long_path)
+    expected_path = os.path.abspath(str(long_path))
+    if expected_path.startswith("\\\\?\\"):
+        expected_path = expected_path[4:]
+        if expected_path.startswith("UNC\\"):
+            expected_path = "\\\\" + expected_path[4:]
+    expected_path = os.path.normcase(os.path.normpath(expected_path))
     with pytest.warns(RuntimeWarning, match="path too long"):
         info = ThreadpoolController().info()
 
-    filepaths = {
-        normalize_windows_path(entry["filepath"])
-        for entry in info
-        if "filepath" in entry
-    }
+    filepaths = set()
+    for entry in info:
+        if "filepath" not in entry:
+            continue
+        filepath = entry["filepath"]
+        if filepath.startswith("\\\\?\\"):
+            filepath = filepath[4:]
+            if filepath.startswith("UNC\\"):
+                filepath = "\\\\" + filepath[4:]
+        filepaths.add(os.path.normcase(os.path.normpath(filepath)))
     assert expected_path not in filepaths

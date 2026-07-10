@@ -38,6 +38,12 @@ BLAS_THREAD_ENV_VARS = {
 }
 
 NOOP_CHILD_BODY = "pass"
+# Keep the child alive long enough for a delayed tracer attach when measuring
+# DCStart rundown events (see EXISTING_THREAD_TRACER_DELAY_SECONDS).
+NOOP_EXISTING_CHILD_BODY = """
+import time
+time.sleep(2)
+"""
 
 
 @pytest.fixture(scope="module")
@@ -51,7 +57,7 @@ def noop_child_spawn_count():
 def noop_child_existing_thread_count():
     """Existing-thread rundown count for a noop child traced after a delay."""
     stats = _run_traced_child(
-        NOOP_CHILD_BODY,
+        NOOP_EXISTING_CHILD_BODY,
         include_existing_threads=True,
         tracer_start_delay=EXISTING_THREAD_TRACER_DELAY_SECONDS,
     )

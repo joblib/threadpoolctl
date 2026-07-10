@@ -1,5 +1,4 @@
 import struct
-import sys
 
 import pytest
 
@@ -10,7 +9,6 @@ from threadpoolctl._thread_tracer._parsing import (
     classify_kernel_thread_event,
     parse_kernel_thread_payload,
 )
-from threadpoolctl._thread_tracer import windows_tracer_available
 
 
 def _pack_thread_payload(process_id, thread_id):
@@ -42,7 +40,3 @@ def test_classify_kernel_thread_event_ignores_other_process():
 
 def test_parse_kernel_thread_payload_rejects_short_buffers():
     assert parse_kernel_thread_payload(b"\x01\x02\x03", 3) is None
-
-
-def test_windows_tracer_available_matches_platform():
-    assert windows_tracer_available() == (sys.platform == "win32")

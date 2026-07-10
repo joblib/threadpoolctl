@@ -59,7 +59,7 @@ class GUID(ct.Structure):
         guid.Data3 = int(parts[2], 16)
         hex_data4 = parts[3] + parts[4]
         for index in range(8):
-            guid.Data4[index] = int(hex_data4[index * 2:index * 2 + 2], 16)
+            guid.Data4[index] = int(hex_data4[index * 2 : index * 2 + 2], 16)
         return guid
 
 
@@ -188,9 +188,7 @@ def _ensure_advapi32():
         return _advapi32
 
     if sys.platform != "win32":
-        raise ThreadTracerError(
-            "Windows ETW tracer is only supported on Windows"
-        )
+        raise ThreadTracerError("Windows ETW tracer is only supported on Windows")
 
     _advapi32 = ct.windll.advapi32
 
@@ -232,7 +230,9 @@ def _ensure_advapi32():
 
 def _make_trace_properties(enable_flags):
     max_str_len = 1024
-    buf_size = ct.sizeof(EVENT_TRACE_PROPERTIES) + 2 * ct.sizeof(ct.c_wchar) * max_str_len
+    buf_size = (
+        ct.sizeof(EVENT_TRACE_PROPERTIES) + 2 * ct.sizeof(ct.c_wchar) * max_str_len
+    )
     buf = (ct.c_char * buf_size)()
     props = ct.cast(ct.pointer(buf), ct.POINTER(EVENT_TRACE_PROPERTIES))
 

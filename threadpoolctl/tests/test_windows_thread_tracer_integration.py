@@ -1,3 +1,4 @@
+import ctypes
 import os
 import subprocess
 import sys
@@ -6,20 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from threadpoolctl._thread_tracer import (
-    ThreadTracerError,
-    WindowsThreadSpawnTracer,
-    windows_etw_admin_available,
-    windows_tracer_available,
-)
+from threadpoolctl._thread_tracer import ThreadTracerError, WindowsThreadSpawnTracer
 
 pytestmark = [
     pytest.mark.skipif(
-        not windows_tracer_available(),
+        sys.platform != "win32",
         reason="Windows ETW integration tests require Windows",
     ),
     pytest.mark.skipif(
-        not windows_etw_admin_available(),
+        sys.platform == "win32" and not ctypes.windll.shell32.IsUserAnAdmin(),
         reason="Windows ETW kernel tracing requires an elevated process",
     ),
 ]
@@ -69,15 +65,13 @@ def _configure_blas_thread_env():
 
 
 def _child_script(body):
-    return textwrap.dedent(
-        """
+    return textwrap.dedent("""
         import time
 
         time.sleep({attach_delay})
         {body}
         time.sleep({flush_delay})
-        """
-    ).format(
+        """).format(
         attach_delay=TRACER_ATTACH_DELAY_SECONDS,
         body=textwrap.indent(textwrap.dedent(body).strip(), "    "),
         flush_delay=TRACER_FLUSH_DELAY_SECONDS,
@@ -88,9 +82,7 @@ def _run_traced_child(body, minimum_spawn_count):
     env = os.environ.copy()
     pythonpath = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = (
-        str(REPO_ROOT)
-        if not pythonpath
-        else str(REPO_ROOT) + os.pathsep + pythonpath
+        str(REPO_ROOT) if not pythonpath else str(REPO_ROOT) + os.pathsep + pythonpath
     )
 
     proc = subprocess.Popen(
@@ -116,13 +108,12 @@ def _run_traced_child(body, minimum_spawn_count):
 
     stats = tracer.stop()
     assert return_code == 0, "traced child exited with code {0}".format(return_code)
-    assert stats.spawn_count >= minimum_spawn_count, (
-        "expected at least {expected} thread spawn events, got {actual} ({stats})"
-        .format(
-            expected=minimum_spawn_count,
-            actual=stats.spawn_count,
-            stats=stats,
-        )
+    assert (
+        stats.spawn_count >= minimum_spawn_count
+    ), "expected at least {expected} thread spawn events, got {actual} ({stats})".format(
+        expected=minimum_spawn_count,
+        actual=stats.spawn_count,
+        stats=stats,
     )
     return stats
 

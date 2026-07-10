@@ -241,7 +241,10 @@ class BLISController(LibController):
 
     user_api = "blas"
     internal_api = "blis"
-    filename_prefixes = ("libblis", "libblas")  # libblas: legacy conda-forge Windows shim
+    filename_prefixes = (
+        "libblis",
+        "libblas",
+    )  # libblas: legacy conda-forge Windows shim
     check_symbols = (
         "bli_thread_get_num_threads",
         "bli_thread_set_num_threads",

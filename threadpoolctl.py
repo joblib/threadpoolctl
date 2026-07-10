@@ -1047,48 +1047,38 @@ class ThreadpoolController:
         """Loop through loaded libraries and return binders on supported ones
 
         This function is expected to work on windows system only.
-        """
-        PROCESS_QUERY_INFORMATION = 0x0400
-        PROCESS_VM_READ = 0x0010
 
+        Module discovery uses a snapshot-first strategy: when
+        ``CreateToolhelp32Snapshot`` succeeds, ``szExePath`` values are already
+        complete and shorter than ``MAX_PATH``. When the snapshot fails (for
+        example because a loaded DLL lives on a long path), enumeration falls
+        back to ``EnumProcessModulesEx`` and resolves paths with
+        ``GetModuleFileNameExW`` using a larger buffer.
+        """
         ps_api = self._get_windll("Psapi")
         kernel_32 = self._get_windll("kernel32")
         self._setup_windows_module_apis(ps_api, kernel_32)
 
-        h_process = kernel_32.OpenProcess(
-            PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, os.getpid()
-        )
-        if not h_process:  # pragma: no cover
-            raise OSError(f"Could not open PID {os.getpid()}")
+        h_process = kernel_32.GetCurrentProcess()
 
         # Allocate a buffer for long path names; see _WINDOWS_MAX_LIBRARY_PATH_LENGTH.
         max_path = _WINDOWS_MAX_LIBRARY_PATH_LENGTH
         path_buf = ctypes.create_unicode_buffer(max_path)
 
         try:
-            try:
-                modules = self._snapshot_loaded_modules(kernel_32)
-            except OSError:
-                modules = None
+            modules = self._snapshot_loaded_modules(kernel_32)
+        except OSError:
+            modules = None
 
-            if modules is not None:
-                for h_module, snapshot_path in modules:
-                    filepath = self._resolve_module_filepath(
-                        ps_api,
-                        h_process,
-                        h_module,
-                        snapshot_path,
-                        max_path,
-                        path_buf,
-                    )
-                    if filepath is not None:
-                        self._make_controller_from_path(filepath)
-            else:
-                self._find_libraries_with_enum_process_modules_ex(
-                    ps_api, h_process, max_path, path_buf
-                )
-        finally:
-            kernel_32.CloseHandle(h_process)
+        if modules is not None:
+            for _h_module, snapshot_path in modules:
+                filepath = self._snapshot_module_filepath(snapshot_path)
+                if filepath is not None:
+                    self._make_controller_from_path(filepath)
+        else:
+            self._find_libraries_with_enum_process_modules_ex(
+                ps_api, kernel_32, h_process, max_path, path_buf
+            )
 
     @classmethod
     def _setup_windows_module_apis(cls, ps_api, kernel_32):
@@ -1098,16 +1088,17 @@ class ThreadpoolController:
         if getattr(cls, "_windows_module_apis_configured", False):
             return
 
-        kernel_32.OpenProcess.argtypes = [DWORD, BOOL, DWORD]
-        kernel_32.OpenProcess.restype = HANDLE
-        kernel_32.CloseHandle.argtypes = [HANDLE]
-        kernel_32.CloseHandle.restype = BOOL
+        kernel_32.GetCurrentProcess.restype = HANDLE
         kernel_32.CreateToolhelp32Snapshot.argtypes = [DWORD, DWORD]
         kernel_32.CreateToolhelp32Snapshot.restype = HANDLE
         kernel_32.Module32FirstW.argtypes = [HANDLE, ctypes.c_void_p]
         kernel_32.Module32FirstW.restype = BOOL
         kernel_32.Module32NextW.argtypes = [HANDLE, ctypes.c_void_p]
         kernel_32.Module32NextW.restype = BOOL
+        kernel_32.GetModuleFileNameW.argtypes = [HMODULE, ctypes.c_wchar_p, DWORD]
+        kernel_32.GetModuleFileNameW.restype = DWORD
+        kernel_32.CloseHandle.argtypes = [HANDLE]
+        kernel_32.CloseHandle.restype = BOOL
 
         ps_api.EnumProcessModulesEx.argtypes = [
             HANDLE,
@@ -1192,17 +1183,40 @@ class ThreadpoolController:
 
         return modules
 
+    def _snapshot_module_filepath(self, snapshot_path):
+        """Return a snapshot module path, or None if it should be skipped."""
+        from ctypes.wintypes import MAX_PATH
+
+        if not snapshot_path:
+            return None
+
+        if len(snapshot_path) >= MAX_PATH - 1:  # pragma: no cover
+            warnings.warn(
+                "Could not get the full path of a dynamic library. This library "
+                "will be ignored and threadpoolctl might not be able to control or "
+                f"display information about all loaded libraries. Here's the "
+                f"truncated path: {snapshot_path!r}",
+                RuntimeWarning,
+            )
+            return None
+
+        return snapshot_path
+
     def _resolve_module_filepath(
         self,
         ps_api,
+        kernel_32,
         h_process,
         h_module,
-        snapshot_path,
         max_path,
         path_buf,
     ):
         """Return the full path for a module, or None if it should be skipped."""
         from ctypes.wintypes import MAX_PATH
+
+        n_size = kernel_32.GetModuleFileNameW(h_module, path_buf, MAX_PATH)
+        if n_size and n_size < MAX_PATH - 1:
+            return path_buf.value
 
         if ps_api.GetModuleFileNameExW(h_process, h_module, path_buf, max_path):
             filepath = path_buf.value
@@ -1217,21 +1231,10 @@ class ThreadpoolController:
                 return None
             return filepath
 
-        if snapshot_path is not None and len(snapshot_path) < MAX_PATH - 1:
-            return snapshot_path
-
-        if snapshot_path is not None:  # pragma: no cover
-            warnings.warn(
-                "Could not get the full path of a dynamic library. This library "
-                "will be ignored and threadpoolctl might not be able to control or "
-                f"display information about all loaded libraries. Here's the "
-                f"truncated path: {snapshot_path!r}",
-                RuntimeWarning,
-            )
         return None
 
     def _find_libraries_with_enum_process_modules_ex(
-        self, ps_api, h_process, max_path, path_buf
+        self, ps_api, kernel_32, h_process, max_path, path_buf
     ):
         """Fallback Windows module enumeration using EnumProcessModulesEx.
 
@@ -1265,9 +1268,9 @@ class ThreadpoolController:
         for h_module in map(HMODULE, buf[:count]):
             filepath = self._resolve_module_filepath(
                 ps_api,
+                kernel_32,
                 h_process,
                 h_module,
-                snapshot_path=None,
                 max_path=max_path,
                 path_buf=path_buf,
             )

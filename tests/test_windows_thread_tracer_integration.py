@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import textwrap
+import time
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,9 @@ pytestmark = [
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TRACER_ATTACH_DELAY_SECONDS = 0.5
 TRACER_FLUSH_DELAY_SECONDS = 0.3
+# Attach after the child body has created and blocked its worker threads so ETW
+# rundown can observe them as pre-existing (DCStart) rather than new spawns.
+EXISTING_THREAD_TRACER_DELAY_SECONDS = TRACER_ATTACH_DELAY_SECONDS + 0.5
 SUBPROCESS_TIMEOUT_SECONDS = 60
 BLAS_THREAD_ENV_VARS = {
     "OMP_NUM_THREADS": "1",
@@ -40,8 +44,18 @@ NOOP_CHILD_BODY = "pass"
 def noop_child_spawn_count():
     """Spawn count for a traced child that only sleeps (no extra work)."""
     stats = _run_traced_child(NOOP_CHILD_BODY)
-    assert stats.existing_thread_count == 0
     return stats.spawn_count
+
+
+@pytest.fixture(scope="module")
+def noop_child_existing_thread_count():
+    """Existing-thread rundown count for a noop child traced after a delay."""
+    stats = _run_traced_child(
+        NOOP_CHILD_BODY,
+        include_existing_threads=True,
+        tracer_start_delay=EXISTING_THREAD_TRACER_DELAY_SECONDS,
+    )
+    return stats.existing_thread_count
 
 
 def _expected_pool_spawn_count(user_api):
@@ -74,6 +88,23 @@ def _assert_spawn_count_relative_to_baseline(
     )
 
 
+def _assert_existing_count_relative_to_baseline(
+    stats, baseline_existing_count, extra_existing_count
+):
+    expected_total = baseline_existing_count + extra_existing_count
+    assert stats.existing_thread_count == expected_total, (
+        "expected {expected_total} existing threads "
+        "({baseline} noop baseline + {extra} extra), "
+        "got {actual} ({stats})".format(
+            expected_total=expected_total,
+            baseline=baseline_existing_count,
+            extra=extra_existing_count,
+            actual=stats.existing_thread_count,
+            stats=stats,
+        )
+    )
+
+
 def _configure_blas_thread_env():
     for name, value in BLAS_THREAD_ENV_VARS.items():
         os.environ[name] = value
@@ -95,7 +126,11 @@ def _child_script(body):
     )
 
 
-def _run_traced_child(body):
+def _run_traced_child(
+    body,
+    include_existing_threads=False,
+    tracer_start_delay=0,
+):
     env = os.environ.copy()
     pythonpath = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = (
@@ -110,7 +145,12 @@ def _run_traced_child(body):
         stderr=subprocess.PIPE,
         text=True,
     )
-    tracer = WindowsThreadSpawnTracer(proc.pid)
+    if tracer_start_delay:
+        time.sleep(tracer_start_delay)
+    tracer = WindowsThreadSpawnTracer(
+        proc.pid,
+        include_existing_threads=include_existing_threads,
+    )
     try:
         tracer.start()
     except ThreadTracerError as exc:
@@ -161,7 +201,41 @@ def test_tracer_counts_python_thread_spawns(noop_child_spawn_count):
         noop_child_spawn_count,
         num_threads,
     )
-    assert stats.existing_thread_count == 0
+
+
+def test_tracer_counts_existing_python_threads(
+    noop_child_existing_thread_count,
+):
+    num_threads = 3
+    body = """
+    import threading
+    import time
+
+    hold = threading.Event()
+
+    def work():
+        hold.wait(timeout=10)
+
+    threads = [threading.Thread(target=work) for _ in range({num_threads})]
+    for thread in threads:
+        thread.start()
+    time.sleep(2)
+    hold.set()
+    for thread in threads:
+        thread.join()
+    """.format(
+        num_threads=num_threads
+    )
+    stats = _run_traced_child(
+        body,
+        include_existing_threads=True,
+        tracer_start_delay=EXISTING_THREAD_TRACER_DELAY_SECONDS,
+    )
+    _assert_existing_count_relative_to_baseline(
+        stats,
+        noop_child_existing_thread_count,
+        num_threads,
+    )
 
 
 @pytest.mark.skipif(
@@ -190,7 +264,6 @@ def test_tracer_counts_openmp_thread_spawns(noop_child_spawn_count):
         noop_child_spawn_count,
         expected_extra_spawn_count,
     )
-    assert stats.existing_thread_count == 0
 
 
 def test_tracer_counts_blas_thread_spawns(noop_child_spawn_count):
@@ -223,4 +296,3 @@ def test_tracer_counts_blas_thread_spawns(noop_child_spawn_count):
         noop_child_spawn_count,
         expected_extra_spawn_count,
     )
-    assert stats.existing_thread_count == 0

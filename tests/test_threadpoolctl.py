@@ -613,6 +613,7 @@ def test_architecture():
     expected_openblas_architectures = (
         # XXX: add more as needed by CI or developer laptops
         "armv8",
+        "cooperlake",
         "haswell",
         "neoversen1",
         "prescott",  # see: https://github.com/xianyi/OpenBLAS/pull/3485

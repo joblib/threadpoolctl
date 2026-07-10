@@ -12,7 +12,6 @@ import ctypes.wintypes as wt
 import sys
 import threading
 import time
-import uuid
 
 from _thread_tracer._parsing import (
     EVENT_TRACE_TYPE_DCSTART,
@@ -124,6 +123,95 @@ class EVENT_RECORD(ct.Structure):
     ]
 
 
+class EVENT_TRACE_HEADER_CLASS(ct.Structure):
+    _fields_ = [
+        ("Type", ct.c_ubyte),
+        ("Level", ct.c_ubyte),
+        ("Version", ct.c_uint16),
+    ]
+
+
+class EVENT_TRACE_HEADER(ct.Structure):
+    _fields_ = [
+        ("Size", ct.c_ushort),
+        ("HeaderType", ct.c_ubyte),
+        ("MarkerFlags", ct.c_ubyte),
+        ("Class", EVENT_TRACE_HEADER_CLASS),
+        ("ThreadId", ct.c_ulong),
+        ("ProcessId", ct.c_ulong),
+        ("TimeStamp", wt.LARGE_INTEGER),
+        ("Guid", GUID),
+        ("ClientContext", ct.c_ulong),
+        ("Flags", ct.c_ulong),
+    ]
+
+
+class EVENT_TRACE(ct.Structure):
+    _fields_ = [
+        ("Header", EVENT_TRACE_HEADER),
+        ("InstanceId", ct.c_ulong),
+        ("ParentInstanceId", ct.c_ulong),
+        ("ParentGuid", GUID),
+        ("MofData", ct.c_void_p),
+        ("MofLength", ct.c_ulong),
+        ("ClientContext", ct.c_ulong),
+    ]
+
+
+class SYSTEMTIME(ct.Structure):
+    _fields_ = [
+        ("wYear", wt.WORD),
+        ("wMonth", wt.WORD),
+        ("wDayOfWeek", wt.WORD),
+        ("wDay", wt.WORD),
+        ("wHour", wt.WORD),
+        ("wMinute", wt.WORD),
+        ("wSecond", wt.WORD),
+        ("wMilliseconds", wt.WORD),
+    ]
+
+
+class TIME_ZONE_INFORMATION(ct.Structure):
+    _fields_ = [
+        ("Bias", ct.c_long),
+        ("StandardName", ct.c_wchar * 32),
+        ("StandardDate", SYSTEMTIME),
+        ("StandardBias", ct.c_long),
+        ("DaylightName", ct.c_wchar * 32),
+        ("DaylightDate", SYSTEMTIME),
+        ("DaylightBias", ct.c_long),
+    ]
+
+
+class TRACE_LOGFILE_HEADER(ct.Structure):
+    _fields_ = [
+        ("BufferSize", ct.c_ulong),
+        ("MajorVersion", ct.c_byte),
+        ("MinorVersion", ct.c_byte),
+        ("SubVersion", ct.c_byte),
+        ("SubMinorVersion", ct.c_byte),
+        ("ProviderVersion", ct.c_ulong),
+        ("NumberOfProcessors", ct.c_ulong),
+        ("EndTime", wt.LARGE_INTEGER),
+        ("TimerResolution", ct.c_ulong),
+        ("MaximumFileSize", ct.c_ulong),
+        ("LogFileMode", ct.c_ulong),
+        ("BuffersWritten", ct.c_ulong),
+        ("StartBuffers", ct.c_ulong),
+        ("PointerSize", ct.c_ulong),
+        ("EventsLost", ct.c_ulong),
+        ("CpuSpeedInMHz", ct.c_ulong),
+        ("LoggerName", ct.c_wchar_p),
+        ("LogFileName", ct.c_wchar_p),
+        ("TimeZone", TIME_ZONE_INFORMATION),
+        ("BootTime", wt.LARGE_INTEGER),
+        ("PerfFreq", wt.LARGE_INTEGER),
+        ("StartTime", wt.LARGE_INTEGER),
+        ("ReservedFlags", ct.c_ulong),
+        ("BuffersLost", ct.c_ulong),
+    ]
+
+
 class EVENT_TRACE_PROPERTIES(ct.Structure):
     _fields_ = [
         ("Wnode", WNODE_HEADER),
@@ -162,8 +250,8 @@ EVENT_TRACE_LOGFILE._fields_ = [
     ("CurrentTime", ct.c_longlong),
     ("BuffersRead", ct.c_ulong),
     ("ProcessTraceMode", ct.c_ulong),
-    ("CurrentEvent", ct.c_void_p),
-    ("LogfileHeader", ct.c_void_p),
+    ("CurrentEvent", EVENT_TRACE),
+    ("LogfileHeader", TRACE_LOGFILE_HEADER),
     ("BufferCallback", ct.c_void_p),
     ("BufferSize", ct.c_ulong),
     ("Filled", ct.c_ulong),
@@ -172,6 +260,22 @@ EVENT_TRACE_LOGFILE._fields_ = [
     ("IsKernelTrace", ct.c_ulong),
     ("Context", ct.c_void_p),
 ]
+
+_TRACERS_BY_CONTEXT = {}
+_TRACERS_LOCK = threading.Lock()
+
+
+@EVENT_RECORD_CALLBACK
+def _event_record_callback(record_pointer):
+    record = record_pointer.contents
+    context = record.UserContext
+    if not context:
+        return
+    with _TRACERS_LOCK:
+        tracer = _TRACERS_BY_CONTEXT.get(context)
+    if tracer is None:
+        return
+    tracer._handle_event_record(record)
 
 
 _advapi32 = None
@@ -295,7 +399,8 @@ class WindowsThreadSpawnTracer(object):
         self._trace_properties_buf = None
         self._trace_properties = None
         self._trace_logfile = None
-        self._callback = None
+        self._logger_name = None
+        self._trace_context = None
         self._consumer_thread = None
         self._stop_event = threading.Event()
         self._started = False
@@ -331,6 +436,7 @@ class WindowsThreadSpawnTracer(object):
             raise ThreadTracerError(status, ct.FormatError(status))
 
         self._session_started = True
+        time.sleep(0.1)
         self._install_consumer()
         self._started = True
 
@@ -342,9 +448,14 @@ class WindowsThreadSpawnTracer(object):
         time.sleep(0.2)
         if self._trace_handle.value:
             CloseTrace(self._trace_handle)
+            self._trace_handle = TRACEHANDLE(0)
         if self._consumer_thread is not None:
             self._consumer_thread.join(timeout=10)
             self._consumer_thread = None
+        if self._trace_context is not None:
+            with _TRACERS_LOCK:
+                _TRACERS_BY_CONTEXT.pop(self._trace_context.value, None)
+            self._trace_context = None
 
         if self._session_started:
             status = ControlTraceW(
@@ -362,36 +473,42 @@ class WindowsThreadSpawnTracer(object):
 
     def _install_consumer(self):
         self._trace_logfile = EVENT_TRACE_LOGFILE()
-        self._trace_logfile.LoggerName = KERNEL_LOGGER_NAME
+        self._logger_name = KERNEL_LOGGER_NAME
+        self._trace_logfile.LoggerName = self._logger_name
         self._trace_logfile.ProcessTraceMode = (
             PROCESS_TRACE_MODE_REAL_TIME | PROCESS_TRACE_MODE_EVENT_RECORD
         )
-        self._trace_logfile.Context = ct.c_void_p(id(self))
-        self._callback = EVENT_RECORD_CALLBACK(self._on_event_record)
-        self._trace_logfile.EventRecordCallback = self._callback
+        self._trace_context = ct.c_void_p(id(self))
+        self._trace_logfile.Context = self._trace_context
+        with _TRACERS_LOCK:
+            _TRACERS_BY_CONTEXT[self._trace_context.value] = self
+        self._trace_logfile.EventRecordCallback = _event_record_callback
 
-        self._trace_handle = OpenTraceW(ct.byref(self._trace_logfile))
-        if self._trace_handle == INVALID_PROCESSTRACE_HANDLE:
+        trace_handle = OpenTraceW(ct.byref(self._trace_logfile))
+        if trace_handle in (0, INVALID_PROCESSTRACE_HANDLE):
+            with _TRACERS_LOCK:
+                _TRACERS_BY_CONTEXT.pop(self._trace_context.value, None)
+            self._trace_context = None
             raise ThreadTracerError(ct.get_last_error(), "OpenTraceW failed")
+        self._trace_handle = TRACEHANDLE(trace_handle)
 
         self._consumer_thread = threading.Thread(
             target=self._consume_trace,
-            name="threadpoolctl-etw-consumer-{0}".format(uuid.uuid4().hex[:8]),
+            name="threadpoolctl-etw-consumer",
         )
         self._consumer_thread.daemon = True
         self._consumer_thread.start()
 
     def _consume_trace(self):
-        trace_handle = self._trace_handle
+        handles = (TRACEHANDLE * 1)(self._trace_handle)
         while not self._stop_event.is_set():
-            status = ProcessTrace(ct.byref(trace_handle), 1, None, None)
+            status = ProcessTrace(handles, 1, None, None)
             if status != ERROR_SUCCESS:
                 break
             if self._stop_event.is_set():
                 break
 
-    def _on_event_record(self, record_pointer):
-        record = record_pointer.contents
+    def _handle_event_record(self, record):
         opcode = record.EventHeader.EventDescriptor.Opcode
         if opcode not in (EVENT_TRACE_TYPE_START, EVENT_TRACE_TYPE_DCSTART):
             return

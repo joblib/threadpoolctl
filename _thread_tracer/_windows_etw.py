@@ -239,10 +239,7 @@ class EVENT_TRACE_LOGFILE(ct.Structure):
     pass
 
 
-if sys.platform == "win32":
-    EVENT_RECORD_CALLBACK = ct.WINFUNCTYPE(None, ct.POINTER(EVENT_RECORD))
-else:
-    EVENT_RECORD_CALLBACK = ct.CFUNCTYPE(None, ct.POINTER(EVENT_RECORD))
+EVENT_RECORD_CALLBACK = ct.WINFUNCTYPE(None, ct.POINTER(EVENT_RECORD))
 
 EVENT_TRACE_LOGFILE._fields_ = [
     ("LogFileName", ct.c_wchar_p),

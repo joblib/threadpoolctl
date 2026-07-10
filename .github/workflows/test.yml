@@ -84,12 +84,12 @@ jobs:
             PACKAGER: "conda-forge"
             BLAS: "openblas"
             INSTALL_LIBOMP: "conda-forge"
-          # MacOS env with FlexiBLAS — temporarily disabled on this PR for faster CI iteration.
-          # - name: pylatest_flexiblas
-          #   os: macos-latest
-          #   PYTHON_VERSION: "*"
-          #   INSTALL_BLAS: "flexiblas"
-          #   PLATFORM_SPECIFIC_PACKAGES: "llvm-openmp"
+          # MacOS env with FlexiBLAS
+          - name: pylatest_flexiblas
+            os: macos-latest
+            PYTHON_VERSION: "*"
+            INSTALL_BLAS: "flexiblas"
+            PLATFORM_SPECIFIC_PACKAGES: "llvm-openmp"
 
           # Linux environments to test that packages that comes with Ubuntu 22.04
           # are correctly handled.
@@ -197,14 +197,14 @@ jobs:
             BLIS_CC: "gcc-12"
             BLIS_ENABLE_THREADING: "no"
 
-          # Linux env with FlexiBLAS — temporarily disabled on this PR for faster CI iteration.
-          # - name: pylatest_flexiblas
-          #   os: ubuntu-latest
-          #   PYTHON_VERSION: "*"
-          #   INSTALL_BLAS: "flexiblas"
-          #   PLATFORM_SPECIFIC_PACKAGES: "mkl"
-          #   CC_OUTER_LOOP: "gcc"
-          #   CC_INNER_LOOP: "gcc"
+          # Linux env with FlexiBLAS
+          - name: pylatest_flexiblas
+            os: ubuntu-latest
+            PYTHON_VERSION: "*"
+            INSTALL_BLAS: "flexiblas"
+            PLATFORM_SPECIFIC_PACKAGES: "mkl"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
 
     env: ${{ matrix }}
 

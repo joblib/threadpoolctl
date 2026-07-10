@@ -33,16 +33,13 @@ BLAS_THREAD_ENV_VARS = {
     "MKL_NUM_THREADS": "4",
 }
 
-# Fresh ``python -c`` children routinely spawn a few interpreter threads
-# during the tracer attach window. CI shows a stable startup overhead of three
-# spawns across Windows matrix jobs; work-specific spawns sit on top of that.
-PYTHON_THREAD_WORK_SPAWN_COUNT = 3
-BASELINE_CHILD_BODY = "pass"
+NOOP_CHILD_BODY = "pass"
 
 
 @pytest.fixture(scope="module")
-def child_startup_spawn_count():
-    stats = _run_traced_child(BASELINE_CHILD_BODY)
+def noop_child_spawn_count():
+    """Spawn count for a traced child that only sleeps (no extra work)."""
+    stats = _run_traced_child(NOOP_CHILD_BODY)
     assert stats.existing_thread_count == 0
     return stats.spawn_count
 
@@ -60,15 +57,17 @@ def _expected_pool_spawn_count(user_api):
     return max(1, max(thread_counts) - 1)
 
 
-def _assert_total_spawn_count(stats, child_startup_spawn_count, work_spawn_count):
-    expected_total = child_startup_spawn_count + work_spawn_count
+def _assert_spawn_count_relative_to_baseline(
+    stats, baseline_spawn_count, extra_spawn_count
+):
+    expected_total = baseline_spawn_count + extra_spawn_count
     assert stats.spawn_count == expected_total, (
         "expected {expected_total} spawns "
-        "({startup} child startup + {work} work), "
+        "({baseline} noop baseline + {extra} extra), "
         "got {actual} ({stats})".format(
             expected_total=expected_total,
-            startup=child_startup_spawn_count,
-            work=work_spawn_count,
+            baseline=baseline_spawn_count,
+            extra=extra_spawn_count,
             actual=stats.spawn_count,
             stats=stats,
         )
@@ -140,24 +139,27 @@ def _run_traced_child(body):
     return stats
 
 
-def test_tracer_counts_python_thread_spawns(child_startup_spawn_count):
+def test_tracer_counts_python_thread_spawns(noop_child_spawn_count):
+    num_threads = 3
     body = """
     import threading
 
     def work():
         pass
 
-    threads = [threading.Thread(target=work) for _ in range(3)]
+    threads = [threading.Thread(target=work) for _ in range({num_threads})]
     for thread in threads:
         thread.start()
     for thread in threads:
         thread.join()
-    """
+    """.format(
+        num_threads=num_threads
+    )
     stats = _run_traced_child(body)
-    _assert_total_spawn_count(
+    _assert_spawn_count_relative_to_baseline(
         stats,
-        child_startup_spawn_count,
-        PYTHON_THREAD_WORK_SPAWN_COUNT,
+        noop_child_spawn_count,
+        num_threads,
     )
     assert stats.existing_thread_count == 0
 
@@ -166,12 +168,12 @@ def test_tracer_counts_python_thread_spawns(child_startup_spawn_count):
     not cython_extensions_compiled,
     reason="OpenMP test helper is not built",
 )
-def test_tracer_counts_openmp_thread_spawns(child_startup_spawn_count):
+def test_tracer_counts_openmp_thread_spawns(noop_child_spawn_count):
     from tests._openmp_test_helper.openmp_helpers_inner import check_openmp_num_threads
 
     os.environ["OMP_NUM_THREADS"] = "4"
     check_openmp_num_threads(10)
-    expected_work_spawn_count = _expected_pool_spawn_count("openmp")
+    expected_extra_spawn_count = _expected_pool_spawn_count("openmp")
 
     body = """
     import os
@@ -183,15 +185,15 @@ def test_tracer_counts_openmp_thread_spawns(child_startup_spawn_count):
     assert used >= 1
     """
     stats = _run_traced_child(body)
-    _assert_total_spawn_count(
+    _assert_spawn_count_relative_to_baseline(
         stats,
-        child_startup_spawn_count,
-        expected_work_spawn_count,
+        noop_child_spawn_count,
+        expected_extra_spawn_count,
     )
     assert stats.existing_thread_count == 0
 
 
-def test_tracer_counts_blas_thread_spawns(child_startup_spawn_count):
+def test_tracer_counts_blas_thread_spawns(noop_child_spawn_count):
     pytest.importorskip("numpy")
     _configure_blas_thread_env()
 
@@ -200,7 +202,7 @@ def test_tracer_counts_blas_thread_spawns(child_startup_spawn_count):
     rng = np.random.RandomState(0)
     warmup = rng.rand(100, 100)
     np.dot(warmup, warmup)
-    expected_work_spawn_count = _expected_pool_spawn_count("blas")
+    expected_extra_spawn_count = _expected_pool_spawn_count("blas")
 
     body = """
     import os
@@ -216,9 +218,9 @@ def test_tracer_counts_blas_thread_spawns(child_startup_spawn_count):
     np.dot(a, a)
     """
     stats = _run_traced_child(body)
-    _assert_total_spawn_count(
+    _assert_spawn_count_relative_to_baseline(
         stats,
-        child_startup_spawn_count,
-        expected_work_spawn_count,
+        noop_child_spawn_count,
+        expected_extra_spawn_count,
     )
     assert stats.existing_thread_count == 0

@@ -63,7 +63,7 @@ def _child_script(body):
         """
     ).format(
         attach_delay=TRACER_ATTACH_DELAY_SECONDS,
-        body=textwrap.indent(textwrap.dedent(body).strip(), "    "),
+        body=textwrap.dedent(body).strip(),
         flush_delay=TRACER_FLUSH_DELAY_SECONDS,
     )
 

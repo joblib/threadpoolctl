@@ -28,6 +28,44 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 TRACER_ATTACH_DELAY_SECONDS = 0.5
 TRACER_FLUSH_DELAY_SECONDS = 0.3
 SUBPROCESS_TIMEOUT_SECONDS = 60
+BLAS_THREAD_ENV_VARS = {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "4",
+    "MKL_NUM_THREADS": "4",
+}
+
+
+def _threadpool_info():
+    try:
+        from threadpoolctl import threadpool_info
+
+        return threadpool_info()
+    except ImportError:
+        from threadpoolctl import get_threadpool_limits
+
+        return get_threadpool_limits()
+
+
+def _module_num_threads(module):
+    if "num_threads" in module:
+        return module["num_threads"]
+    return module.get("n_thread")
+
+
+def _expected_pool_thread_count(user_api):
+    thread_counts = [
+        _module_num_threads(module)
+        for module in _threadpool_info()
+        if module.get("user_api") == user_api and _module_num_threads(module)
+    ]
+    if not thread_counts:
+        pytest.skip("No {0} thread pool detected".format(user_api))
+    return max(thread_counts)
+
+
+def _configure_blas_thread_env():
+    for name, value in BLAS_THREAD_ENV_VARS.items():
+        os.environ[name] = value
 
 
 def _child_script(body):
@@ -110,9 +148,13 @@ def test_tracer_counts_python_thread_spawns():
 
 def test_tracer_counts_openmp_thread_spawns():
     try:
-        from threadpoolctl.tests._openmp_test_helper import check_openmp_n_threads  # noqa: F401
+        from threadpoolctl.tests._openmp_test_helper import check_openmp_n_threads
     except ImportError:
         pytest.skip("OpenMP test helper is not built")
+
+    os.environ["OMP_NUM_THREADS"] = "4"
+    check_openmp_n_threads(10)
+    expected_spawn_count = _expected_pool_thread_count("openmp")
 
     body = """
     import os
@@ -123,11 +165,20 @@ def test_tracer_counts_openmp_thread_spawns():
     used = check_openmp_n_threads(1000)
     assert used >= 1
     """
-    _run_traced_child(body, minimum_spawn_count=4)
+    _run_traced_child(body, minimum_spawn_count=expected_spawn_count)
 
 
 def test_tracer_counts_blas_thread_spawns():
     pytest.importorskip("numpy")
+    _configure_blas_thread_env()
+
+    import numpy as np
+
+    rng = np.random.RandomState(0)
+    warmup = rng.rand(100, 100)
+    np.dot(warmup, warmup)
+    expected_spawn_count = _expected_pool_thread_count("blas")
+
     body = """
     import os
 
@@ -141,4 +192,4 @@ def test_tracer_counts_blas_thread_spawns():
     a = rng.rand(2000, 2000)
     np.dot(a, a)
     """
-    _run_traced_child(body, minimum_spawn_count=2)
+    _run_traced_child(body, minimum_spawn_count=expected_spawn_count)

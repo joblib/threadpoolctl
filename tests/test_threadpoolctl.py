@@ -113,12 +113,7 @@ def test_threadpool_controller_select(kwargs):
         )
 
 
-# Windows conda-forge MKL stacks expose MKL as mkl_rt.<version>.dll (e.g.
-# mkl_rt.3.dll), not libblas.dll. The mkl_rt prefix is already covered below.
-_PREFIXES_FOR_LIMITS_TESTS = [p for p in _ALL_PREFIXES if p != "libblas"]
-
-
-@pytest.mark.parametrize("prefix", _PREFIXES_FOR_LIMITS_TESTS)
+@pytest.mark.parametrize("prefix", _ALL_PREFIXES)
 @pytest.mark.parametrize("limit", [1, 3])
 def test_threadpool_limits_by_prefix(prefix, limit):
     # Check that the maximum number of threads can be set by prefix

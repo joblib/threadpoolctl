@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from threadpoolctl import threadpool_info
 from threadpoolctl._thread_tracer import ThreadTracerError, WindowsThreadSpawnTracer
 
 pytestmark = [
@@ -31,28 +32,11 @@ BLAS_THREAD_ENV_VARS = {
 }
 
 
-def _threadpool_info():
-    try:
-        from threadpoolctl import threadpool_info
-
-        return threadpool_info()
-    except ImportError:
-        from threadpoolctl import get_threadpool_limits
-
-        return get_threadpool_limits()
-
-
-def _module_num_threads(module):
-    if "num_threads" in module:
-        return module["num_threads"]
-    return module.get("n_thread")
-
-
 def _expected_pool_thread_count(user_api):
     thread_counts = [
-        _module_num_threads(module)
-        for module in _threadpool_info()
-        if module.get("user_api") == user_api and _module_num_threads(module)
+        module["num_threads"]
+        for module in threadpool_info()
+        if module.get("user_api") == user_api and module.get("num_threads")
     ]
     if not thread_counts:
         pytest.skip("No {0} thread pool detected".format(user_api))
@@ -65,13 +49,15 @@ def _configure_blas_thread_env():
 
 
 def _child_script(body):
-    return textwrap.dedent("""
+    return textwrap.dedent(
+        """
         import time
 
         time.sleep({attach_delay})
         {body}
         time.sleep({flush_delay})
-        """).format(
+        """
+    ).format(
         attach_delay=TRACER_ATTACH_DELAY_SECONDS,
         body=textwrap.indent(textwrap.dedent(body).strip(), "    "),
         flush_delay=TRACER_FLUSH_DELAY_SECONDS,

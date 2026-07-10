@@ -193,13 +193,30 @@ class OpenBLASController(LibController):
         self.architecture = self._get_architecture()
 
     def get_num_threads(self):
-        get_num_threads_func = self._get_symbol("openblas_get_num_threads")
+        # See discussion in set_num_threads for details:
+        if self.threading_layer == "openmp" and sys.platform in ("linux", "darwin"):
+            symbol = "omp_get_max_threads"
+        else:
+            symbol = "openblas_get_num_threads"
+        get_num_threads_func = self._get_symbol(symbol)
         if get_num_threads_func is not None:
             return get_num_threads_func()
         return None
 
     def set_num_threads(self, num_threads):
-        set_num_threads_func = self._get_symbol("openblas_set_num_threads")
+        # The OpenBLAS limiting API is process-wide, and we want current thread
+        # limit if possible. When OpenBLAS is backed by OpenMP, using the
+        # OpenMP API allows for current thread limiting when OpenMP has that
+        # behavior. That is the case for libgomp, libomp, and libiomp, what you
+        # would find on Linux or macOS. On Windows the Visual C++ OpenMP API is
+        # process-wide, unfortunately. Also worth knowing that in some
+        # versions, the OpenBLAS limiting API is broken when using OpenMP
+        # threading: https://github.com/OpenMathLib/OpenBLAS/issues/5806
+        if self.threading_layer == "openmp" and sys.platform in ("linux", "darwin"):
+            symbol = "omp_set_num_threads"
+        else:
+            symbol = "openblas_set_num_threads"
+        set_num_threads_func = self._get_symbol(symbol)
         if set_num_threads_func is not None:
             return set_num_threads_func(num_threads)
         return None

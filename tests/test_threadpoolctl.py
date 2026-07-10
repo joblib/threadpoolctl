@@ -806,9 +806,13 @@ def test_threadpool_controller_repeated_init():
     """Stress-test repeated library discovery.
 
     Non-regression test for a Windows-specific problem where DLLs loaded or
-    unloaded concurrently during discovery could raise an OSError; see
-    https://github.com/joblib/threadpoolctl/issues/217
+    unloaded concurrently during discovery could raise an OSError. The failure
+    was originally reproduced after importing OpenCV on Windows conda-forge;
+    see https://github.com/joblib/threadpoolctl/issues/217
     """
+    pytest.importorskip("cv2")
+    import cv2  # noqa: F401
+
     for _ in range(100):
         ThreadpoolController()
 

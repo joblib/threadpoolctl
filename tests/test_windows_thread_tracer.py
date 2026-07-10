@@ -1,4 +1,5 @@
 import struct
+import sys
 
 import pytest
 
@@ -9,6 +10,19 @@ from _thread_tracer._parsing import (
     classify_kernel_thread_event,
     parse_kernel_thread_payload,
 )
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="non-Windows import check")
+def test_windows_tracer_imports_without_error_on_non_windows():
+    from _thread_tracer import (
+        ThreadSpawnStats,
+        ThreadTracerError,
+        WindowsThreadSpawnTracer,
+    )
+
+    tracer = WindowsThreadSpawnTracer(1)
+    with pytest.raises(ThreadTracerError, match="only supported on Windows"):
+        tracer.start()
 
 
 def _pack_thread_payload(process_id, thread_id):

@@ -239,7 +239,12 @@ class EVENT_TRACE_LOGFILE(ct.Structure):
     pass
 
 
-EVENT_RECORD_CALLBACK = ct.WINFUNCTYPE(None, ct.POINTER(EVENT_RECORD))
+if sys.platform == "win32":
+    EVENT_RECORD_CALLBACK = ct.WINFUNCTYPE(None, ct.POINTER(EVENT_RECORD))
+    _event_record_callback_type = EVENT_RECORD_CALLBACK
+else:
+    EVENT_RECORD_CALLBACK = None
+    _event_record_callback_type = ct.c_void_p
 
 EVENT_TRACE_LOGFILE._fields_ = [
     ("LogFileName", ct.c_wchar_p),
@@ -253,7 +258,7 @@ EVENT_TRACE_LOGFILE._fields_ = [
     ("BufferSize", ct.c_ulong),
     ("Filled", ct.c_ulong),
     ("EventsLost", ct.c_ulong),
-    ("EventRecordCallback", EVENT_RECORD_CALLBACK),
+    ("EventRecordCallback", _event_record_callback_type),
     ("IsKernelTrace", ct.c_ulong),
     ("Context", ct.c_void_p),
 ]
@@ -261,18 +266,22 @@ EVENT_TRACE_LOGFILE._fields_ = [
 _TRACERS_BY_CONTEXT = {}
 _TRACERS_LOCK = threading.Lock()
 
+if sys.platform == "win32":
 
-@EVENT_RECORD_CALLBACK
-def _event_record_callback(record_pointer):
-    record = record_pointer.contents
-    context = record.UserContext
-    if not context:
-        return
-    with _TRACERS_LOCK:
-        tracer = _TRACERS_BY_CONTEXT.get(context)
-    if tracer is None:
-        return
-    tracer._handle_event_record(record)
+    @EVENT_RECORD_CALLBACK
+    def _event_record_callback(record_pointer):
+        record = record_pointer.contents
+        context = record.UserContext
+        if not context:
+            return
+        with _TRACERS_LOCK:
+            tracer = _TRACERS_BY_CONTEXT.get(context)
+        if tracer is None:
+            return
+        tracer._handle_event_record(record)
+
+else:
+    _event_record_callback = None
 
 
 _advapi32 = None

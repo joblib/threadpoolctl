@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "threadpoolctl"
-author = [{name = "Thomas Moreau", email = "thomas.moreau.2010@gmail.com"}]
+authors = [{name = "Thomas Moreau", email = "thomas.moreau.2010@gmail.com"}]
 readme = "README.md"
 requires-python = ">=3.9"
 license = "BSD-3-Clause"
@@ -20,7 +20,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-[project.url]
+[project.urls]
 homepage = "https://github.com/joblib/threadpoolctl"
 
 [tool.black]

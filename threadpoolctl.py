@@ -242,9 +242,8 @@ class LibController(ABC):
     def set_num_threads(self, num_threads):
         """Set the maximum number of threads to use
 
-        If the underlying library supports multiple APIs where the choice is
-        between setting process-wide or current thread limits, the limiting API
-        should be the one that only applies to the current thread.
+        When possible, implementations of this method should choose a thread
+        limiting API that only applies to the current thread.
         """
 
     @abstractmethod

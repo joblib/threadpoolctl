@@ -17,7 +17,8 @@ import sys
 import ctypes
 import itertools
 import textwrap
-from typing import final, Any
+from threading import Thread
+from typing import Callable, Literal, final
 import warnings
 from ctypes.util import find_library
 from abc import ABC, abstractmethod
@@ -69,6 +70,89 @@ except AttributeError:
     _RTLD_NOLOAD = ctypes.DEFAULT_MODE
 
 
+# What scope does the API affect?
+_ThreadLimitScope = Literal[
+    # Using the API sets a limit only on the current thread.
+    "current_thread",
+    # Using the API sets a limit for every thread in the process; whether or
+    # not it's a shared process-wide pool or per-thread limit needs to be
+    # determined some other way.
+    "process",
+    # Something else, unexpected; perhaps another variant, perhaps information
+    # can't be determined under the current configuration.
+    "unknown",
+]
+
+
+def _determine_thread_limit_scope(
+    get_n_threads: Callable[[], int], set_n_threads: Callable[[int], None]
+) -> _ThreadLimitScope:
+    """
+    Run some experiments to determine the scope of the given get/set API.
+
+    This function might not work if you only have one core available.
+
+    This function might not work if you set a limit on a library with an
+    environment variable.
+
+    The function works by changing the number of threads in loaded controllers,
+    which can be a process-wide change. As such, it is not always thread-safe.
+    An attempt will be made to restore all settings to their previous state,
+    but the result may be subtly different, e.g. if "unset" has different
+    semantics than "set to the default returned value".
+    """
+    previous = get_n_threads()
+
+    # Some plausible constraints we need to keep in mind:
+    #
+    # 1. The API might not allow setting more than the number of (available, or
+    #    physical) cores.
+    # 2. Some hard limit on number of threads.
+    try:
+        # Choose a desired number of threads that is different than the current
+        # number, and hopefully achievable under the current configuration:
+        if previous < 2:
+            expected = 2
+        else:
+            # It's 2 or more, so shrink it slightly:
+            expected = previous - 1
+
+        thread_result = []
+
+        def get_and_set() -> None:
+            set_n_threads(expected)
+            thread_result.append(get_n_threads())
+
+        thread = Thread(target=get_and_set)
+        thread.start()
+        thread.join()
+
+        # First, getting in the same thread as a set should always give same
+        # number, if it's a number in a reasonable range. A possible exception
+        # fo failing this is if the number of thread is limited by available
+        # CPU, and only one CPU is available. In that case we can't empirically
+        # determine how the API works. We try to not reach that point here, but
+        # you can imagine a thread pool implementation that is aware of
+        # cgroups, in which case a Docker container limited to one core will
+        # pass the safety check at the start of the function. Perhaps
+        # cpu_count() from loky should be moved into this package...
+        if thread_result != [expected]:
+            return "unknown"
+
+        # Now, check this thread:
+        if get_n_threads() == expected:
+            # Setting modified this thread's results too:
+            return "process"
+        elif get_n_threads() == previous:
+            # Setting modified the other thread, but not this one:
+            return "current_thread"
+        else:
+            # No idea what's going on:
+            return "unknown"
+    finally:
+        set_n_threads(previous)
+
+
 class LibController(ABC):
     """Abstract base class for the individual library controllers
 
@@ -116,15 +200,28 @@ class LibController(ABC):
         self.version = self.get_version()
         self.set_additional_attributes()
 
-    def info(self):
-        """Return relevant info wrapped in a dict"""
+    def info(self, debugging_info: bool = False):
+        """Return relevant info wrapped in a dict.
+
+        Parameters
+        ----------
+        debugging_info : bool
+
+            Include extra fields which require more intrusive actions to
+            obtain, and which can't always reliably be determined.
+        """
         hidden_attrs = ("dynlib", "parent", "_symbol_prefix", "_symbol_suffix")
-        return {
+        result = {
             "user_api": self.user_api,
             "internal_api": self.internal_api,
             "num_threads": self.num_threads,
             **{k: v for k, v in vars(self).items() if k not in hidden_attrs},
         }
+        if debugging_info:
+            result["thread_limit_scope"] = _determine_thread_limit_scope(
+                self.get_num_threads, self.set_num_threads
+            )
+        return result
 
     def set_additional_attributes(self):
         """Set additional attributes meant to be exposed in the info dict"""
@@ -170,7 +267,11 @@ class OpenBLASController(LibController):
 
     user_api = "blas"
     internal_api = "openblas"
-    filename_prefixes = ("libopenblas", "libblas", "libscipy_openblas")
+    filename_prefixes = (
+        "libopenblas",
+        "libblas",  # legacy conda-forge Windows shim, see _make_controller_from_path
+        "libscipy_openblas",
+    )
 
     _symbol_prefixes = ("", "scipy_")
     _symbol_suffixes = ("", "64_", "_64")
@@ -259,7 +360,10 @@ class BLISController(LibController):
 
     user_api = "blas"
     internal_api = "blis"
-    filename_prefixes = ("libblis", "libblas")
+    filename_prefixes = (
+        "libblis",
+        "libblas",
+    )  # libblas: legacy conda-forge Windows shim
     check_symbols = (
         "bli_thread_get_num_threads",
         "bli_thread_set_num_threads",
@@ -340,11 +444,11 @@ class FlexiBLASController(LibController):
     def current_backend(self):
         return self._get_current_backend()
 
-    def info(self):
+    def info(self, debugging_info: bool = False):
         """Return relevant info wrapped in a dict"""
         # We override the info method because the loaded and current backends
         # are dynamic properties
-        exposed_attrs = super().info()
+        exposed_attrs = super().info(debugging_info=debugging_info)
         exposed_attrs["loaded_backends"] = self.loaded_backends
         exposed_attrs["current_backend"] = self.current_backend
 
@@ -450,7 +554,11 @@ class MKLController(LibController):
 
     user_api = "blas"
     internal_api = "mkl"
-    filename_prefixes = ("libmkl_rt", "mkl_rt", "libblas")
+    filename_prefixes = (
+        "libmkl_rt",
+        "mkl_rt",
+        "libblas",  # legacy conda-forge Windows shim, see _make_controller_from_path
+    )
     check_symbols = (
         "MKL_Get_Max_Threads",
         "MKL_Set_Num_Threads_Local",
@@ -571,7 +679,7 @@ def _realpath(filepath):
 
 
 @_format_docstring(USER_APIS=list(_ALL_USER_APIS), INTERNAL_APIS=_ALL_INTERNAL_APIS)
-def threadpool_info():
+def threadpool_info(debugging_info: bool = False):
     """Return the maximal number of threads for each detected library.
 
     Return a list with all the supported libraries that have been found. Each
@@ -585,8 +693,17 @@ def threadpool_info():
       - "num_threads": the current thread limit.
 
     In addition, each library may contain internal_api specific entries.
+
+    Parameters
+    ----------
+    debugging_info : bool
+        Include extra fields which require more intrusive actions to obtain,
+        and which can't always reliably be determined.
+
+        - "thread_limit_scope": When setting the number of threads, what is
+          affected. Possible values are "process", "current_thread", "unknown".
     """
-    return ThreadpoolController().info()
+    return ThreadpoolController().info(debugging_info)
 
 
 class _ThreadpoolLimiter:
@@ -846,9 +963,19 @@ class ThreadpoolController:
         new_controller.lib_controllers = lib_controllers
         return new_controller
 
-    def info(self):
-        """Return lib_controllers info as a list of dicts"""
-        return [lib_controller.info() for lib_controller in self.lib_controllers]
+    def info(self, debugging_info: bool = False):
+        """Return lib_controllers info as a list of dicts.
+
+        Parameters
+        ----------
+        debugging_info : bool
+            Include extra fields which require more intrusive actions to
+            obtain, and which can't always reliably be determined.
+        """
+        return [
+            lib_controller.info(debugging_info=debugging_info)
+            for lib_controller in self.lib_controllers
+        ]
 
     def select(self, **kwargs):
         """Return a ThreadpoolController containing a subset of its current
@@ -1186,10 +1313,11 @@ class ThreadpoolController:
             if prefix is None:
                 continue
 
-            # workaround for BLAS libraries packaged by conda-forge on windows, which
-            # are all renamed "libblas.dll". We thus have to check to which BLAS
-            # implementation it actually corresponds looking for implementation
-            # specific symbols.
+            # Legacy workaround for BLAS libraries that conda-forge used to expose
+            # on Windows as libblas.dll, disambiguated via implementation-specific
+            # symbols. Current conda-forge stacks no longer load libblas.dll (e.g.
+            # MKL is exposed as mkl_rt.<version>.dll instead), so this path is
+            # kept for older installs but cannot be exercised in today's CI.
             if prefix == "libblas":
                 if filename.endswith(".dll"):
                     libblas = ctypes.CDLL(filepath, _RTLD_NOLOAD)
@@ -1199,11 +1327,8 @@ class ThreadpoolController:
                     ):
                         continue
                 else:
-                    # We ignore libblas on other platforms than windows because there
-                    # might be a libblas dso comming with openblas for instance that
-                    # can't be used to instantiate a pertinent LibController (many
-                    # symbols are missing) and would create confusion by making a
-                    # duplicate entry in threadpool_info.
+                    # Non-Windows libblas DSOs (e.g. from openblas) lack the symbols
+                    # needed to instantiate a controller and would duplicate entries.
                     continue
 
             # filename matches a prefix. Now we check if the library has the symbols we
@@ -1237,6 +1362,13 @@ class ThreadpoolController:
 
     def _warn_if_incompatible_openmp(self):
         """Raise a warning if llvm-OpenMP and intel-OpenMP are both loaded"""
+        if sys.platform != "linux":
+            # The incompatibility between libomp and libiomp is known to cause
+            # crashes on Linux. On other platforms, conda-forge may expose both
+            # libraries without the same runtime conflict (for instance when
+            # libiomp forwards to libomp on Windows).
+            return
+
         prefixes = [lib_controller.prefix for lib_controller in self.lib_controllers]
         msg = textwrap.dedent(
             """
@@ -1312,7 +1444,7 @@ def _main():
     if options.command:
         exec(options.command)
 
-    print(json.dumps(threadpool_info(), indent=2))
+    print(json.dumps(threadpool_info(debugging_info=True), indent=2))
 
 
 if __name__ == "__main__":

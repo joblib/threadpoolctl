@@ -106,7 +106,7 @@ elif [[ "$INSTALL_BLAS" == "blis" ]]; then
     source ./continuous_integration/install_blis.sh
 
 elif [[ "$INSTALL_BLAS" == "flexiblas" ]]; then
-    TO_INSTALL="cython openblas $PLATFORM_SPECIFIC_PACKAGES meson-python pkg-config compilers"
+    TO_INSTALL="ccache cython openblas $PLATFORM_SPECIFIC_PACKAGES meson-python pkg-config compilers"
     make_conda "conda-forge" "$TO_INSTALL"
     source ./continuous_integration/install_flexiblas.sh
 

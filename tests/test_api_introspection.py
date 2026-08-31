@@ -60,9 +60,6 @@ def test_determine_thread_limit_scope_processwide(default: int) -> None:
     assert _determine_thread_limit_scope(api.get, api.set) == "process"
 
 
-@pytest.mark.skipif(
-    sys.platform != "linux", reason="Non-Linux OpenMP might be different"
-)
 @pytest.mark.parametrize(
     ["select_filter", "expected_thread_limit_scope", "extra_check"],
     [
@@ -77,7 +74,12 @@ def test_determine_thread_limit_scope_processwide(default: int) -> None:
             # pthreads here.
             lambda lib: lib.threading_layer == "pthreads",
         ),
-        ({"user_api": "openmp"}, "current_thread", lambda _lib: True),
+        (
+            {"user_api": "openmp"},
+            "current_thread",
+            # Windows OpenMP is process-wide:
+            lambda _lib: sys.platform in ("linux", "darwin"),
+        ),
     ],
 )
 def test_api_scope(
@@ -94,9 +96,11 @@ def test_api_scope(
     if not controller.lib_controllers:
         pytest.skip(f"{select_filter} controller not found")
 
-    for lib in controller.lib_controllers:
-        if not extra_check(lib):
-            pytest.skip("extra check returned false")
+    libs = [lib for lib in controller.lib_controllers if extra_check(lib)]
+    if not libs:
+        pytest.skip("No libraries matched the requirements")
+
+    for lib in libs:
         assert (
             _determine_thread_limit_scope(lib.get_num_threads, lib.set_num_threads)
             == expected_thread_limit_scope

@@ -799,9 +799,8 @@ def test_custom_controller():
     assert ThreadpoolController().info() == original_info
 
 
-@pytest.mark.parametrize(
-    ["select_filter", "extra_check"],
-    [
+@pytest.fixture(
+    params=[
         (
             {"internal_api": "openblas"},
             lambda lib: (
@@ -812,16 +811,11 @@ def test_custom_controller():
             {"internal_api": "mkl"},
             lambda _lib: True,
         ),
-    ],
+    ]
 )
-def test_blas_setting_is_thread_local(
-    select_filter: dict[str, str],
-    extra_check: Callable[[LibController], bool],
-):
-    """
-    Setting the number of threads for mkl and OpenMP-based OpenBLAS uses a
-    thread-local setting API.
-    """
+def thread_local_blas_libs(request) -> list[LibController]:
+    """Create all LibControllers that use a thread-local setting."""
+    select_filter, extra_check = request.param
     controller = ThreadpoolController().select(**select_filter)
     if not controller.lib_controllers:
         pytest.skip(f"{select_filter} controller not found")
@@ -830,6 +824,18 @@ def test_blas_setting_is_thread_local(
     if not libs:
         pytest.skip("No libraries matched the requirements")
 
-    for lib in libs:
+    return libs
+
+
+def test_setting_limit_on_thread_local_blas_api_is_reported_as_thread_local(
+    thread_local_blas_libs: list[LibController],
+) -> None:
+    """
+    Setting the number of threads for libraries that support thread-local
+    setting API actually does so, according to the thread-number reporting API.
+
+    This doesn't check actual behavior, only reported behavior.
+    """
+    for lib in thread_local_blas_libs:
         scope = _determine_thread_limit_scope(lib.get_num_threads, lib.set_num_threads)
         assert scope == "current_thread"

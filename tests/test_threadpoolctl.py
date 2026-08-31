@@ -6,10 +6,12 @@ import pytest
 import re
 import subprocess
 import sys
+from typing import Callable
 
 from threadpoolctl import threadpool_limits, threadpool_info
-from threadpoolctl import ThreadpoolController
+from threadpoolctl import LibController, ThreadpoolController
 from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
+from threadpoolctl import _determine_thread_limit_scope
 
 from .utils import cython_extensions_compiled
 from .utils import check_nested_prange_blas
@@ -795,3 +797,39 @@ def test_custom_controller():
         assert mylib_controller.num_threads == 1
 
     assert ThreadpoolController().info() == original_info
+
+
+@pytest.mark.parametrize(
+    ["select_filter", "extra_check"],
+    [
+        (
+            {"internal_api": "openblas"},
+            lambda lib: (
+                lib.threading_layer == "openmp" and sys.platform in ("linux", "darwin")
+            ),
+        ),
+        (
+            {"internal_api": "mkl"},
+            lambda _lib: True,
+        ),
+    ],
+)
+def test_blas_setting_is_thread_local(
+    select_filter: dict[str, str],
+    extra_check: Callable[[LibController], bool],
+):
+    """
+    Setting the number of threads for mkl and OpenMP-based OpenBLAS uses a
+    thread-local setting API.
+    """
+    controller = ThreadpoolController().select(**select_filter)
+    if not controller.lib_controllers:
+        pytest.skip(f"{select_filter} controller not found")
+
+    libs = [lib for lib in controller.lib_controllers if extra_check(lib)]
+    if not libs:
+        pytest.skip("No libraries matched the requirements")
+
+    for lib in libs:
+        scope = _determine_thread_limit_scope(lib.get_num_threads, lib.set_num_threads)
+        assert scope == "current_thread"

@@ -6,7 +6,7 @@ import pytest
 import re
 import subprocess
 import sys
-from typing import Callable
+from shutil import which
 
 from threadpoolctl import threadpool_limits, threadpool_info
 from threadpoolctl import LibController, ThreadpoolController
@@ -799,12 +799,18 @@ def test_custom_controller():
     assert ThreadpoolController().info() == original_info
 
 
+def parse_version(version: str) -> list[int]:
+    return list(map(int, version.split(".")))
+
+
 @pytest.fixture(
     params=[
         (
             {"internal_api": "openblas"},
             lambda lib: (
-                lib.threading_layer == "openmp" and sys.platform in ("linux", "darwin")
+                lib.threading_layer == "openmp"
+                and sys.platform in ("linux", "darwin")
+                and parse_version(lib.version) >= parse_version("0.3.34")
             ),
         ),
         (
@@ -832,10 +838,48 @@ def test_setting_limit_on_thread_local_blas_api_is_reported_as_thread_local(
 ) -> None:
     """
     Setting the number of threads for libraries that support thread-local
-    setting API actually does so, according to the thread-number reporting API.
+    setting API is reported as doing so.
 
     This doesn't check actual behavior, only reported behavior.
     """
     for lib in thread_local_blas_libs:
         scope = _determine_thread_limit_scope(lib.get_num_threads, lib.set_num_threads)
         assert scope == "current_thread"
+
+
+@pytest.mark.skipif(
+    sys.platform != "linux" or which("strace") is None,
+    reason="requires strace on Linux",
+)
+def test_setting_limit_on_thread_local_blas_api_is_actually_thread_local(
+    thread_local_blas_libs: list[LibController],
+) -> None:
+    """
+    Setting the number of threads for libraries that support thread-local
+    setting API actually does so.
+    """
+
+    def num_threads_created(limit: int) -> int:
+        result = 0
+        for line in subprocess.check_output(
+            [
+                "strace",
+                "-f",
+                "-e",
+                "clone3",
+                "python",
+                "-m",
+                "tests._limit_blas",
+                str(limit),
+            ],
+            stderr=subprocess.STDOUT,
+        ).splitlines():
+            if b" clone3(" in line and b"CLONE_THREAD" in line:
+                result += 1
+        print(limit, result)
+        return result
+
+    # _limit_blas runs BLAS operations in 2 Python threads, so by changing the
+    # BLAS limit from 2 to 9 we expect an extra 2 * (9 - 2) == 14 threads.
+    extra_threads = num_threads_created(9) - num_threads_created(2)
+    assert extra_threads == 14

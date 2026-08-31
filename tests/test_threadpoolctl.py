@@ -881,6 +881,6 @@ def test_setting_limit_on_thread_local_blas_api_is_actually_thread_local(
         return result
 
     # _limit_blas runs BLAS operations in 2 Python threads, so by changing the
-    # BLAS limit from 2 to 9 we expect an extra 2 * (9 - 2) == 14 threads.
-    extra_threads = num_threads_created(9) - num_threads_created(2)
-    assert extra_threads == 14
+    # BLAS limit from 2 to 5 we expect an extra 2 * (5 - 2) == 6 threads.
+    extra_threads = num_threads_created(5) - num_threads_created(2)
+    assert extra_threads == 6

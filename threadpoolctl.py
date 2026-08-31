@@ -309,9 +309,9 @@ class OpenBLASController(LibController):
         # OpenMP API allows for current thread limiting when OpenMP has that
         # behavior. That is the case for libgomp, libomp, and libiomp, what you
         # would find on Linux or macOS. On Windows the Visual C++ OpenMP API is
-        # process-wide, unfortunately. Also worth knowing that in some
-        # versions, the OpenBLAS limiting API is broken when using OpenMP
-        # threading: https://github.com/OpenMathLib/OpenBLAS/issues/5806
+        # process-wide, unfortunately. Also worth knowing that before v0.3.34,
+        # the OpenBLAS limiting API is broken when using OpenMP threading:
+        # https://github.com/OpenMathLib/OpenBLAS/issues/5806
         if self.threading_layer == "openmp" and sys.platform in ("linux", "darwin"):
             symbol = "omp_set_num_threads"
         else:

@@ -573,7 +573,9 @@ class MKLController(LibController):
         return get_func()
 
     def set_num_threads(self, num_threads):
-        set_func = getattr(self.dynlib, "MKL_Set_Num_Threads_Local", lambda: None)
+        set_func = getattr(
+            self.dynlib, "MKL_Set_Num_Threads_Local", lambda num_threads: None
+        )
         return set_func(num_threads)
 
     def get_version(self):

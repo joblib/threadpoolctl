@@ -17,5 +17,6 @@ def in_thread(_):
     sleep(0.01)
 
 
-with ThreadPoolExecutor(2) as pool:
-    list(pool.map(in_thread, range(2)))
+if __name__ == '__main__':
+    with ThreadPoolExecutor(2) as pool:
+        list(pool.map(in_thread, range(2)))

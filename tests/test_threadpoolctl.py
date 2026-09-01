@@ -877,7 +877,6 @@ def test_setting_limit_on_thread_local_blas_api_is_actually_thread_local(
         ).splitlines():
             if b"clone3(" in line and b"CLONE_THREAD" in line:
                 result += 1
-        print(limit, result)
         return result
 
     # _limit_blas runs BLAS operations in 2 Python threads, so by changing the

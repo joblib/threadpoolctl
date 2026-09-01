@@ -1141,16 +1141,18 @@ class ThreadpoolController:
             )
             return []
 
+        filepaths = []
+
         # Callback function for `dl_iterate_phdr` which is called for every
-        # library loaded in the current process until it returns 1.
+        # library loaded in the current process until it returns 1. To minimize
+        # the potential for deadlocks (see #228), this code should not do
+        # anything that might result in reentrancy into the library, the dl
+        # system, or anything else.
         def match_library_callback(info, size, data):
             # Get the path of the current library
             filepath = info.contents.dlpi_name
             if filepath:
-                filepath = filepath.decode("utf-8")
-
-                # Store the library controller if it is supported and selected
-                self._make_controller_from_path(filepath)
+                filepaths.append(filepath)
             return 0
 
         c_func_signature = ctypes.CFUNCTYPE(
@@ -1163,6 +1165,12 @@ class ThreadpoolController:
 
         data = ctypes.c_char_p(b"")
         libc.dl_iterate_phdr(c_match_library_callback, data)
+
+        # Now that a list of filepaths is available, load the respective
+        # libraries:
+        for filepath in filepaths:
+            # Store the library controller if it is supported and selected
+            self._make_controller_from_path(filepath.decode("utf-8"))
 
     def _find_libraries_with_dyld(self):
         """Loop through loaded libraries and return binders on supported ones

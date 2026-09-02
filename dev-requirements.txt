@@ -2,5 +2,5 @@ flit
 coverage
 pytest
 pytest-cov
-cython<3.3
+cython
 setuptools

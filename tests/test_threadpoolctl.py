@@ -810,6 +810,8 @@ def parse_version(version: str) -> list[int]:
             {"internal_api": "openblas"},
             lambda lib: (
                 lib.threading_layer == "openmp"
+                # For Windows support, see
+                # https://github.com/joblib/threadpoolctl/issues/230
                 and sys.platform in ("linux", "darwin")
                 and parse_version(lib.version) >= parse_version("0.3.34")
             ),

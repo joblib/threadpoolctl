@@ -294,7 +294,7 @@ class OpenBLASController(LibController):
 
     def get_num_threads(self):
         # See discussion in set_num_threads for details:
-        if self.threading_layer == "openmp" and sys.platform in ("linux", "darwin"):
+        if self.threading_layer == "openmp":
             symbol = "omp_get_max_threads"
         else:
             symbol = "openblas_get_num_threads"
@@ -308,11 +308,16 @@ class OpenBLASController(LibController):
         # limit if possible. When OpenBLAS is backed by OpenMP, using the
         # OpenMP API allows for current thread limiting when OpenMP has that
         # behavior. That is the case for libgomp, libomp, and libiomp, what you
-        # would find on Linux or macOS. On Windows the Visual C++ OpenMP API is
-        # process-wide, unfortunately. Also worth knowing that before v0.3.34,
-        # the OpenBLAS limiting API is broken when using OpenMP threading:
+        # would find on Linux or macOS.
+        #
+        # On Windows the Visual C++ OpenMP API is process-wide, unfortunately,
+        # though this may be fixed if the /openmp:llvm flag is used:
+        # https://github.com/joblib/threadpoolctl/issues/230
+        #
+        # Also worth knowing that before v0.3.34, the OpenBLAS limiting API is
+        # broken when using OpenMP threading:
         # https://github.com/OpenMathLib/OpenBLAS/issues/5806
-        if self.threading_layer == "openmp" and sys.platform in ("linux", "darwin"):
+        if self.threading_layer == "openmp":
             symbol = "omp_set_num_threads"
         else:
             symbol = "openblas_set_num_threads"

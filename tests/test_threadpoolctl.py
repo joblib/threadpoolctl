@@ -822,24 +822,29 @@ def parse_version(version: str) -> list[int]:
         ),
     ],
     # ids correspond to the params above:
-    ids=["openblas-openmp", "mkl"]
+    ids=["openblas-openmp", "mkl"],
 )
-def thread_local_blas_libs(request) -> list[LibController]:
+def thread_local_blas_lib(request) -> LibController:
     """Create all LibControllers that use a thread-local setting."""
     select_filter, extra_check = request.param
     controller = ThreadpoolController().select(**select_filter)
     if not controller.lib_controllers:
         pytest.skip(f"{select_filter} controller not found")
 
-    libs = [lib for lib in controller.lib_controllers if extra_check(lib)]
+    libs = [
+        lib
+        for lib in controller.lib_controllers
+        if extra_check(lib) and lib.internal_api == select_filter["internal_api"]
+    ]
     if not libs:
         pytest.skip("No libraries matched the requirements")
 
-    return libs
+    assert len(libs) == 1
+    return libs[0]
 
 
 def test_setting_limit_on_thread_local_blas_api_is_reported_as_thread_local(
-    thread_local_blas_libs: list[LibController],
+    thread_local_blas_lib: LibController,
 ) -> None:
     """
     Setting the number of threads for libraries that support thread-local
@@ -847,9 +852,9 @@ def test_setting_limit_on_thread_local_blas_api_is_reported_as_thread_local(
 
     This doesn't check actual behavior, only reported behavior.
     """
-    for lib in thread_local_blas_libs:
-        scope = _determine_thread_limit_scope(lib.get_num_threads, lib.set_num_threads)
-        assert scope == "current_thread"
+    lib = thread_local_blas_lib
+    scope = _determine_thread_limit_scope(lib.get_num_threads, lib.set_num_threads)
+    assert scope == "current_thread"
 
 
 @pytest.mark.skipif(
@@ -857,12 +862,32 @@ def test_setting_limit_on_thread_local_blas_api_is_reported_as_thread_local(
     reason="requires strace on Linux",
 )
 def test_setting_limit_on_thread_local_blas_api_is_actually_thread_local(
-    thread_local_blas_libs: list[LibController],
+    thread_local_blas_lib: LibController,
 ) -> None:
     """
     Setting the number of threads for libraries that support thread-local
     setting API actually does so.
     """
+
+    # The test script uses NumPy, there might be multiple BLAS in this test
+    # process, and we want to only run if _NumPy_ uses that library.
+    # So check that before proceeding.
+    output = json.loads(
+        subprocess.check_output(
+            [
+                "python",
+                "-c",
+                "import numpy, json, threadpoolctl; print(json.dumps(threadpoolctl.threadpool_info()))",
+            ]
+        )
+    )
+    found_correct_blas = False
+    for library in output:
+        if library["internal_api"] == thread_local_blas_lib.internal_api:
+            found_correct_blas = True
+            break
+    if not found_correct_blas:
+        pytest.skip("NumPy doesn't use the BLAS we want to test")
 
     def num_threads_created(limit: int) -> int:
         result = 0
@@ -885,5 +910,6 @@ def test_setting_limit_on_thread_local_blas_api_is_actually_thread_local(
 
     # _limit_blas runs BLAS operations in 2 Python threads, so by changing the
     # BLAS limit from 1 to 4 we expect an extra 2 * (4 - 1) == 6 threads.
-    extra_threads = num_threads_created(4) - num_threads_created(1)
-    assert extra_threads == 6
+    nmc_1 = num_threads_created(1)
+    nmc_4 = num_threads_created(4)
+    assert nmc_4 - nmc_1 == 6

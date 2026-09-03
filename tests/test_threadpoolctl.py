@@ -820,7 +820,9 @@ def parse_version(version: str) -> list[int]:
             {"internal_api": "mkl"},
             lambda _lib: True,
         ),
-    ]
+    ],
+    # ids correspond to the params above:
+    ids=["openblas-openmp", "mkl"]
 )
 def thread_local_blas_libs(request) -> list[LibController]:
     """Create all LibControllers that use a thread-local setting."""

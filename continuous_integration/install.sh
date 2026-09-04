@@ -55,6 +55,11 @@ make_conda() {
 
     conda create -n testenv -q --yes python=$PYTHON_VERSION $TO_INSTALL
     conda activate testenv
+
+    if [[ "$UNAMESTR" == "Darwin" && "$INSTALL_LIBOMP" == "conda-forge" ]]; then
+        export CPPFLAGS="$CPPFLAGS -I$CONDA_PREFIX/include"
+        export LDFLAGS="$LDFLAGS -L$CONDA_PREFIX/lib"
+    fi
 }
 
 

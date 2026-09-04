@@ -25,9 +25,25 @@ make_conda() {
     TO_INSTALL="$2"
     if [[ "$UNAMESTR" == "Darwin" ]]; then
         if [[ "$INSTALL_LIBOMP" == "conda-forge" ]]; then
-            # Install an OpenMP-enabled clang/llvm from conda-forge
-            # assumes conda-forge is set on priority channel
-            TO_INSTALL="$TO_INSTALL compilers llvm-openmp"
+            # Install an OpenMP-enabled clang/llvm from conda-forge.
+            # assumes conda-forge is set on priority channel.
+            #
+            # Since conda-forge switched to "minimally activated compilers"
+            # (see conda-forge/conda-forge-pinning-feedstock#8795), the
+            # "compilers" metapackage no longer pulls in the clang_osx-*
+            # activation package that sets CC/CXX/CFLAGS/CPPFLAGS/LDFLAGS
+            # when the environment is activated. Without it, there is no
+            # unversioned "clang" binary in $CONDA_PREFIX/bin and the build
+            # falls back to the system (Apple) clang, which does not support
+            # -fopenmp. Explicitly install clang_osx-<arch>/clangxx_osx-<arch>
+            # to restore that activation behavior.
+            OSX_ARCH=$(uname -m)
+            if [[ "$OSX_ARCH" == "arm64" ]]; then
+                OSX_SUBDIR_ARCH="arm64"
+            else
+                OSX_SUBDIR_ARCH="64"
+            fi
+            TO_INSTALL="$TO_INSTALL compilers llvm-openmp clang_osx-$OSX_SUBDIR_ARCH clangxx_osx-$OSX_SUBDIR_ARCH"
 
         elif [[ "$INSTALL_LIBOMP" == "homebrew" ]]; then
             # Install a compiler with a working openmp
@@ -55,6 +71,17 @@ make_conda() {
 
     conda create -n testenv -q --yes python=$PYTHON_VERSION $TO_INSTALL
     conda activate testenv
+
+    if [[ "$UNAMESTR" == "Darwin" ]]; then
+        # Debugging info to check which clang ends up being used and how it
+        # was configured, in particular to detect cases where the system
+        # (Apple) clang is picked up instead of the conda-forge one.
+        which clang
+        clang --version
+        echo "CC=$CC"
+        echo "CPPFLAGS=$CPPFLAGS"
+        echo "LDFLAGS=$LDFLAGS"
+    fi
 }
 
 

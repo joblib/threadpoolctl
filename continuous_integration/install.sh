@@ -54,6 +54,7 @@ make_conda() {
     conda config --set solver libmamba
 
     conda create -n testenv -q --yes python=$PYTHON_VERSION $TO_INSTALL
+    source "$(conda info --base)/etc/profile.d/conda.sh"
     conda activate testenv
     echo "$PATH"
     type -a clang

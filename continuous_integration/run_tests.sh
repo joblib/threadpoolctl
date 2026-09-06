@@ -3,6 +3,7 @@
 set -xe
 
 if [[ "$PACKAGER" == conda* ]] || [[ -z "$PACKAGER" ]]; then
+    source "$CONDA/etc/profile.d/conda.sh"
     conda activate testenv
     conda list
 elif [[ "$PACKAGER" == pip* ]]; then

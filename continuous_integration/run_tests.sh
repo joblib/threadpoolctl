@@ -8,6 +8,7 @@ if [[ "$PACKAGER" == conda* ]] || [[ -z "$PACKAGER" ]]; then
     conda list
 elif [[ "$PACKAGER" == pip* ]]; then
     # we actually use conda to install the base environment:
+    source "$CONDA/etc/profile.d/conda.sh"
     conda activate testenv
     pip list
 elif [[ "$PACKAGER" == "ubuntu" ]]; then

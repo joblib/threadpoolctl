@@ -55,6 +55,8 @@ make_conda() {
 
     conda create -n testenv -q --yes python=$PYTHON_VERSION $TO_INSTALL
     conda activate testenv
+    echo "$PATH"
+    type -a clang
 }
 
 

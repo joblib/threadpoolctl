@@ -239,19 +239,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          ./continuous_integration/install.sh
+          bash -e continuous_integration/install.sh
 
-      - name: Open SSH debug session
-        uses: owenthereal/action-upterm@v1
-        if: ${{ failure() }}
-        with:
-          limit-access-to-actor: true
-          wait-timeout-minutes: 60
-          shell: bash --noprofile --norc
+      # - name: Open SSH debug session
+      #   uses: owenthereal/action-upterm@v1
+      #   if: ${{ failure() }}
+      #   with:
+      #     limit-access-to-actor: true
+      #     wait-timeout-minutes: 60
+      #     shell: bash --noprofile --norc
 
       - name: Test library
         run: |
-          ./continuous_integration/run_tests.sh
+          bash -e continuous_integration/run_tests.sh
 
       - name: Upload test results
         uses: actions/upload-artifact@v4

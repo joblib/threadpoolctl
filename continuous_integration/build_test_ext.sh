@@ -12,6 +12,7 @@ fi
 
 pushd tests/_openmp_test_helper
 rm -rf *.c *.so *.dylib build/
+echo $PATH
 type -a clang
 python setup_inner.py build_ext -i
 python setup_outer.py build_ext -i

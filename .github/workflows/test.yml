@@ -239,7 +239,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          ./continuous_integration/install.sh
+          source continuous_integration/install.sh
 
       # - name: Open SSH debug session
       #   uses: owenthereal/action-upterm@v1
@@ -251,7 +251,7 @@ jobs:
 
       - name: Test library
         run: |
-          ./continuous_integration/run_tests.sh
+          source continuous_integration/run_tests.sh
 
       - name: Upload test results
         uses: actions/upload-artifact@v4

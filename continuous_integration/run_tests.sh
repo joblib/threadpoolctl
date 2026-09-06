@@ -21,7 +21,7 @@ fi
 python -m threadpoolctl -i numpy scipy.linalg tests._openmp_test_helper.openmp_helpers_inner
 
 # Introspect API scope:
-PYTHONPATH=. python -X faulthandler tests/empirical_scope_observation.py blas
-PYTHONPATH=. python -X faulthandler tests/empirical_scope_observation.py openmp
+PYTHONPATH=. python tests/empirical_scope_observation.py blas
+PYTHONPATH=. python tests/empirical_scope_observation.py openmp
 
 pytest -vlrxXs -W error -k "$TESTS" --junitxml=test_result.xml --cov=threadpoolctl --cov-report xml

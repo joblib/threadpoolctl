@@ -247,6 +247,7 @@ jobs:
         with:
           limit-access-to-actor: true
           wait-timeout-minutes: 60
+          shell: bash --noprofile --norc
 
       - name: Test library
         run: |

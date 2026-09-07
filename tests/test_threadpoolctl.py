@@ -632,6 +632,7 @@ def test_architecture():
         "skx",
         "haswell",
         "zen3",
+        "generic",
     )
     for lib_info in threadpool_info():
         if lib_info["internal_api"] == "openblas":

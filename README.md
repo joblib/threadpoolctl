@@ -241,7 +241,8 @@ with threadpool_limits():
         pool.map(somefunc, someargs)
 ```
 
-To prevent loading shared libraries repeatedly, you can reuse a
+Whenever `threadpool_limits` is called, it needs to do some work (inspecting and getting access to third-party shared libraries) that can take some time.
+To prevent the performance cost of doing this work every time, you can reuse a
 `ThreadpoolController` object:
 
 ```python
@@ -463,7 +464,7 @@ https://github.com/xianyi/OpenBLAS/issues/2985).
   the underlying library. For more details see
   https://github.com/joblib/threadpoolctl/issues/208
 
-  For example, if you're using OpenMP with libgomp (gcc) or libomp (clang**, the
+  For example, if you're using OpenMP with libgomp (gcc) or libomp (clang), the
   setting is thread-local and sets how many OpenMP threads will be started in
   the current thread. On the other hand, with OpenBLAS with pthreads backend or
   on Windows, the setting is process-wide and impacts the size of a process-wide

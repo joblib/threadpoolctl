@@ -300,7 +300,7 @@ POOL = ThreadPoolExecutor(4)
 CONTROLLER = ThreadpoolController()
 
 # 1. Run some work in a Python thread pool (OpenMP effectively disabled).
-with CONTROLLER.limit(limits=1) as limiter:
+with CONTROLLER.limit(limits=1):
 
     def limit_then_do_work(*args, **kwargs):
         # Set a limit on OpenMP in the current thread:
@@ -317,10 +317,10 @@ with CONTROLLER.limit(limits=4):
 
 
 # 3. Nest some OpenMP parallelism under Python-level parallelism:
-with CONTROLLER.limit(limits=2) as limiter:
+with CONTROLLER.limit(limits=2):
 
     def limit_then_do_work2(*args, **kwargs):
-        limiter.limit(limits=2)
+        CONTROLLER.limit(limits=2)
         return do_even_more_real_work_with_openmp(*args, **kwargs)
 
     results3 = POOL.map(limit_then_do_work2, results2)

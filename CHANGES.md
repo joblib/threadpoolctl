@@ -17,6 +17,26 @@
 - Only warn about simultaneous `libomp` and `libiomp` usage on Linux, where the
   incompatibility is known to cause crashes.
 
+- Fixed a deadlock triggered by getting or setting MKL's number of threads from
+  parallel threads when using MKL with libiomp (Intel threading) on Linux.
+  https://github.com/joblib/threadpoolctl/pull/228
+
+- Going forward, setting the number of threads will only have a thread-local
+  impact if feasible (for example, at minimum the underlying library must
+  support this option, and many don't.)
+  https://github.com/joblib/threadpoolctl/pull/228
+
+- For MKL, setting the number of threads is now thread-local, i.e. limiting the
+  number of threads won't impact MKL's thread pool size when using MKL in other
+  Python threads.
+  https://github.com/joblib/threadpoolctl/pull/228
+
+- For OpenBLAS compiled with OpenMP on Linux and macOS, setting the number of
+  threads is now thread-local, i.e. won't impact OpenBLAS thread pool size in
+  other Python threads. On Windows behavior is likely process-wide, but this may
+  depend on how OpenBLAS was compiled with OpenMP.
+  https://github.com/joblib/threadpoolctl/pull/228
+
 3.6.0 (2025-03-13)
 ==================
 

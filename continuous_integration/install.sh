@@ -46,6 +46,8 @@ make_conda() {
         TO_INSTALL="$TO_INSTALL python-gil"
     fi
 
+    # Need to source conda.sh before first conda command
+    source "$CONDA/etc/profile.d/conda.sh"
     # prevent mixing conda channels
     conda config --set channel_priority strict
     conda config --add channels $CHANNEL

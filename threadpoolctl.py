@@ -244,7 +244,11 @@ class LibController(ABC):
 
     @abstractmethod
     def set_num_threads(self, num_threads):
-        """Set the maximum number of threads to use"""
+        """Set the maximum number of threads to use
+
+        When possible, implementations of this method should choose a thread
+        limiting API that only applies to the current thread.
+        """
 
     @abstractmethod
     def get_version(self):
@@ -293,13 +297,35 @@ class OpenBLASController(LibController):
         self.architecture = self._get_architecture()
 
     def get_num_threads(self):
-        get_num_threads_func = self._get_symbol("openblas_get_num_threads")
+        # See discussion in set_num_threads for details:
+        if self.threading_layer == "openmp":
+            symbol = "omp_get_max_threads"
+        else:
+            symbol = "openblas_get_num_threads"
+        get_num_threads_func = self._get_symbol(symbol)
         if get_num_threads_func is not None:
             return get_num_threads_func()
         return None
 
     def set_num_threads(self, num_threads):
-        set_num_threads_func = self._get_symbol("openblas_set_num_threads")
+        # The OpenBLAS limiting API is process-wide, and we want current thread
+        # limit if possible. When OpenBLAS is backed by OpenMP, using the
+        # OpenMP API allows for current thread limiting when OpenMP has that
+        # behavior. That is the case for libgomp, libomp, and libiomp, what you
+        # would find on Linux or macOS.
+        #
+        # On Windows the Visual C++ OpenMP API is process-wide, unfortunately,
+        # though this may be fixed if the /openmp:llvm flag is used:
+        # https://github.com/joblib/threadpoolctl/issues/230
+        #
+        # Also worth knowing that before v0.3.34, the OpenBLAS limiting API is
+        # broken when using OpenMP threading:
+        # https://github.com/OpenMathLib/OpenBLAS/issues/5806
+        if self.threading_layer == "openmp":
+            symbol = "omp_set_num_threads"
+        else:
+            symbol = "openblas_set_num_threads"
+        set_num_threads_func = self._get_symbol(symbol)
         if set_num_threads_func is not None:
             return set_num_threads_func(num_threads)
         return None
@@ -543,7 +569,7 @@ class MKLController(LibController):
     )
     check_symbols = (
         "MKL_Get_Max_Threads",
-        "MKL_Set_Num_Threads",
+        "MKL_Set_Num_Threads_Local",
         "MKL_Get_Version_String",
         "MKL_Set_Threading_Layer",
     )
@@ -556,7 +582,9 @@ class MKLController(LibController):
         return get_func()
 
     def set_num_threads(self, num_threads):
-        set_func = getattr(self.dynlib, "MKL_Set_Num_Threads", lambda num_threads: None)
+        set_func = getattr(
+            self.dynlib, "MKL_Set_Num_Threads_Local", lambda num_threads: None
+        )
         return set_func(num_threads)
 
     def get_version(self):
@@ -1124,16 +1152,18 @@ class ThreadpoolController:
             )
             return []
 
+        filepaths = []
+
         # Callback function for `dl_iterate_phdr` which is called for every
-        # library loaded in the current process until it returns 1.
+        # library loaded in the current process until it returns 1. To minimize
+        # the potential for deadlocks (see #228), this code should not do
+        # anything that might result in reentrancy into the library, the dl
+        # system, or anything else.
         def match_library_callback(info, size, data):
             # Get the path of the current library
             filepath = info.contents.dlpi_name
             if filepath:
-                filepath = filepath.decode("utf-8")
-
-                # Store the library controller if it is supported and selected
-                self._make_controller_from_path(filepath)
+                filepaths.append(filepath)
             return 0
 
         c_func_signature = ctypes.CFUNCTYPE(
@@ -1146,6 +1176,12 @@ class ThreadpoolController:
 
         data = ctypes.c_char_p(b"")
         libc.dl_iterate_phdr(c_match_library_callback, data)
+
+        # Now that a list of filepaths is available, load the respective
+        # libraries:
+        for filepath in filepaths:
+            # Store the library controller if it is supported and selected
+            self._make_controller_from_path(filepath.decode("utf-8"))
 
     def _find_libraries_with_dyld(self):
         """Loop through loaded libraries and return binders on supported ones

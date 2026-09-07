@@ -16,7 +16,7 @@ on:
 # Cancel in-progress workflows when pushing
 # a new commit on the same branch
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -219,7 +219,7 @@ jobs:
       run:
         # Need to use this shell to get conda working properly.
         # See https://github.com/marketplace/actions/setup-miniconda#important
-        shell: ${{ matrix.os == 'windows-latest' && 'cmd /C CALL {0}' || 'bash -el {0}' }}
+        shell: 'bash -el {0}'
 
 
     steps:
@@ -244,11 +244,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          bash -el continuous_integration/install.sh
+          ./continuous_integration/install.sh
 
       - name: Test library
         run: |
-          bash -el continuous_integration/run_tests.sh
+          ./continuous_integration/run_tests.sh
 
       - name: Upload test results
         uses: actions/upload-artifact@v4

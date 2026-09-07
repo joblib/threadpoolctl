@@ -215,6 +215,7 @@ decorators are accessible through their `wrap` method.
 ## Usage for Python threads: Restricting Controlled Library Thread Pool Sizes
 
 This section covers APIs to use when you will be using Python thread pools to parallelize work.
+The usage is more complicated than one might expect because the underlying APIs have a variety of different semantics, as [explained later in the docs](#semantics).
 
 ### Setting the Maximum Size of Thread-Pools, When Python Thread Pools Are Used
 

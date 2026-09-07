@@ -9,6 +9,7 @@
 
 - Only warn about simultaneous `libomp` and `libiomp` usage on Linux, where the
   incompatibility is known to cause crashes.
+  https://github.com/joblib/threadpoolctl/pull/222
 
 - Fixed a deadlock triggered by getting or setting MKL's number of threads from
   parallel threads when using MKL with libiomp (Intel threading) on Linux.

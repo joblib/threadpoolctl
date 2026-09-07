@@ -145,7 +145,7 @@ True
 
 ## Usage when not using Python threads: Restricting Controlled Library Thread Pool Sizes
 
-There a two scenarios in which you might want to use `threadpoolctl`; each
+There are two scenarios in which you might want to use `threadpoolctl`; each
 requires you to use different APIs.
 
 1. You do not expect to use any Python threads, so all the work will be started
@@ -271,11 +271,11 @@ You can also operate without a context manager:
 ```python
 from threadpoolctl import ThreadpoolController
 
-CONTROLLER = ThreadpoolController():
+CONTROLLER = ThreadpoolController()
 try:
-    limiter = controller.limit()
+    limiter = CONTROLLER.limit()
     with ThreadPoolExecutor(
-            4, initializer=lambda: controller.limit(limits=1)) as pool:
+            4, initializer=lambda: CONTROLLER.limit(limits=1)) as pool:
         # ... run some BLAS-using code in the thread pool ...
         pool.map(somefunc, someargs)
 finally:
@@ -286,8 +286,9 @@ finally:
 ### Switching Back And Forth Between Main Thread and Python Threads
 
 Unfortunately not all controlled libraries providing limiting APIs that are
-thread-specific. Limiting some libraries' thread pool sizes can therefore impact
-the whole process. This makes switching back and forth between running code that
+thread-specific, as detailed in the section on [semantics](#semantics) below.
+Limiting some libraries' thread pool sizes can therefore impact the whole
+process. This makes switching back and forth between running code that
 uses these libraries in Python threads and running it in the main thread a bit
 more complex: you need to set the limits each time you switch back and forth.
 
@@ -309,8 +310,8 @@ with CONTROLLER.limit(limits=1) as limiter:
     results = POOL.map(limit_then_do_work, args)
 
 
-# 2. Run some work serially in main thread (OpenMP effectively disabled).
-with CONTROLLER.limit(limits=1):
+# 2. Run some work with 4-threads OpenMP parallelism:
+with CONTROLLER.limit(limits=4):
     results2 = do_more_work_with_openmp(results)
 
 
@@ -468,7 +469,7 @@ https://github.com/xianyi/OpenBLAS/issues/2985).
   on Windows, the setting is process-wide and impacts the size of a process-wide
   thread pool shared across all threads in the process.
 
-## Semantics of thread limiting <a name="semantics">
+## <div id="semantics"> Semantics of thread limiting </div>
 
 Setting the number of threads may seem like a simple operation, but in practice
 it can do quite different things depending on the underlying third-party library

@@ -17,7 +17,7 @@ import sys
 import ctypes
 import itertools
 import textwrap
-from threading import Thread
+from threading import Lock, Thread
 from typing import Callable, Literal, final
 import warnings
 from ctypes.util import find_library
@@ -39,6 +39,11 @@ __all__ = [
     "LibController",
     "register",
 ]
+
+
+# Prevent GIL + dl locks from causing deadlocks when they get acquired in
+# different orders, by ensuring dl_iterate_phdr() is only called by one thread.
+_DL_ITERATE_PHDR_LOCK = Lock()
 
 
 # One can get runtime errors or even segfaults due to multiple OpenMP libraries
@@ -1150,7 +1155,8 @@ class ThreadpoolController:
         Uses Python's built-in support for this functionality.
         """
         assert dllist is not None
-        filepaths = dllist()
+        with _DL_ITERATE_PHDR_LOCK:
+            filepaths = dllist()
         if filepaths and filepaths[0] in ("", sys.executable):
             filepaths = filepaths[1:]
         for filepath in filepaths:
@@ -1197,7 +1203,8 @@ class ThreadpoolController:
         c_match_library_callback = c_func_signature(match_library_callback)
 
         data = ctypes.c_char_p(b"")
-        libc.dl_iterate_phdr(c_match_library_callback, data)
+        with _DL_ITERATE_PHDR_LOCK:
+            libc.dl_iterate_phdr(c_match_library_callback, data)
 
         # Now that a list of filepaths is available, load the respective
         # libraries:

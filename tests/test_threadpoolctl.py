@@ -915,7 +915,9 @@ def test_setting_limit_on_thread_local_blas_api_is_actually_thread_local(
     assert nmc_4 - nmc_1 == 6
 
 
-@pytest.mark.skipif("atlas" in os.getenv("APT_BLAS", ""), reason="BLAS not detected with atlas")
+@pytest.mark.skipif(
+    "atlas" in os.getenv("APT_BLAS", ""), reason="BLAS not detected with atlas"
+)
 @pytest.mark.parametrize("module", ["numpy", "scipy.linalg"])
 def test_blas_detection_after_import(module):
     info = threadpool_info_from_subprocess(module)

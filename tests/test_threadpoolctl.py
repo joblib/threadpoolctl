@@ -921,4 +921,3 @@ def test_blas_detection_after_import(module):
 
     blas_info = select(info, user_api="blas")
     assert len(blas_info) > 0
-

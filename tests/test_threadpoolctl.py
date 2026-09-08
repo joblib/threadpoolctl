@@ -915,14 +915,21 @@ def test_setting_limit_on_thread_local_blas_api_is_actually_thread_local(
     assert nmc_4 - nmc_1 == 6
 
 
-@pytest.mark.skipif(
-    "atlas" in os.getenv("APT_BLAS", ""), reason="BLAS not detected with atlas"
-)
+@pytest.mark.skipif(os.getenv("CONDA_PREFIX") is None, reason="conda-specific test")
 @pytest.mark.parametrize("module", ["numpy", "scipy.linalg"])
-def test_blas_detection_after_import(module):
+def test_conda_blas_detection_after_import(module):
     pytest.importorskip(module)
 
+    conda_list_output = subprocess.check_output(
+        ["conda", "list", "--json"], text=True
+    )
+    conda_list_items = json.loads(conda_list_output)
+    blas_names_from_conda = [each["name"] for each in conda_list_items if "openblas" in each["name"] or "mkl" in each["name"]]
+    blas_names_from_conda = [each.replace("lib", "") for each in blas_names_from_conda]
     info = threadpool_info_from_subprocess(module)
 
     blas_info = select(info, user_api="blas")
     assert len(blas_info) > 0
+
+    blas_names_from_threadpoolctl = [each["internal_api"] for each in blas_info]
+    assert set(blas_names_from_threadpoolctl).issubset(blas_names_from_conda)

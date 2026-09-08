@@ -31,6 +31,9 @@
   depend on how OpenBLAS was compiled with OpenMP.
   https://github.com/joblib/threadpoolctl/pull/228
 
+- Fix OpenBLAS detection for conda package on Windows
+  https://github.com/joblib/threadpoolctl/pull/240
+
 3.6.0 (2025-03-13)
 ==================
 

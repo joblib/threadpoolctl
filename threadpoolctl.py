@@ -20,7 +20,6 @@ import textwrap
 from threading import Thread
 from typing import Callable, Literal, final
 import warnings
-from ctypes.util import find_library
 from abc import ABC, abstractmethod
 from functools import lru_cache
 from contextlib import ContextDecorator
@@ -678,6 +677,30 @@ def _format_docstring(*args, **kwargs):
     return decorator
 
 
+def _iter_mapped_filepaths(maps_text):
+    """Yield unique file-backed paths from a ``/proc/*/maps`` dump.
+
+    Each mapped object typically appears several times (r-x, r--, rw-).
+    Anonymous mappings and kernel pseudo-files (``[heap]``, ``[vdso]``, ...)
+    are skipped.
+    """
+    seen = set()
+    for line in maps_text.splitlines():
+        # address perms offset dev inode [pathname]
+        parts = line.split(None, 5)
+        if len(parts) < 6:
+            continue
+        pathname = parts[5]
+        if pathname.startswith("[") or pathname.startswith("anon_inode:"):
+            continue
+        if pathname.endswith(" (deleted)"):
+            pathname = pathname[: -len(" (deleted)")]
+        if pathname in seen:
+            continue
+        seen.add(pathname)
+        yield pathname
+
+
 @lru_cache(maxsize=10000)
 def _realpath(filepath):
     """Small caching wrapper around os.path.realpath to limit system calls"""
@@ -1127,8 +1150,34 @@ class ThreadpoolController:
             self._find_libraries_with_enum_process_module_ex()
         elif "pyodide" in sys.modules:
             self._find_libraries_pyodide()
+        elif self._find_libraries_with_proc_maps():
+            return
         else:
             self._find_libraries_with_dl_iterate_phdr()
+
+    def _find_libraries_with_proc_maps(self):
+        """Enumerate loaded shared objects from ``/proc/self/maps``.
+
+        This is the preferred path on Linux: it does not create a
+        ``ctypes.CFUNCTYPE`` callback, whose libffi trampoline is allocated
+        from a ``MAP_SHARED`` memfd on some builds (SELinux / W^X) and is not
+        fork-safe. See https://github.com/joblib/threadpoolctl/issues/225.
+
+        Returns True if the maps file was read, even when no supported library
+        was found. Returns False when ``/proc`` is unavailable so callers can
+        fall back to ``dl_iterate_phdr``.
+        """
+        try:
+            with open(
+                "/proc/self/maps", encoding="utf-8", errors="surrogateescape"
+            ) as f:
+                maps_text = f.read()
+        except OSError:
+            return False
+
+        for filepath in _iter_mapped_filepaths(maps_text):
+            self._make_controller_from_path(filepath)
+        return True
 
     def _find_libraries_with_dl_iterate_phdr(self):
         """Loop through loaded libraries and return binders on supported ones
@@ -1403,13 +1452,15 @@ class ThreadpoolController:
         """Load the lib-C for unix systems."""
         libc = cls._system_libraries.get("libc")
         if libc is None:
-            # Remark: If libc is statically linked or if Python is linked against an
-            # alternative implementation of libc like musl, find_library will return
-            # None and CDLL will load the main program itself which should contain the
-            # libc symbols. We still name it libc for convenience.
-            # If the main program does not contain the libc symbols, it's ok because
-            # we check their presence later anyway.
-            libc = ctypes.CDLL(find_library("c"), mode=_RTLD_NOLOAD)
+            # Use the main program (dlopen(NULL)) rather than ctypes.util.find_library.
+            # Importing ctypes.util on CPython 3.13+ Linux creates a process-lifetime
+            # CFUNCTYPE callback for dllist(); that libffi closure is not fork-safe
+            # on some libffi builds. See
+            # https://github.com/joblib/threadpoolctl/issues/225.
+            # If libc is statically linked or Python is linked against musl, the
+            # main program still exports the libc symbols we need. If it does not,
+            # we check for those symbols later anyway.
+            libc = ctypes.CDLL(None, mode=_RTLD_NOLOAD)
             cls._system_libraries["libc"] = libc
         return libc
 

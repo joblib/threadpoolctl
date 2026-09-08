@@ -1,6 +1,13 @@
 3.7.0 (TBD)
 ===========
 
+- On Linux, loaded libraries are now enumerated from ``/proc/self/maps``
+  instead of a ``ctypes`` callback into ``dl_iterate_phdr``, and libc is
+  loaded with ``ctypes.CDLL(None)`` instead of ``ctypes.util.find_library``.
+  Both previous paths created libffi closures that can abort after ``os.fork()``
+  on some libffi builds (for example libffi 3.4.x with SELinux).
+  https://github.com/joblib/threadpoolctl/issues/225
+
 - Added the ability to check whether a limiting API affects just the current
   thread or the whole process. Mainly aimed at debugging and diagnostics, and
   somewhat unreliable, it is therefore enabled by default only for command-line

@@ -25,6 +25,12 @@ from abc import ABC, abstractmethod
 from functools import lru_cache
 from contextlib import ContextDecorator
 
+if sys.version_info[:2] >= (3, 14):
+    from ctypes.util import dllist
+else:
+    dllist = None
+
+
 __version__ = "3.7.0.dev0"
 __all__ = [
     "threadpool_limits",
@@ -1121,7 +1127,15 @@ class ThreadpoolController:
 
     def _load_libraries(self):
         """Loop through loaded shared libraries and store the supported ones"""
-        if sys.platform == "darwin":
+        if dllist is not None and sys.platform != "emscripten":
+            # On Python 3.14+, this functionality is built-in. Usefully, it
+            # holds the GIL throughout for dl_iterate_phdr, which can prevent
+            # deadlocks with GIL and internal dl locks.
+            #
+            # Once Python 3.13 is no longer supported by threadpoolctl, the
+            # equivalent threadpoolctl implementations can be removed.
+            self._find_libraries_with_python()
+        elif sys.platform == "darwin":
             self._find_libraries_with_dyld()
         elif sys.platform == "win32":
             self._find_libraries_with_enum_process_module_ex()
@@ -1129,6 +1143,18 @@ class ThreadpoolController:
             self._find_libraries_pyodide()
         else:
             self._find_libraries_with_dl_iterate_phdr()
+
+    def _find_libraries_with_python(self):
+        """Loop through loaded libraries and return binders on supported ones
+
+        Uses Python's built-in support for this functionality.
+        """
+        assert dllist is not None
+        filepaths = dllist()
+        if filepaths and filepaths[0] in ("", sys.executable):
+            filepaths = filepaths[1:]
+        for filepath in filepaths:
+            self._make_controller_from_path(filepath)
 
     def _find_libraries_with_dl_iterate_phdr(self):
         """Loop through loaded libraries and return binders on supported ones

@@ -929,21 +929,21 @@ def test_conda_blas_detection_after_import(module):
         each["name"]
         for each in conda_list_items
         if any(
-            blas_lib in each["name"] for blas_lib in ["accelerate", "openblas", "mkl"]
+            blas_lib in each["name"] for blas_lib in ["openblas", "mkl"]
         )
     ]
     blas_names_from_conda = [each.replace("lib", "") for each in blas_names_from_conda]
 
-    if "accelerate" in blas_names_from_conda:
+    if "accelerate" in conda_list_output:
         pytest.skip("threadpoolctl does not know how to inspect Accelerate")
-        return
+
+    if not blas_names_from_conda:
+        pytest.skip(
+            f"{module} has been installed with pip, this is a conda-specific test"
+        )
 
     blas_info = select(info, user_api="blas")
     assert len(blas_info) > 0
-
-    if not blas_names_from_conda:
-        # 'module' has been installed with pip
-        return
 
     blas_names_from_threadpoolctl = [each["internal_api"] for each in blas_info]
     assert set(blas_names_from_threadpoolctl).issubset(blas_names_from_conda)

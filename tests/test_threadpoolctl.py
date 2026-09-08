@@ -928,9 +928,7 @@ def test_conda_blas_detection_after_import(module):
     blas_names_from_conda = [
         each["name"]
         for each in conda_list_items
-        if any(
-            blas_lib in each["name"] for blas_lib in ["openblas", "mkl"]
-        )
+        if any(blas_lib in each["name"] for blas_lib in ["openblas", "mkl"])
     ]
     blas_names_from_conda = [each.replace("lib", "") for each in blas_names_from_conda]
 

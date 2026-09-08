@@ -274,6 +274,7 @@ class OpenBLASController(LibController):
         "libopenblas",
         "libblas",  # legacy conda-forge Windows shim, see _make_controller_from_path
         "libscipy_openblas",
+        "openblas",  # Windows conda package use openblas.dll
     )
 
     _symbol_prefixes = ("", "scipy_")

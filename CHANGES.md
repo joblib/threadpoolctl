@@ -16,6 +16,7 @@
 
 - Only warn about simultaneous `libomp` and `libiomp` usage on Linux, where the
   incompatibility is known to cause crashes.
+  https://github.com/joblib/threadpoolctl/pull/222
 
 - Fixed a deadlock triggered by getting or setting MKL's number of threads from
   parallel threads when using MKL with libiomp (Intel threading) on Linux.
@@ -36,6 +37,9 @@
   other Python threads. On Windows behavior is likely process-wide, but this may
   depend on how OpenBLAS was compiled with OpenMP.
   https://github.com/joblib/threadpoolctl/pull/228
+
+- Fix OpenBLAS detection for conda package on Windows
+  https://github.com/joblib/threadpoolctl/pull/240
 
 3.6.0 (2025-03-13)
 ==================

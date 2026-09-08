@@ -636,6 +636,7 @@ def test_architecture():
         "skx",
         "haswell",
         "zen3",
+        "generic",
     )
     for lib_info in threadpool_info():
         if lib_info["internal_api"] == "openblas":
@@ -1022,3 +1023,41 @@ def test_setting_limit_on_thread_local_blas_api_is_actually_thread_local(
     nmc_1 = num_threads_created(1)
     nmc_4 = num_threads_created(4)
     assert nmc_4 - nmc_1 == 6
+
+
+@pytest.mark.skipif(os.getenv("CONDA_PREFIX") is None, reason="conda-specific test")
+@pytest.mark.parametrize("module", ["numpy", "scipy.linalg"])
+def test_conda_blas_detection_after_import(module):
+    pytest.importorskip(module)
+
+    info = threadpool_info_from_subprocess(module)
+
+    conda = which("conda") or which("micromamba") or which("mamba")
+    conda_list_output = subprocess.check_output([conda, "list", "--json"], text=True)
+    conda_list_items = json.loads(conda_list_output)
+    blas_names_from_conda = [
+        each["name"]
+        for each in conda_list_items
+        if any(blas_lib in each["name"] for blas_lib in ["openblas", "mkl"])
+    ]
+    blas_names_from_conda = [each.replace("lib", "") for each in blas_names_from_conda]
+
+    if "accelerate" in conda_list_output:
+        pytest.skip("threadpoolctl does not know how to inspect Accelerate")
+
+    if not blas_names_from_conda:
+        pytest.skip(
+            f"{module} has been installed with pip, this is a conda-specific test"
+        )
+
+    blas_info = select(info, user_api="blas")
+    assert len(blas_info) > 0
+
+    # Flexiblas is built from source on our CI. At the time of writing, it is not
+    # available in the conda-forge channel.
+    blas_names_from_threadpoolctl = [
+        each["internal_api"]
+        for each in blas_info
+        if each["internal_api"] != "flexiblas"
+    ]
+    assert set(blas_names_from_threadpoolctl).issubset(blas_names_from_conda)

@@ -920,6 +920,8 @@ def test_setting_limit_on_thread_local_blas_api_is_actually_thread_local(
 )
 @pytest.mark.parametrize("module", ["numpy", "scipy.linalg"])
 def test_blas_detection_after_import(module):
+    pytest.importorskip(module)
+
     info = threadpool_info_from_subprocess(module)
 
     blas_info = select(info, user_api="blas")

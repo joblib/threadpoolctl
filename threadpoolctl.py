@@ -1409,7 +1409,22 @@ class ThreadpoolController:
             # libc symbols. We still name it libc for convenience.
             # If the main program does not contain the libc symbols, it's ok because
             # we check their presence later anyway.
-            libc = ctypes.CDLL(find_library("c"), mode=_RTLD_NOLOAD)
+            #
+            # This uses PyDLL to prevent deadlocks. If CDLL were used, you can
+            # get situation where the following happens:
+            #
+            # 1. Thread A via threadpoolctl calls dl_iterate_phdr, which
+            #    acquires an internal dl lock.
+            # 2. Thread B, holding the GIL, calls some API that internally uses
+            #    dl_iterate_phdr. For example, a backtrace() from NumPy can
+            #    sometimes trigger that. This results in trying to acquire an
+            #    internal dl lock, which is already held.
+            # 3. Thread A calls back into Python, requiring it to reacquire the GIL.
+            # 4. Deadlock!
+            #
+            # Using PyDLL prevents this situation by ensuring the order is
+            # always first GIL, then dl_iterate_phdr.
+            libc = ctypes.PyDLL(find_library("c"), mode=_RTLD_NOLOAD)
             cls._system_libraries["libc"] = libc
         return libc
 

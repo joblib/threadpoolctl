@@ -922,7 +922,7 @@ def test_conda_blas_detection_after_import(module):
 
     info = threadpool_info_from_subprocess(module)
 
-    conda = which("conda") or which("mamba") or which("micromamba")
+    conda = which("conda") or which("micromamba") or which("mamba")
     conda_list_output = subprocess.check_output([conda, "list", "--json"], text=True)
     conda_list_items = json.loads(conda_list_output)
     blas_names_from_conda = [

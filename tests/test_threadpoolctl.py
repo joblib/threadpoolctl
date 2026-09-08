@@ -920,11 +920,13 @@ def test_setting_limit_on_thread_local_blas_api_is_actually_thread_local(
 def test_conda_blas_detection_after_import(module):
     pytest.importorskip(module)
 
-    conda_list_output = subprocess.check_output(
-        ["conda", "list", "--json"], text=True
-    )
+    conda_list_output = subprocess.check_output(["conda", "list", "--json"], text=True)
     conda_list_items = json.loads(conda_list_output)
-    blas_names_from_conda = [each["name"] for each in conda_list_items if "openblas" in each["name"] or "mkl" in each["name"]]
+    blas_names_from_conda = [
+        each["name"]
+        for each in conda_list_items
+        if "openblas" in each["name"] or "mkl" in each["name"]
+    ]
     blas_names_from_conda = [each.replace("lib", "") for each in blas_names_from_conda]
     info = threadpool_info_from_subprocess(module)
 

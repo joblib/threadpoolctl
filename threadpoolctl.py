@@ -1288,7 +1288,9 @@ class ThreadpoolController:
 
         Uses CreateToolhelp32Snapshot for an atomic view of loaded modules, which
         is more robust than EnumProcessModulesEx when DLLs are loaded or unloaded
-        concurrently.
+        concurrently. ``ERROR_BAD_LENGTH`` is retried a bounded number of times
+        (the documented transient race when the module list changes mid-snapshot)
+        and then raised as ``OSError`` so the caller can fall back.
         """
         from ctypes.wintypes import DWORD, HANDLE, MAX_PATH
 
@@ -1311,18 +1313,22 @@ class ThreadpoolController:
         ERROR_BAD_LENGTH = 0x0018
         ERROR_NO_MORE_FILES = 0x0012
         INVALID_HANDLE_VALUE = HANDLE(-1).value
+        max_snapshot_retries = 16
 
-        while True:
+        for _ in range(max_snapshot_retries):
             snap_handle = kernel_32.CreateToolhelp32Snapshot(
                 TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, os.getpid()
             )
-            if snap_handle == INVALID_HANDLE_VALUE:
-                err = ctypes.get_last_error()
-                if err == ERROR_BAD_LENGTH:
-                    continue
-                msg = ctypes.FormatError(err).strip()
-                raise OSError(f"CreateToolhelp32Snapshot failed: {msg}")
-            break
+            if snap_handle != INVALID_HANDLE_VALUE:
+                break
+            err = ctypes.get_last_error()
+            if err == ERROR_BAD_LENGTH:
+                continue
+            msg = ctypes.FormatError(err).strip()
+            raise OSError(f"CreateToolhelp32Snapshot failed: {msg}")
+        else:
+            msg = ctypes.FormatError(ERROR_BAD_LENGTH).strip()
+            raise OSError(f"CreateToolhelp32Snapshot failed: {msg}")
 
         modules = []
         try:

@@ -920,18 +920,30 @@ def test_setting_limit_on_thread_local_blas_api_is_actually_thread_local(
 def test_conda_blas_detection_after_import(module):
     pytest.importorskip(module)
 
-    conda_list_output = subprocess.check_output(["conda", "list", "--json"], text=True)
+    info = threadpool_info_from_subprocess(module)
+
+    conda = which("conda") or which("mamba") or which("micromamba")
+    conda_list_output = subprocess.check_output([conda, "list", "--json"], text=True)
     conda_list_items = json.loads(conda_list_output)
     blas_names_from_conda = [
         each["name"]
         for each in conda_list_items
-        if "openblas" in each["name"] or "mkl" in each["name"]
+        if any(
+            blas_lib in each["name"] for blas_lib in ["accelerate", "openblas", "mkl"]
+        )
     ]
     blas_names_from_conda = [each.replace("lib", "") for each in blas_names_from_conda]
-    info = threadpool_info_from_subprocess(module)
+
+    if "accelerate" in blas_names_from_conda:
+        pytest.skip("threadpoolctl does not know how to inspect Accelerate")
+        return
 
     blas_info = select(info, user_api="blas")
     assert len(blas_info) > 0
+
+    if not blas_names_from_conda:
+        # 'module' has been installed with pip
+        return
 
     blas_names_from_threadpoolctl = [each["internal_api"] for each in blas_info]
     assert set(blas_names_from_threadpoolctl).issubset(blas_names_from_conda)

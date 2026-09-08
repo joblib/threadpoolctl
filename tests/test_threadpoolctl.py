@@ -943,5 +943,11 @@ def test_conda_blas_detection_after_import(module):
     blas_info = select(info, user_api="blas")
     assert len(blas_info) > 0
 
-    blas_names_from_threadpoolctl = [each["internal_api"] for each in blas_info]
+    # Flexiblas is built from source on our CI. At the time of writing, it is not
+    # available in the conda-forge channel.
+    blas_names_from_threadpoolctl = [
+        each["internal_api"]
+        for each in blas_info
+        if each["internal_api"] != "flexiblas"
+    ]
     assert set(blas_names_from_threadpoolctl).issubset(blas_names_from_conda)

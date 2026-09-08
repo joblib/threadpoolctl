@@ -913,3 +913,12 @@ def test_setting_limit_on_thread_local_blas_api_is_actually_thread_local(
     nmc_1 = num_threads_created(1)
     nmc_4 = num_threads_created(4)
     assert nmc_4 - nmc_1 == 6
+
+
+@pytest.mark.parametrize("module", ["numpy", "scipy.linalg"])
+def test_openblas_detection_after_import(module):
+    info = threadpool_info_from_subprocess(module)
+
+    blas_info = select(info, internal_api="openblas")
+    assert len(blas_info) > 0
+

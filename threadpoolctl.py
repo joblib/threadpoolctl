@@ -1212,15 +1212,17 @@ class ThreadpoolController:
 
         This function is expected to work on windows system only.
 
-        Module discovery uses a snapshot-first strategy: when
-        ``CreateToolhelp32Snapshot`` succeeds, ``szExePath`` values are already
-        complete and shorter than ``MAX_PATH``. When the snapshot fails (for
-        example because a loaded DLL lives on a long path), enumeration falls
-        back to ``EnumProcessModulesEx`` and resolves paths with
-        ``GetModuleFileNameExW`` using a larger buffer. The snapshot based
-        approach is more robust in case of concurrent DLL loading/unloading,
-        however it cannot handle long paths, hence the need for the fallback.
+        Module discovery uses a snapshot-first strategy:
+        ``CreateToolhelp32Snapshot`` provides an atomic list of loaded modules,
+        which is more robust than ``EnumProcessModulesEx`` under concurrent DLL
+        load/unload. Paths that fit in ``MODULEENTRY32W.szExePath`` (shorter
+        than ``MAX_PATH``) are used as-is. Truncated or empty snapshot paths
+        are resolved with ``GetModuleFileNameW`` and, when needed,
+        ``GetModuleFileNameExW`` with a larger buffer. If snapshot creation
+        fails, enumeration falls back to ``EnumProcessModulesEx``.
         """
+        from ctypes.wintypes import MAX_PATH
+
         ps_api = self._get_windll("Psapi")
         kernel_32 = self._get_windll("kernel32")
         self._setup_windows_module_apis(ps_api, kernel_32)
@@ -1237,8 +1239,18 @@ class ThreadpoolController:
             modules = None
 
         if modules is not None:
-            for _h_module, snapshot_path in modules:
-                filepath = self._snapshot_module_filepath(snapshot_path)
+            for h_module, snapshot_path in modules:
+                if snapshot_path and len(snapshot_path) < MAX_PATH - 1:
+                    filepath = snapshot_path
+                else:
+                    filepath = self._resolve_module_filepath(
+                        ps_api,
+                        kernel_32,
+                        h_process,
+                        h_module,
+                        max_path=max_path,
+                        path_buf=path_buf,
+                    )
                 if filepath is not None:
                     self._make_controller_from_path(filepath)
         else:
@@ -1354,25 +1366,6 @@ class ThreadpoolController:
             kernel_32.CloseHandle(snap_handle)
 
         return modules
-
-    def _snapshot_module_filepath(self, snapshot_path):
-        """Return a snapshot module path, or None if it should be skipped."""
-        from ctypes.wintypes import MAX_PATH
-
-        if not snapshot_path:
-            return None
-
-        if len(snapshot_path) >= MAX_PATH - 1:  # pragma: no cover
-            warnings.warn(
-                "Could not get the full path of a dynamic library. This library "
-                "will be ignored and threadpoolctl might not be able to control or "
-                f"display information about all loaded libraries. Here's the "
-                f"truncated path: {snapshot_path!r}",
-                RuntimeWarning,
-            )
-            return None
-
-        return snapshot_path
 
     def _resolve_module_filepath(
         self,

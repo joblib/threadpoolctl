@@ -962,14 +962,14 @@ def test_controller_parallelism_no_deadlocks():
 
     Non-regression test for https://github.com/joblib/threadpoolctl/issues/239
 
-    Lacking the fixes from this PR, this deadlocks on Conda environments, at
+    Lacking the fixes from PR #243, this deadlocks on Conda environments, at
     least, but possibly not on PyPI with Python from a Linux distro.
     """
     if sys.platform != "linux" or not hasattr(ctypes.PyDLL(None), "backtrace"):
-        pytest.skip("Requires glibc on Linux")
+        pytest.skip("Testing glibc on Linux")
 
     # Internally, backtrace() calls dl_iterate_phdr which can result in
-    # deadlocks with threadpoolctl's usage of dl_iterate_phdr.
+    # deadlocks if threadpoolctl is also using dl_iterate_phdr.
     backtrace_gil = ctypes.PyDLL(None).backtrace
     backtrace_gil.argtypes = [ctypes.c_void_p, ctypes.c_int]
     backtrace_nogil = ctypes.CDLL(None).backtrace

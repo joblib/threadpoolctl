@@ -1139,6 +1139,9 @@ class ThreadpoolController:
             # On Python 3.14+, this functionality is built-in. Once Python 3.13
             # is no longer supported by threadpoolctl, most of the equivalent
             # threadpoolctl implementations can be removed.
+            #
+            # We don't use this on Linux since it uses dl_iterate_phdr
+            # internally and so might still have deadlock issues.
             self._find_libraries_with_python()
         elif sys.platform == "darwin":
             self._find_libraries_with_dyld()
@@ -1153,7 +1156,8 @@ class ThreadpoolController:
     def _find_libraries_with_linux(self):
         """Loop through loaded libraries and return binders on supported ones
 
-        Uses a Linux-specific mechanism.
+        Uses a Linux-specific mechanism:
+        https://man7.org/linux/man-pages/man5/proc_pid_maps.5.html
         """
         with open("/proc/self/maps") as f:
             maps = f.read()

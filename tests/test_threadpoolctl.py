@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ctypes
 import json
 import os
 import pytest
@@ -7,6 +8,7 @@ import re
 import subprocess
 import sys
 from shutil import which
+from threading import Thread
 
 from threadpoolctl import threadpool_limits, threadpool_info
 from threadpoolctl import LibController, ThreadpoolController
@@ -952,3 +954,39 @@ def test_conda_blas_detection_after_import(module):
         if each["internal_api"] != "flexiblas"
     ]
     assert set(blas_names_from_threadpoolctl).issubset(blas_names_from_conda)
+
+
+def test_controller_parallelism_no_deadlocks():
+    """
+    Creating a controller in parallel to itself does not cause deadlocks.
+
+    Non-regression test for https://github.com/joblib/threadpoolctl/issues/239
+
+    Lacking the fixes from this PR, this deadlocks on Conda environments, at
+    least, but possibly not on PyPI with Python from a Linux distro.
+    """
+    if sys.platform != "linux" or not hasattr(ctypes.PyDLL(None), "backtrace"):
+        pytest.skip("Requires glibc on Linux")
+
+    # Internally, backtrace() calls dl_iterate_phdr which can result in
+    # deadlocks with threadpoolctl's usage of dl_iterate_phdr.
+    backtrace_gil = ctypes.PyDLL(None).backtrace
+    backtrace_gil.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    backtrace_nogil = ctypes.CDLL(None).backtrace
+    backtrace_nogil.argtypes = [ctypes.c_void_p, ctypes.c_int]
+
+    def create_controllers():
+        buf = (ctypes.c_void_p * 20)()
+        for _ in range(100):
+            limiter = threadpool_limits()
+            backtrace_gil(buf, 20)
+            backtrace_nogil(buf, 20)
+
+    threads = []
+    for _ in range(os.cpu_count() * 4):
+        t = Thread(target=create_controllers)
+        threads.append(t)
+        t.start()
+
+    for t in threads:
+        t.join()

@@ -25,9 +25,9 @@ from abc import ABC, abstractmethod
 from functools import lru_cache
 from contextlib import ContextDecorator
 
-if sys.version_info[:2] >= (3, 14):
+try:
     from ctypes.util import dllist
-else:
+except ImportError:
     dllist = None
 
 

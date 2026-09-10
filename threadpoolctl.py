@@ -17,7 +17,7 @@ import sys
 import ctypes
 import itertools
 import textwrap
-from threading import Lock, Thread
+from threading import Thread
 from typing import Callable, Literal, final
 import warnings
 from ctypes.util import find_library
@@ -39,11 +39,6 @@ __all__ = [
     "LibController",
     "register",
 ]
-
-
-# Prevent GIL + dl locks from causing deadlocks when they get acquired in
-# different orders, by ensuring dl_iterate_phdr() is only called by one thread.
-_DL_ITERATE_PHDR_LOCK = Lock()
 
 
 # One can get runtime errors or even segfaults due to multiple OpenMP libraries
@@ -1133,13 +1128,17 @@ class ThreadpoolController:
 
     def _load_libraries(self):
         """Loop through loaded shared libraries and store the supported ones"""
-        if dllist is not None and sys.platform != "emscripten":
-            # On Python 3.14+, this functionality is built-in. Usefully, it
-            # holds the GIL throughout for dl_iterate_phdr, which can prevent
-            # deadlocks with GIL and internal dl locks.
-            #
-            # Once Python 3.13 is no longer supported by threadpoolctl, the
-            # equivalent threadpoolctl implementations can be removed.
+        if sys.platform == "linux" and os.path.exists("/proc/self/maps"):
+            # On glibc, dl_iterate_phdr has an internal lock, and that plus
+            # calling back into Python and the need to (re)acquire the GIL
+            # results in deadlocks. To avoid that, use a Linux-specific
+            # mechanism that doesn't have these issues; since it's Linux, musl
+            # works fine too.
+            self._find_libraries_with_linux()
+        elif dllist is not None and sys.platform != "emscripten":
+            # On Python 3.14+, this functionality is built-in. Once Python 3.13
+            # is no longer supported by threadpoolctl, most of the equivalent
+            # threadpoolctl implementations can be removed.
             self._find_libraries_with_python()
         elif sys.platform == "darwin":
             self._find_libraries_with_dyld()
@@ -1148,7 +1147,24 @@ class ThreadpoolController:
         elif "pyodide" in sys.modules:
             self._find_libraries_pyodide()
         else:
+            # Non-Linux Unix platforms.
             self._find_libraries_with_dl_iterate_phdr()
+
+    def _find_libraries_with_linux(self):
+        """Loop through loaded libraries and return binders on supported ones
+
+        Uses a Linux-specific mechanism.
+        """
+        with open("/proc/self/maps") as f:
+            maps = f.read()
+        filepaths = set()
+        for line in maps.splitlines():
+            start_index = line.find("/")
+            if start_index == -1 or ".so" not in line:
+                continue
+            filepaths.add(line[start_index:])
+        for filepath in filepaths:
+            self._make_controller_from_path(filepath)
 
     def _find_libraries_with_python(self):
         """Loop through loaded libraries and return binders on supported ones
@@ -1156,8 +1172,7 @@ class ThreadpoolController:
         Uses Python's built-in support for this functionality.
         """
         assert dllist is not None
-        with _DL_ITERATE_PHDR_LOCK:
-            filepaths = dllist()
+        filepaths = dllist()
         if filepaths and filepaths[0] in ("", sys.executable):
             filepaths = filepaths[1:]
         for filepath in filepaths:
@@ -1204,8 +1219,7 @@ class ThreadpoolController:
         c_match_library_callback = c_func_signature(match_library_callback)
 
         data = ctypes.c_char_p(b"")
-        with _DL_ITERATE_PHDR_LOCK:
-            libc.dl_iterate_phdr(c_match_library_callback, data)
+        libc.dl_iterate_phdr(c_match_library_callback, data)
 
         # Now that a list of filepaths is available, load the respective
         # libraries:
@@ -1443,22 +1457,7 @@ class ThreadpoolController:
             # libc symbols. We still name it libc for convenience.
             # If the main program does not contain the libc symbols, it's ok because
             # we check their presence later anyway.
-            #
-            # This uses PyDLL to prevent deadlocks. If CDLL were used, you can
-            # get situation where the following happens:
-            #
-            # 1. Thread A via threadpoolctl calls dl_iterate_phdr, which
-            #    acquires an internal dl lock.
-            # 2. Thread B, holding the GIL, calls some API that internally uses
-            #    dl_iterate_phdr. For example, a backtrace() from NumPy can
-            #    sometimes trigger that. This results in trying to acquire an
-            #    internal dl lock, which is already held.
-            # 3. Thread A calls back into Python, requiring it to reacquire the GIL.
-            # 4. Deadlock!
-            #
-            # Using PyDLL prevents this situation by ensuring the order is
-            # always first GIL, then dl_iterate_phdr.
-            libc = ctypes.PyDLL(find_library("c"), mode=_RTLD_NOLOAD)
+            libc = ctypes.CDLL(find_library("c"), mode=_RTLD_NOLOAD)
             cls._system_libraries["libc"] = libc
         return libc
 

@@ -37,9 +37,11 @@
 - Fixed a deadlock on Linux when using threadpoolctl from multiple threads.
   https://github.com/joblib/threadpoolctl/pull/243
 
-- Start using Python 3.14's built-in support for listening shared libraries.
+- Start using Python 3.14's built-in support for listing shared libraries.
   https://github.com/joblib/threadpoolctl/pull/243
 
+- On Linux, start using /proc/self/maps for listing shared libraries.
+  https://github.com/joblib/threadpoolctl/pull/243
 
 3.6.0 (2025-03-13)
 ==================

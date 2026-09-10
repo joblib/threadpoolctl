@@ -1166,7 +1166,10 @@ class ThreadpoolController:
             start_index = line.find("/")
             if start_index == -1 or ".so" not in line:
                 continue
-            filepaths.add(line[start_index:])
+            filepath = line[start_index:]
+            if os.path.exists(filepath):
+                filepaths.add(filepath)
+
         for filepath in filepaths:
             self._make_controller_from_path(filepath)
 

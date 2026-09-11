@@ -875,6 +875,10 @@ def test_windows_library_path_longer_than_max_path(tmp_path):
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-only test")
+@pytest.mark.skipif(
+    threadpoolctl.dllist is not None,
+    reason="Python 3.14+ dllist does not apply the internal path length limit",
+)
 def test_windows_library_path_exceeds_internal_limit(tmp_path, monkeypatch):
     """Libraries with a path longer than the internal limit are ignored.
 

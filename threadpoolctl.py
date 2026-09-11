@@ -1140,11 +1140,6 @@ class ThreadpoolController:
             # mechanism that doesn't have these issues; since it's Linux, musl
             # works fine too.
             self._find_libraries_with_linux()
-        elif sys.platform == "win32":
-            # Prefer the snapshot-based enumerator over ctypes.util.dllist.
-            # CPython's dllist uses EnumProcessModules, which can raise
-            # OSError when DLLs are loaded or unloaded concurrently (#217).
-            self._find_libraries_on_windows()
         elif dllist is not None and sys.platform != "emscripten":
             # On Python 3.14+, this functionality is built-in. Once Python 3.13
             # is no longer supported by threadpoolctl, most of the equivalent
@@ -1152,9 +1147,18 @@ class ThreadpoolController:
             #
             # We don't use this on Linux since it uses dl_iterate_phdr
             # internally and so might still have deadlock issues.
-            self._find_libraries_with_python()
+            try:
+                self._find_libraries_with_python()
+            except OSError:
+                # CPython's Windows dllist uses EnumProcessModules, which can
+                # raise when DLLs are loaded or unloaded concurrently (#217).
+                if sys.platform != "win32":
+                    raise
+                self._find_libraries_on_windows()
         elif sys.platform == "darwin":
             self._find_libraries_with_dyld()
+        elif sys.platform == "win32":
+            self._find_libraries_on_windows()
         elif "pyodide" in sys.modules:
             self._find_libraries_pyodide()
         else:
@@ -1270,14 +1274,16 @@ class ThreadpoolController:
 
         This function is expected to work on windows system only.
 
-        Module discovery uses a snapshot-first strategy:
-        ``CreateToolhelp32Snapshot`` provides an atomic list of loaded modules,
-        which is more robust than ``EnumProcessModulesEx`` under concurrent DLL
-        load/unload. Paths that fit in ``MODULEENTRY32W.szExePath`` (shorter
-        than ``MAX_PATH``) are used as-is. Truncated or empty snapshot paths
-        are resolved with ``GetModuleFileNameW`` and, when needed,
-        ``GetModuleFileNameExW`` with a larger buffer. If snapshot creation
-        fails, enumeration falls back to ``EnumProcessModulesEx``.
+        Used when ``ctypes.util.dllist`` is unavailable (Python < 3.14) or when
+        that API raises ``OSError``. Module discovery uses a snapshot-first
+        strategy: ``CreateToolhelp32Snapshot`` provides an atomic list of loaded
+        modules, which is more robust than ``EnumProcessModulesEx`` under
+        concurrent DLL load/unload. Paths that fit in
+        ``MODULEENTRY32W.szExePath`` (shorter than ``MAX_PATH``) are used as-is.
+        Truncated or empty snapshot paths are resolved with
+        ``GetModuleFileNameW`` and, when needed, ``GetModuleFileNameExW`` with a
+        larger buffer. If snapshot creation fails, enumeration falls back to
+        ``EnumProcessModulesEx``.
         """
         from ctypes.wintypes import MAX_PATH
 

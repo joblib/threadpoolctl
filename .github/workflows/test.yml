@@ -51,22 +51,26 @@ jobs:
             PYTHON_VERSION: "*"
             PACKAGER: "conda-forge"
             BLAS: "mkl"
+            INSTALL_OPENCV: "true"
           # Windows env with numpy, scipy, OpenBLAS installed through conda-forge
           - name: py311_conda_forge_openblas
             os: windows-latest
             PYTHON_VERSION: "3.11"
             PACKAGER: "conda-forge"
             BLAS: "openblas"
+            INSTALL_OPENCV: "true"
           # Windows env with numpy, scipy installed through conda
           - name: py310_conda
             os: windows-latest
             PYTHON_VERSION: "3.10"
             PACKAGER: "conda"
+            INSTALL_OPENCV: "true"
           # Windows env with numpy, scipy installed through pip
           - name: py39_pip
             os: windows-latest
             PYTHON_VERSION: "3.9"
             PACKAGER: "pip"
+            INSTALL_OPENCV: "true"
 
           # MacOS env with OpenMP installed through homebrew
           - name: py39_conda_homebrew_libomp
@@ -157,6 +161,7 @@ jobs:
             PYTHON_VERSION: "*"
             BLAS: "openblas"
             OPENBLAS_THREADING_LAYER: "openmp"
+            INSTALL_OPENCV: "true"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
           # Linux environment with no numpy and heterogeneous OpenMP runtimes.

@@ -1,9 +1,10 @@
-import os
 import json
+import os
 import sys
 import threadpoolctl
 from glob import glob
 from os.path import dirname, normpath
+from pathlib import Path
 from subprocess import check_output
 
 # Path to shipped openblas for libraries such as numpy or scipy
@@ -17,8 +18,20 @@ try:
     np.dot(np.ones(1000), np.ones(1000))
 
     libopenblas_patterns.append(os.path.join(np.__path__[0], ".libs", "libopenblas*"))
+    numpy_site_packages = os.path.dirname(np.__path__[0])
+    libopenblas_patterns.append(
+        os.path.join(numpy_site_packages, "numpy.libs", "libscipy_openblas*.dll")
+    )
 except ImportError:
     pass
+
+if sys.platform == "win32":
+    libopenblas_patterns.append(
+        os.path.join(sys.prefix, "Library", "bin", "openblas*.dll")
+    )
+    libopenblas_patterns.append(
+        os.path.join(sys.prefix, "Library", "bin", "libopenblas*.dll")
+    )
 
 
 try:
@@ -29,6 +42,10 @@ try:
 
     libopenblas_patterns.append(
         os.path.join(scipy.__path__[0], ".libs", "libopenblas*")
+    )
+    scipy_site_packages = os.path.dirname(scipy.__path__[0])
+    libopenblas_patterns.append(
+        os.path.join(scipy_site_packages, "scipy.libs", "libscipy_openblas*.dll")
     )
 except ImportError:
     scipy = None
@@ -86,3 +103,45 @@ def select(info, **kwargs):
     ]
 
     return selected_info
+
+
+def get_openblas_dll_path():
+    """Return a path to an OpenBLAS DLL that can be copied for Windows tests."""
+    if libopenblas_paths:
+        return sorted(
+            libopenblas_paths,
+            key=lambda path: (
+                0
+                if "libscipy_openblas" in os.path.basename(path).lower()
+                else 1 if "libopenblas" in os.path.basename(path).lower() else 2
+            ),
+        )[0]
+
+    controllers = (
+        threadpoolctl.ThreadpoolController()
+        .select(internal_api="openblas")
+        .lib_controllers
+    )
+    if not controllers:
+        return None
+
+    filepath = controllers[0].filepath
+    if os.path.isfile(filepath):
+        return filepath
+    return None
+
+
+def make_long_windows_path(base_dir, filename, min_length=261):
+    """Nest padded directories under base_dir until base/.../filename >= min_length."""
+    padding_segments = ["a" * 100, "b" * 100, "c" * 100, "d" * 100]
+    current = Path(base_dir)
+    segment_index = 0
+    target = current / filename
+
+    while len(str(target)) < min_length:
+        current = current / padding_segments[segment_index % len(padding_segments)]
+        segment_index += 1
+        target = current / filename
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    return target

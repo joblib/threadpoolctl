@@ -957,8 +957,7 @@ def test_conda_blas_detection_after_import(module):
 
 
 def test_controller_parallelism_no_deadlocks():
-    """
-    Creating a controller in parallel to itself does not cause deadlocks.
+    """Creating a controller in parallel to itself does not cause deadlocks.
 
     Non-regression test for https://github.com/joblib/threadpoolctl/issues/239
 

@@ -28,6 +28,7 @@ from contextlib import ContextDecorator
 try:
     from ctypes.util import dllist
 except ImportError:
+    # CPython before 3.14 or on emscripten does not provide dll inspection.
     dllist = None
 
 

@@ -25,6 +25,13 @@ from abc import ABC, abstractmethod
 from functools import lru_cache
 from contextlib import ContextDecorator
 
+try:
+    from ctypes.util import dllist
+except ImportError:
+    # CPython before 3.14 or on emscripten does not provide dll inspection.
+    dllist = None
+
+
 __version__ = "3.7.0.dev0"
 __all__ = [
     "threadpool_limits",
@@ -1122,14 +1129,62 @@ class ThreadpoolController:
 
     def _load_libraries(self):
         """Loop through loaded shared libraries and store the supported ones"""
-        if sys.platform == "darwin":
+        if sys.platform == "linux" and os.path.exists("/proc/self/maps"):
+            # On glibc, dl_iterate_phdr has an internal lock, and that plus
+            # calling back into Python and the need to (re)acquire the GIL
+            # results in deadlocks. To avoid that, use a Linux-specific
+            # mechanism that doesn't have these issues; since it's Linux, musl
+            # works fine too.
+            self._find_libraries_with_linux()
+        elif dllist is not None and sys.platform != "emscripten":
+            # On Python 3.14+, this functionality is built-in. Once Python 3.13
+            # is no longer supported by threadpoolctl, most of the equivalent
+            # threadpoolctl implementations can be removed.
+            #
+            # We don't use this on Linux since it uses dl_iterate_phdr
+            # internally and so might still have deadlock issues.
+            self._find_libraries_with_python()
+        elif sys.platform == "darwin":
             self._find_libraries_with_dyld()
         elif sys.platform == "win32":
             self._find_libraries_with_enum_process_module_ex()
         elif "pyodide" in sys.modules:
             self._find_libraries_pyodide()
         else:
+            # Non-Linux Unix platforms.
             self._find_libraries_with_dl_iterate_phdr()
+
+    def _find_libraries_with_linux(self):
+        """Loop through loaded libraries and return binders on supported ones
+
+        Uses a Linux-specific mechanism:
+        https://man7.org/linux/man-pages/man5/proc_pid_maps.5.html
+        """
+        with open("/proc/self/maps") as f:
+            maps = f.read()
+        filepaths = set()
+        for line in maps.splitlines():
+            start_index = line.find("/")
+            if start_index == -1 or ".so" not in line:
+                continue
+            filepath = line[start_index:]
+            if os.path.exists(filepath):
+                filepaths.add(filepath)
+
+        for filepath in filepaths:
+            self._make_controller_from_path(filepath)
+
+    def _find_libraries_with_python(self):
+        """Loop through loaded libraries and return binders on supported ones
+
+        Uses Python's built-in support for this functionality.
+        """
+        assert dllist is not None
+        filepaths = dllist()
+        if filepaths and filepaths[0] in ("", sys.executable):
+            filepaths = filepaths[1:]
+        for filepath in filepaths:
+            self._make_controller_from_path(filepath)
 
     def _find_libraries_with_dl_iterate_phdr(self):
         """Loop through loaded libraries and return binders on supported ones

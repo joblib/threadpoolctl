@@ -20,17 +20,9 @@ import textwrap
 from threading import Thread
 from typing import Callable, Literal, final
 import warnings
-from ctypes.util import find_library
 from abc import ABC, abstractmethod
 from functools import lru_cache
 from contextlib import ContextDecorator
-
-try:
-    from ctypes.util import dllist
-except ImportError:
-    # CPython before 3.14 or on emscripten does not provide dll inspection.
-    dllist = None
-
 
 __version__ = "3.7.0.dev0"
 __all__ = [
@@ -1136,14 +1128,13 @@ class ThreadpoolController:
             # mechanism that doesn't have these issues; since it's Linux, musl
             # works fine too.
             self._find_libraries_with_linux()
-        elif dllist is not None and sys.platform != "emscripten":
-            # On Python 3.14+, this functionality is built-in. Once Python 3.13
-            # is no longer supported by threadpoolctl, most of the equivalent
-            # threadpoolctl implementations can be removed.
-            #
-            # We don't use this on Linux since it uses dl_iterate_phdr
-            # internally and so might still have deadlock issues.
-            self._find_libraries_with_python()
+        elif (
+            # Python 3.14+ ctypes.util.dllist. Skip Linux: importing ctypes.util
+            # is not fork-safe there (#225) and dllist uses dl_iterate_phdr (#239).
+            sys.platform not in ("linux", "emscripten")
+            and self._find_libraries_with_python()
+        ):
+            return
         elif sys.platform == "darwin":
             self._find_libraries_with_dyld()
         elif sys.platform == "win32":
@@ -1175,16 +1166,23 @@ class ThreadpoolController:
             self._make_controller_from_path(filepath)
 
     def _find_libraries_with_python(self):
-        """Loop through loaded libraries and return binders on supported ones
+        """Loop through loaded libraries using Python 3.14+'s ctypes.util.dllist.
 
-        Uses Python's built-in support for this functionality.
+        ctypes.util is imported lazily so Linux never loads it. See #225.
+        Returns True if libraries were enumerated this way.
         """
-        assert dllist is not None
+        try:
+            from ctypes.util import dllist
+        except ImportError:
+            return False
+        if dllist is None:
+            return False
         filepaths = dllist()
         if filepaths and filepaths[0] in ("", sys.executable):
             filepaths = filepaths[1:]
         for filepath in filepaths:
             self._make_controller_from_path(filepath)
+        return True
 
     def _find_libraries_with_dl_iterate_phdr(self):
         """Loop through loaded libraries and return binders on supported ones
@@ -1459,13 +1457,13 @@ class ThreadpoolController:
         """Load the lib-C for unix systems."""
         libc = cls._system_libraries.get("libc")
         if libc is None:
-            # Remark: If libc is statically linked or if Python is linked against an
-            # alternative implementation of libc like musl, find_library will return
-            # None and CDLL will load the main program itself which should contain the
-            # libc symbols. We still name it libc for convenience.
-            # If the main program does not contain the libc symbols, it's ok because
-            # we check their presence later anyway.
-            libc = ctypes.CDLL(find_library("c"), mode=_RTLD_NOLOAD)
+            # dlopen(NULL) rather than ctypes.util.find_library("c"). Importing
+            # ctypes.util on CPython 3.14 Linux creates a process-lifetime
+            # CFUNCTYPE callback that is not fork-safe with some libffi builds
+            # (issue #225). If libc is statically linked or Python is linked
+            # against musl, the main program still exports the libc symbols we
+            # need. If it does not, we check for those symbols later anyway.
+            libc = ctypes.CDLL(None, mode=_RTLD_NOLOAD)
             cls._system_libraries["libc"] = libc
         return libc
 

@@ -989,3 +989,24 @@ def test_controller_parallelism_no_deadlocks():
 
     for t in threads:
         t.join()
+
+
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"),
+    reason="ctypes.util is only avoided on Linux (#225)",
+)
+def test_linux_does_not_import_ctypes_util():
+    # ctypes.util on CPython 3.14 Linux allocates a process-lifetime CFUNCTYPE
+    # callback; importing it in the parent is enough to abort after fork with
+    # some libffi builds. See https://github.com/joblib/threadpoolctl/issues/225.
+    path = os.path.dirname(os.path.dirname(__file__))
+    env = os.environ.copy()
+    env["PYTHONPATH"] = path + os.pathsep + env.get("PYTHONPATH", "")
+    script = """
+import sys
+import threadpoolctl
+assert "ctypes.util" not in sys.modules, sorted(sys.modules)
+threadpoolctl.threadpool_info()
+assert "ctypes.util" not in sys.modules
+"""
+    subprocess.check_call([sys.executable, "-c", script], env=env)

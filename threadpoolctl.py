@@ -1147,14 +1147,7 @@ class ThreadpoolController:
             #
             # We don't use this on Linux since it uses dl_iterate_phdr
             # internally and so might still have deadlock issues.
-            try:
-                self._find_libraries_with_python()
-            except OSError:
-                # CPython's Windows dllist uses EnumProcessModules, which can
-                # raise when DLLs are loaded or unloaded concurrently (#217).
-                if sys.platform != "win32":
-                    raise
-                self._find_libraries_on_windows()
+            self._find_libraries_with_python()
         elif sys.platform == "darwin":
             self._find_libraries_with_dyld()
         elif sys.platform == "win32":
@@ -1274,8 +1267,8 @@ class ThreadpoolController:
 
         This function is expected to work on windows system only.
 
-        Used when ``ctypes.util.dllist`` is unavailable (Python < 3.14) or when
-        that API raises ``OSError``. Module discovery uses a snapshot-first
+        Used when ``ctypes.util.dllist`` is unavailable (Python < 3.14).
+        Module discovery uses a snapshot-first
         strategy: ``CreateToolhelp32Snapshot`` provides an atomic list of loaded
         modules, which is more robust than ``EnumProcessModulesEx`` under
         concurrent DLL load/unload. Paths that fit in

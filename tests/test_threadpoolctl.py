@@ -835,7 +835,12 @@ def test_windows_library_path_longer_than_max_path(tmp_path):
         tmp_path, "libopenblas_long_path_test.dll", min_length=261
     )
     extended_path = os.path.abspath(str(long_path))
+    # Win32 APIs reject paths longer than MAX_PATH unless they use the
+    # extended-length prefix ``\\?\``. Skip rewriting if abspath already
+    # returned that form.
     if not extended_path.startswith("\\\\?\\"):
+        # UNC paths (``\\server\share\...``) need ``\\?\UNC\server\share\...``
+        # rather than ``\\?\\server\...``.
         if extended_path.startswith("\\\\"):
             extended_path = "\\\\?\\UNC\\" + extended_path[2:]
         else:
@@ -844,6 +849,9 @@ def test_windows_library_path_longer_than_max_path(tmp_path):
     ctypes.CDLL(extended_path)
 
     expected_path = os.path.abspath(str(long_path))
+    # Compare using the canonical path without the ``\\?\`` prefix.
+    # ``\\?\C:\...`` becomes ``C:\...``; ``\\?\UNC\server\share`` becomes
+    # ``\\server\share``.
     if expected_path.startswith("\\\\?\\"):
         expected_path = expected_path[4:]
         if expected_path.startswith("UNC\\"):
@@ -856,6 +864,8 @@ def test_windows_library_path_longer_than_max_path(tmp_path):
     normalized_filepaths = []
     for info in long_path_entries:
         filepath = info["filepath"]
+        # Same prefix stripping as expected_path so discovery results match
+        # regardless of whether GetModuleFileNameExW kept ``\\?\``.
         if filepath.startswith("\\\\?\\"):
             filepath = filepath[4:]
             if filepath.startswith("UNC\\"):

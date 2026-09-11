@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ctypes
 import json
 import os
 import pytest
@@ -7,12 +8,12 @@ import re
 import subprocess
 import sys
 from shutil import which
+from threading import Thread
 
 from threadpoolctl import threadpool_limits, threadpool_info
 from threadpoolctl import LibController, ThreadpoolController
 from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 from threadpoolctl import _determine_thread_limit_scope
-from threadpoolctl import _iter_mapped_filepaths
 
 from .utils import cython_extensions_compiled
 from .utils import check_nested_prange_blas
@@ -917,25 +918,85 @@ def test_setting_limit_on_thread_local_blas_api_is_actually_thread_local(
     assert nmc_4 - nmc_1 == 6
 
 
-def test_iter_mapped_filepaths():
-    maps = """\
-00400000-004c9000 r-xp 00000000 08:01 1234 /usr/bin/python3
-7f001000-7f002000 r-xp 00000000 08:01 5678 /usr/lib/libopenblas.so.0
-7f002000-7f003000 r--p 00001000 08:01 5678 /usr/lib/libopenblas.so.0
-7f003000-7f004000 rw-p 00002000 08:01 5678 /usr/lib/libopenblas.so.0
-7fff0000-7fff1000 rw-p 00000000 00:00 0    [stack]
-7fff2000-7fff3000 r-xp 00000000 00:00 0    [vdso]
-7f004000-7f005000 r-xp 00000000 08:01 9    /tmp/gone.so (deleted)
-"""
-    assert list(_iter_mapped_filepaths(maps)) == [
-        "/usr/bin/python3",
-        "/usr/lib/libopenblas.so.0",
-        "/tmp/gone.so",
+@pytest.mark.skipif(os.getenv("CONDA_PREFIX") is None, reason="conda-specific test")
+@pytest.mark.parametrize("module", ["numpy", "scipy.linalg"])
+def test_conda_blas_detection_after_import(module):
+    pytest.importorskip(module)
+
+    info = threadpool_info_from_subprocess(module)
+
+    conda = which("conda") or which("micromamba") or which("mamba")
+    conda_list_output = subprocess.check_output([conda, "list", "--json"], text=True)
+    conda_list_items = json.loads(conda_list_output)
+    blas_names_from_conda = [
+        each["name"]
+        for each in conda_list_items
+        if any(blas_lib in each["name"] for blas_lib in ["openblas", "mkl"])
     ]
+    blas_names_from_conda = [each.replace("lib", "") for each in blas_names_from_conda]
+
+    if "accelerate" in conda_list_output:
+        pytest.skip("threadpoolctl does not know how to inspect Accelerate")
+
+    if not blas_names_from_conda:
+        pytest.skip(
+            f"{module} has been installed with pip, this is a conda-specific test"
+        )
+
+    blas_info = select(info, user_api="blas")
+    assert len(blas_info) > 0
+
+    # Flexiblas is built from source on our CI. At the time of writing, it is not
+    # available in the conda-forge channel.
+    blas_names_from_threadpoolctl = [
+        each["internal_api"]
+        for each in blas_info
+        if each["internal_api"] != "flexiblas"
+    ]
+    assert set(blas_names_from_threadpoolctl).issubset(blas_names_from_conda)
 
 
-def test_importing_threadpoolctl_does_not_load_ctypes_util():
-    # ctypes.util on CPython 3.13+ Linux allocates a process-lifetime CFUNCTYPE
+def test_controller_parallelism_no_deadlocks():
+    """Creating a controller in parallel to itself does not cause deadlocks.
+
+    Non-regression test for https://github.com/joblib/threadpoolctl/issues/239
+
+    Lacking the fixes from PR #243, this deadlocks on Conda environments, at
+    least, but possibly not on PyPI with Python from a Linux distro.
+    """
+    if sys.platform != "linux" or not hasattr(ctypes.PyDLL(None), "backtrace"):
+        pytest.skip("Testing glibc on Linux")
+
+    # Internally, backtrace() calls dl_iterate_phdr which can result in
+    # deadlocks if threadpoolctl is also using dl_iterate_phdr.
+    backtrace_gil = ctypes.PyDLL(None).backtrace
+    backtrace_gil.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    backtrace_nogil = ctypes.CDLL(None).backtrace
+    backtrace_nogil.argtypes = [ctypes.c_void_p, ctypes.c_int]
+
+    def create_controllers():
+        buf = (ctypes.c_void_p * 20)()
+        for _ in range(100):
+            limiter = threadpool_limits()
+            backtrace_gil(buf, 20)
+            backtrace_nogil(buf, 20)
+
+    threads = []
+    for _ in range(os.cpu_count() * 4):
+        t = Thread(target=create_controllers)
+        threads.append(t)
+        t.start()
+
+    for t in threads:
+        t.join()
+
+
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"),
+    reason="ctypes.util is only avoided on Linux (#225)",
+)
+def test_linux_does_not_import_ctypes_util():
+    # ctypes.util on CPython 3.14 Linux allocates a process-lifetime CFUNCTYPE
     # callback; importing it in the parent is enough to abort after fork with
     # some libffi builds. See https://github.com/joblib/threadpoolctl/issues/225.
     path = os.path.dirname(os.path.dirname(__file__))
@@ -949,16 +1010,3 @@ threadpoolctl.threadpool_info()
 assert "ctypes.util" not in sys.modules
 """
     subprocess.check_call([sys.executable, "-c", script], env=env)
-
-
-@pytest.mark.skipif(
-    not sys.platform.startswith("linux"), reason="requires /proc/self/maps"
-)
-def test_linux_library_discovery_uses_proc_maps():
-    controller = ThreadpoolController()
-    assert controller._find_libraries_with_proc_maps() is True
-    maps = open("/proc/self/maps", encoding="utf-8", errors="surrogateescape").read()
-    mapped = set(_iter_mapped_filepaths(maps))
-    real_mapped = {os.path.realpath(p) for p in mapped}
-    for lib_controller in controller.lib_controllers:
-        assert lib_controller.filepath in real_mapped

@@ -1,13 +1,6 @@
 3.7.0 (TBD)
 ===========
 
-- On Linux, loaded libraries are now enumerated from ``/proc/self/maps``
-  instead of a ``ctypes`` callback into ``dl_iterate_phdr``, and libc is
-  loaded with ``ctypes.CDLL(None)`` instead of ``ctypes.util.find_library``.
-  Both previous paths created libffi closures that can abort after ``os.fork()``
-  on some libffi builds (for example libffi 3.4.x with SELinux).
-  https://github.com/joblib/threadpoolctl/issues/225
-
 - Added the ability to check whether a limiting API affects just the current
   thread or the whole process. Mainly aimed at debugging and diagnostics, and
   somewhat unreliable, it is therefore enabled by default only for command-line
@@ -37,6 +30,22 @@
   other Python threads. On Windows behavior is likely process-wide, but this may
   depend on how OpenBLAS was compiled with OpenMP.
   https://github.com/joblib/threadpoolctl/pull/228
+
+- Fix OpenBLAS detection for conda package on Windows
+  https://github.com/joblib/threadpoolctl/pull/240
+
+- Fixed a deadlock on Linux when using threadpoolctl from multiple threads.
+  https://github.com/joblib/threadpoolctl/pull/243
+
+  - Start using Python 3.14's built-in support for listing shared libraries.
+
+  - On Linux, start using /proc/self/maps for listing shared libraries.
+
+- Avoid importing ``ctypes.util`` on Linux (and load libc with
+  ``ctypes.CDLL(None)``) so ``threadpool_info()`` does not create libffi
+  closures that can abort after ``os.fork()`` on some libffi builds.
+  https://github.com/joblib/threadpoolctl/issues/225
+  https://github.com/joblib/threadpoolctl/pull/242
 
 3.6.0 (2025-03-13)
 ==================

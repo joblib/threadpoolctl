@@ -24,6 +24,7 @@ from abc import ABC, abstractmethod
 from functools import lru_cache
 from contextlib import ContextDecorator
 
+
 __version__ = "3.7.0.dev0"
 __all__ = [
     "threadpool_limits",
@@ -269,6 +270,7 @@ class OpenBLASController(LibController):
         "libopenblas",
         "libblas",  # legacy conda-forge Windows shim, see _make_controller_from_path
         "libscipy_openblas",
+        "openblas",  # Windows conda package use openblas.dll
     )
 
     _symbol_prefixes = ("", "scipy_")
@@ -675,30 +677,6 @@ def _format_docstring(*args, **kwargs):
         return o
 
     return decorator
-
-
-def _iter_mapped_filepaths(maps_text):
-    """Yield unique file-backed paths from a ``/proc/*/maps`` dump.
-
-    Each mapped object typically appears several times (r-x, r--, rw-).
-    Anonymous mappings and kernel pseudo-files (``[heap]``, ``[vdso]``, ...)
-    are skipped.
-    """
-    seen = set()
-    for line in maps_text.splitlines():
-        # address perms offset dev inode [pathname]
-        parts = line.split(None, 5)
-        if len(parts) < 6:
-            continue
-        pathname = parts[5]
-        if pathname.startswith("[") or pathname.startswith("anon_inode:"):
-            continue
-        if pathname.endswith(" (deleted)"):
-            pathname = pathname[: -len(" (deleted)")]
-        if pathname in seen:
-            continue
-        seen.add(pathname)
-        yield pathname
 
 
 @lru_cache(maxsize=10000)
@@ -1144,38 +1122,66 @@ class ThreadpoolController:
 
     def _load_libraries(self):
         """Loop through loaded shared libraries and store the supported ones"""
-        if sys.platform == "darwin":
+        if sys.platform == "linux" and os.path.exists("/proc/self/maps"):
+            # On glibc, dl_iterate_phdr has an internal lock, and that plus
+            # calling back into Python and the need to (re)acquire the GIL
+            # results in deadlocks. To avoid that, use a Linux-specific
+            # mechanism that doesn't have these issues; since it's Linux, musl
+            # works fine too.
+            self._find_libraries_with_linux()
+        elif (
+            # Python 3.14+ ctypes.util.dllist. Skip Linux: importing ctypes.util
+            # is not fork-safe there (#225) and dllist uses dl_iterate_phdr (#239).
+            sys.platform not in ("linux", "emscripten")
+            and self._find_libraries_with_python()
+        ):
+            return
+        elif sys.platform == "darwin":
             self._find_libraries_with_dyld()
         elif sys.platform == "win32":
             self._find_libraries_with_enum_process_module_ex()
         elif "pyodide" in sys.modules:
             self._find_libraries_pyodide()
-        elif self._find_libraries_with_proc_maps():
-            return
         else:
+            # Non-Linux Unix platforms.
             self._find_libraries_with_dl_iterate_phdr()
 
-    def _find_libraries_with_proc_maps(self):
-        """Enumerate loaded shared objects from ``/proc/self/maps``.
+    def _find_libraries_with_linux(self):
+        """Loop through loaded libraries and return binders on supported ones
 
-        This is the preferred path on Linux: it does not create a
-        ``ctypes.CFUNCTYPE`` callback, whose libffi trampoline is allocated
-        from a ``MAP_SHARED`` memfd on some builds (SELinux / W^X) and is not
-        fork-safe. See https://github.com/joblib/threadpoolctl/issues/225.
+        Uses a Linux-specific mechanism:
+        https://man7.org/linux/man-pages/man5/proc_pid_maps.5.html
+        """
+        with open("/proc/self/maps") as f:
+            maps = f.read()
+        filepaths = set()
+        for line in maps.splitlines():
+            start_index = line.find("/")
+            if start_index == -1 or ".so" not in line:
+                continue
+            filepath = line[start_index:]
+            if os.path.exists(filepath):
+                filepaths.add(filepath)
 
-        Returns True if the maps file was read, even when no supported library
-        was found. Returns False when ``/proc`` is unavailable so callers can
-        fall back to ``dl_iterate_phdr``.
+        for filepath in filepaths:
+            self._make_controller_from_path(filepath)
+
+    def _find_libraries_with_python(self):
+        """Loop through loaded libraries using Python 3.14+'s ctypes.util.dllist.
+
+        ctypes.util is imported lazily so Linux never loads it. See #225.
+        Returns True if libraries were enumerated this way.
         """
         try:
-            with open(
-                "/proc/self/maps", encoding="utf-8", errors="surrogateescape"
-            ) as f:
-                maps_text = f.read()
-        except OSError:
+            from ctypes.util import dllist
+        except ImportError:
             return False
-
-        for filepath in _iter_mapped_filepaths(maps_text):
+        if dllist is None:
+            return False
+        filepaths = dllist()
+        if filepaths and filepaths[0] in ("", sys.executable):
+            filepaths = filepaths[1:]
+        for filepath in filepaths:
             self._make_controller_from_path(filepath)
         return True
 
@@ -1452,14 +1458,12 @@ class ThreadpoolController:
         """Load the lib-C for unix systems."""
         libc = cls._system_libraries.get("libc")
         if libc is None:
-            # Use the main program (dlopen(NULL)) rather than ctypes.util.find_library.
-            # Importing ctypes.util on CPython 3.13+ Linux creates a process-lifetime
-            # CFUNCTYPE callback for dllist(); that libffi closure is not fork-safe
-            # on some libffi builds. See
-            # https://github.com/joblib/threadpoolctl/issues/225.
-            # If libc is statically linked or Python is linked against musl, the
-            # main program still exports the libc symbols we need. If it does not,
-            # we check for those symbols later anyway.
+            # dlopen(NULL) rather than ctypes.util.find_library("c"). Importing
+            # ctypes.util on CPython 3.14 Linux creates a process-lifetime
+            # CFUNCTYPE callback that is not fork-safe with some libffi builds
+            # (issue #225). If libc is statically linked or Python is linked
+            # against musl, the main program still exports the libc symbols we
+            # need. If it does not, we check for those symbols later anyway.
             libc = ctypes.CDLL(None, mode=_RTLD_NOLOAD)
             cls._system_libraries["libc"] = libc
         return libc

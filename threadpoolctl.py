@@ -1268,8 +1268,8 @@ class ThreadpoolController:
         This function is expected to work on windows system only.
 
         Used when ``ctypes.util.dllist`` is unavailable (Python < 3.14).
-        Module discovery uses a snapshot-first
-        strategy: ``CreateToolhelp32Snapshot`` provides an atomic list of loaded
+        Module discovery uses a snapshot-first strategy:
+        ``CreateToolhelp32Snapshot`` provides an atomic list of loaded
         modules, which is more robust than ``EnumProcessModulesEx`` under
         concurrent DLL load/unload. Paths that fit in
         ``MODULEENTRY32W.szExePath`` (shorter than ``MAX_PATH``) are used as-is.
@@ -1349,7 +1349,7 @@ class ThreadpoolController:
             ctypes.c_wchar_p,
             DWORD,
         ]
-        ps_api.GetModuleFileNameExW.restype = BOOL
+        ps_api.GetModuleFileNameExW.restype = DWORD
 
         cls._windows_module_apis_configured = True
 
@@ -1440,19 +1440,30 @@ class ThreadpoolController:
         if n_size and n_size < MAX_PATH - 1:
             return path_buf.value
 
-        if ps_api.GetModuleFileNameExW(h_process, h_module, path_buf, max_path):
+        n_size = ps_api.GetModuleFileNameExW(h_process, h_module, path_buf, max_path)
+        if n_size and n_size < max_path - 1:
+            return path_buf.value
+        if n_size:  # pragma: no cover
             filepath = path_buf.value
-            if len(filepath) >= max_path - 1:  # pragma: no cover
-                warnings.warn(
-                    "Could not get the full path of a dynamic library (path too "
-                    "long). This library will be ignored and threadpoolctl might "
-                    "not be able to control or display information about all "
-                    f"loaded libraries. Here's the truncated path: {filepath!r}",
-                    RuntimeWarning,
-                )
-                return None
-            return filepath
+            warnings.warn(
+                "Could not get the full path of a dynamic library (path too "
+                "long). This library will be ignored and threadpoolctl might "
+                "not be able to control or display information about all "
+                f"loaded libraries. Here's the truncated path: {filepath!r}",
+                RuntimeWarning,
+            )
+            return None
 
+        err = ctypes.get_last_error()
+        msg = ctypes.FormatError(err).strip()
+        warnings.warn(
+            "Could not get the path of a dynamic library "
+            "(GetModuleFileNameW and GetModuleFileNameExW failed). "
+            "This library will be ignored and threadpoolctl might not be "
+            "able to control or display information about all loaded "
+            f"libraries. {msg}",
+            RuntimeWarning,
+        )
         return None
 
     def _find_libraries_with_enum_process_modules_ex(

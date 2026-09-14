@@ -824,6 +824,10 @@ def test_threadpool_controller_repeated_init():
 def test_windows_library_path_longer_than_max_path(tmp_path):
     """OpenBLAS loaded from a path longer than MAX_PATH is discovered.
 
+    Covers both Windows enumerators: ``ctypes.util.dllist`` on Python 3.14+
+    (``GetModuleFileNameW`` with a large buffer) and the Toolhelp /
+    ``GetModuleFileNameExW`` path on older Pythons.
+
     Regression test inspired by the local repro in
     https://github.com/joblib/threadpoolctl/pull/189#issuecomment-2714235916
     """
@@ -865,7 +869,8 @@ def test_windows_library_path_longer_than_max_path(tmp_path):
     for info in long_path_entries:
         filepath = info["filepath"]
         # Same prefix stripping as expected_path so discovery results match
-        # regardless of whether GetModuleFileNameExW kept ``\\?\``.
+        # whether the enumerator kept ``\\?\``: dllist (Python 3.14+) or
+        # GetModuleFileNameExW on the Toolhelp / EnumProcessModulesEx path.
         if filepath.startswith("\\\\?\\"):
             filepath = filepath[4:]
             if filepath.startswith("UNC\\"):

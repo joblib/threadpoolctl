@@ -24,19 +24,6 @@ from abc import ABC, abstractmethod
 from functools import lru_cache
 from contextlib import ContextDecorator
 
-# ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
-# process-lifetime CFUNCTYPE callback that is not fork-safe with some libffi
-# builds (#225). dllist also uses dl_iterate_phdr internally (#239), which we
-# already avoid on Linux via /proc/self/maps.
-if sys.platform == "linux":
-    dllist = None
-else:
-    try:
-        from ctypes.util import dllist
-    except ImportError:
-        # CPython before 3.14 or on emscripten does not provide dll inspection.
-        dllist = None
-
 __version__ = "3.7.0.dev0"
 __all__ = [
     "threadpool_limits",
@@ -1134,6 +1121,18 @@ class ThreadpoolController:
 
     def _load_libraries(self):
         """Loop through loaded shared libraries and store the supported ones"""
+        # ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
+        # process-lifetime CFUNCTYPE callback that is not fork-safe with some
+        # libffi builds (#225). dllist also uses dl_iterate_phdr internally
+        # (#239), which we already avoid on Linux via /proc/self/maps.
+        dllist = None
+        if sys.platform not in ("linux", "emscripten"):
+            try:
+                from ctypes.util import dllist
+            except ImportError:
+                # CPython before 3.14 does not provide dll inspection.
+                dllist = None
+
         if sys.platform == "linux" and os.path.exists("/proc/self/maps"):
             # On glibc, dl_iterate_phdr has an internal lock, and that plus
             # calling back into Python and the need to (re)acquire the GIL
@@ -1141,16 +1140,11 @@ class ThreadpoolController:
             # mechanism that doesn't have these issues; since it's Linux, musl
             # works fine too.
             self._find_libraries_with_linux()
-        elif dllist is not None and sys.platform != "emscripten":
+        elif dllist is not None:
             # On Python 3.14+, this functionality is built-in. Once Python 3.13
             # is no longer supported by threadpoolctl, most of the equivalent
             # threadpoolctl implementations can be removed.
-            #
-            # We don't use this on Linux since it uses dl_iterate_phdr
-            # internally and so might still have deadlock issues. dllist is
-            # also forced to None on Linux so ctypes.util is never imported
-            # there (#225).
-            self._find_libraries_with_python()
+            self._find_libraries_with_python(dllist)
         elif sys.platform == "darwin":
             self._find_libraries_with_dyld()
         elif sys.platform == "win32":
@@ -1181,12 +1175,11 @@ class ThreadpoolController:
         for filepath in filepaths:
             self._make_controller_from_path(filepath)
 
-    def _find_libraries_with_python(self):
+    def _find_libraries_with_python(self, dllist):
         """Loop through loaded libraries and return binders on supported ones
 
         Uses Python's built-in support for this functionality.
         """
-        assert dllist is not None
         filepaths = dllist()
         if filepaths and filepaths[0] in ("", sys.executable):
             filepaths = filepaths[1:]

@@ -1184,7 +1184,21 @@ class ThreadpoolController:
         Uses Python's built-in support for this functionality.
         """
         assert dllist is not None
-        filepaths = dllist()
+        try:
+            filepaths = dllist()
+        except OSError as exc:
+            # No Toolhelp fallback: if this fires in the wild, collect a
+            # minimal reproducer and report it upstream so CPython's dllist
+            # can be hardened against concurrent module list changes.
+            warnings.warn(
+                "ctypes.util.dllist failed to list loaded libraries "
+                f"({exc!r}). Native thread pools will not be inspected for "
+                "this ThreadpoolController. Please report a minimal "
+                "reproducer at https://github.com/joblib/threadpoolctl/issues "
+                "so it can be forwarded to CPython.",
+                RuntimeWarning,
+            )
+            return
         if filepaths and filepaths[0] in ("", sys.executable):
             filepaths = filepaths[1:]
         for filepath in filepaths:

@@ -4,8 +4,10 @@
 - Fixed an intermittent `OSError` on Windows when DLLs are loaded or unloaded
   concurrently during library discovery (for example when importing conda-forge
   OpenCV). On Python 3.14+, discovery uses `ctypes.util.dllist` when available.
-  Older Pythons use a Toolhelp snapshot enumerator, with graceful per-module
-  fallbacks.
+  If `dllist` raises `OSError`, threadpoolctl emits a `RuntimeWarning` instead
+  of crashing so the failure can be reported upstream with a minimal
+  reproducer. Older Pythons use a Toolhelp snapshot enumerator, with graceful
+  per-module fallbacks.
   https://github.com/joblib/threadpoolctl/pull/219
 
 - Added the ability to check whether a limiting API affects just the current

@@ -820,6 +820,19 @@ def test_threadpool_controller_repeated_init():
         ThreadpoolController()
 
 
+def test_dllist_oserror_emits_warning(monkeypatch):
+    """dllist listing failures warn instead of raising, so they can be reported."""
+
+    def boom():
+        raise OSError("EnumProcessModules failed: simulated race")
+
+    monkeypatch.setattr(threadpoolctl, "dllist", boom)
+    controller = ThreadpoolController._from_controllers([])
+    with pytest.warns(RuntimeWarning, match="ctypes.util.dllist failed"):
+        controller._find_libraries_with_python()
+    assert controller.lib_controllers == []
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-only test")
 def test_windows_library_path_longer_than_max_path(tmp_path):
     """OpenBLAS loaded from a path longer than MAX_PATH is discovered.

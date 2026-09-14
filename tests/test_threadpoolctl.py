@@ -895,7 +895,12 @@ def test_windows_library_path_exceeds_internal_limit(tmp_path, monkeypatch):
         tmp_path, "libopenblas_path_too_long.dll", min_length=400
     )
     extended_path = os.path.abspath(str(long_path))
+    # Copy/load still need the Win32 extended-length prefix ``\\?\`` because
+    # 400 characters is past MAX_PATH, even though this test's internal limit
+    # is 300. Do not rewrite if abspath already returned that prefix.
     if not extended_path.startswith("\\\\?\\"):
+        # Drive paths become ``\\?\C:\...``. UNC paths (``\\server\share\...``)
+        # must use ``\\?\UNC\server\share\...``, not ``\\?\\server\...``.
         if extended_path.startswith("\\\\"):
             extended_path = "\\\\?\\UNC\\" + extended_path[2:]
         else:
@@ -904,6 +909,9 @@ def test_windows_library_path_exceeds_internal_limit(tmp_path, monkeypatch):
     ctypes.CDLL(extended_path)
 
     expected_path = os.path.abspath(str(long_path))
+    # Assert absence using the unprefixed form. Discovery may report
+    # ``\\?\C:\...`` or ``\\?\UNC\...``; stripping those prefixes (and turning
+    # ``UNC\`` back into ``\\``) keeps the comparison independent of that.
     if expected_path.startswith("\\\\?\\"):
         expected_path = expected_path[4:]
         if expected_path.startswith("UNC\\"):
@@ -917,6 +925,9 @@ def test_windows_library_path_exceeds_internal_limit(tmp_path, monkeypatch):
         if "filepath" not in entry:
             continue
         filepath = entry["filepath"]
+        # Same prefix stripping as expected_path. Without it, a ``\\?\``
+        # filepath would not match expected_path and the "ignored" assertion
+        # could pass even if the library was actually discovered.
         if filepath.startswith("\\\\?\\"):
             filepath = filepath[4:]
             if filepath.startswith("UNC\\"):

@@ -56,7 +56,28 @@ _WINDOWS_MAX_LIBRARY_PATH_LENGTH = 2600
 _SYSTEM_UINT = ctypes.c_uint64 if sys.maxsize > 2**32 else ctypes.c_uint32
 _SYSTEM_UINT_HALF = ctypes.c_uint32 if sys.maxsize > 2**32 else ctypes.c_uint16
 
-_PROCFS_EXISTS = sys.platform == "linux" and os.path.exists("/proc/self")
+# On glibc, dl_iterate_phdr has an internal lock, and that plus calling back
+# into Python and the need to (re)acquire the GIL can result in deadlocks. To
+# avoid that, listing shared libraries can use a Linux-specific mechanism that
+# doesn't have these issues (/proc/self/maaps). Since it's the Linux kernel,
+# musl works fine too.
+#
+# The downside is this mechanism is slower, so avoid it when safe alternatives
+# are available (Python 3.14+ with free-threading has dllist(), and no GIL to
+# cause deadlocks).
+_USE_PROCFS = (
+    # Only available on Linux:
+    sys.platform == "linux"
+    # Make sure /proc is mounted:
+    and os.path.exists("/proc/self")
+    # If dllist() is available, and there is no GIL, no need to use /proc. It's
+    # possible dllist() might work even if there is a GIL, but that's harder to
+    # prove. See https://github.com/python/cpython/issues/157573
+    and not (
+        sys.version_info[:2] >= (3, 14)
+        and not getattr(sys, "_is_gil_enabled", lambda: True)()
+    )
+)
 
 
 class _dl_phdr_info(ctypes.Structure):
@@ -1132,19 +1153,15 @@ class ThreadpoolController:
         # libffi builds (#225). dllist also uses dl_iterate_phdr internally
         # (#239), which we already avoid on Linux via /proc/self/maps.
         dllist = None
-        if sys.platform not in ("linux", "emscripten"):
+        if sys.platform != "emscripten":
             try:
                 from ctypes.util import dllist
             except ImportError:
                 # CPython before 3.14 does not provide dll inspection.
                 dllist = None
 
-        if _PROCFS_EXISTS:
-            # On glibc, dl_iterate_phdr has an internal lock, and that plus
-            # calling back into Python and the need to (re)acquire the GIL
-            # results in deadlocks. To avoid that, use a Linux-specific
-            # mechanism that doesn't have these issues; since it's Linux, musl
-            # works fine too.
+        if _USE_PROCFS:
+            # See comment on _USE_PROCFS.
             self._find_libraries_with_linux()
         elif dllist is not None:
             # On Python 3.14+, this functionality is built-in. Once Python 3.13

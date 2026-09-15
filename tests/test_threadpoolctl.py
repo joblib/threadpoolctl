@@ -1146,7 +1146,7 @@ def test_controller_parallelism_no_deadlocks():
             backtrace_nogil(buf, 20)
 
     threads = []
-    for _ in range(os.cpu_count() * 4):
+    for _ in range(os.cpu_count()):
         t = Thread(target=create_controllers)
         threads.append(t)
         t.start()

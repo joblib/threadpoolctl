@@ -1161,6 +1161,8 @@ class ThreadpoolController:
             # Non-Linux Unix platforms.
             self._find_libraries_with_dl_iterate_phdr()
 
+    _PATH_RE = re.compile(r" (/[^\n]+\.so[^\n]*)\n", re.MULTILINE)
+
     def _find_libraries_with_linux(self):
         """Loop through loaded libraries and return binders on supported ones
 
@@ -1169,19 +1171,10 @@ class ThreadpoolController:
         """
         with open("/proc/self/maps") as f:
             maps = f.read()
-        filepaths = set()
-        for line in maps.splitlines():
-            start_index = line.find("/")
-            if start_index == -1 or ".so" not in line:
-                continue
-            filepath = line[start_index:]
-            if filepath in filepaths:
-                continue
-            if os.path.exists(filepath):
-                filepaths.add(filepath)
-
+        filepaths = set(self._PATH_RE.findall(maps))
         for filepath in filepaths:
-            self._make_controller_from_path(filepath)
+            if os.path.exists(filepath):
+                self._make_controller_from_path(filepath)
 
     def _find_libraries_with_python(self, dllist):
         """Loop through loaded libraries and return binders on supported ones

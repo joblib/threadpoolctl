@@ -68,12 +68,18 @@ if [[ "$PACKAGER" == "conda" ]]; then
             TO_INSTALL="$TO_INSTALL blas=*=$BLAS"
         fi
     fi
+    if [[ "$INSTALL_OPENCV" == "true" ]]; then
+        TO_INSTALL="$TO_INSTALL opencv"
+    fi
 	make_conda "defaults" "$TO_INSTALL"
 
 elif [[ "$PACKAGER" == "conda-forge" ]]; then
     TO_INSTALL="numpy scipy blas=*=$BLAS"
     if [[ "$BLAS" == "openblas" && "$OPENBLAS_THREADING_LAYER" == "openmp" ]]; then
         TO_INSTALL="$TO_INSTALL libopenblas=*=*openmp*"
+    fi
+    if [[ "$INSTALL_OPENCV" == "true" ]]; then
+        TO_INSTALL="$TO_INSTALL opencv"
     fi
     make_conda "conda-forge" "$TO_INSTALL"
 
@@ -83,6 +89,9 @@ elif [[ "$PACKAGER" == "pip" ]]; then
     make_conda "conda-forge" ""
     if [[ "$NO_NUMPY" != "true" ]]; then
         pip install numpy scipy
+    fi
+    if [[ "$INSTALL_OPENCV" == "true" ]]; then
+        pip install opencv-python
     fi
 
 elif [[ "$PACKAGER" == "pip-dev" ]]; then

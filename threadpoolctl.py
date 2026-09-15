@@ -11,6 +11,8 @@ maximal number of threads they can use.
 # adapted from code by Intel developer @anton-malakhov available at
 # https://github.com/IntelPython/smp (Copyright (c) 2017, Intel Corporation)
 # and also published under the BSD 3-Clause license
+from __future__ import annotations
+
 import os
 import re
 import sys
@@ -21,6 +23,7 @@ from threading import Thread
 from typing import Callable, Literal, final
 import warnings
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from functools import lru_cache
 from contextlib import ContextDecorator
 
@@ -198,7 +201,7 @@ class LibController(ABC):
         self.parent = parent
         self.prefix = prefix
         self.filepath = filepath
-        self.dynlib = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
+        self.dynlib = _CDLL_CACHE.get_cdll(filepath)
         self._symbol_prefix, self._symbol_suffix = self._find_affixes()
         self.version = self.get_version()
         self.set_additional_attributes()
@@ -262,6 +265,137 @@ class LibController(ABC):
         return getattr(
             self.dynlib, f"{self._symbol_prefix}{name}{self._symbol_suffix}", None
         )
+
+
+# Internal marker for missing cache lookups:
+_MISSING = object()
+
+
+@dataclass
+class _CachingCDLL:
+    """Wrap a ``CDLL``, caching attributes."""
+
+    _cdll: ctypes.CDLL
+    _cache: dict[str, ctypes._CFuncPtr | None] = field(default_factory=dict)
+
+    def __getattr__(self, symbol: str) -> ctypes._CFuncPtr | None:
+        result = self._cache.get(symbol, _MISSING)
+        if result is _MISSING:
+            result = getattr(self._cdll, symbol, None)
+            self._cache[symbol] = result
+        if result is None:
+            raise AttributeError(f"{self._cdll._name}: undefined attribute {symbol}")
+        return result
+
+
+@dataclass
+class _CDLLCache:
+    """Cache CDLL instances and their associated functions."""
+
+    _controller_cache: dict[str, type[LibController] | None] = field(
+        default_factory=dict
+    )
+
+    # Map filepath to tuple (CDLL if any, normalized path, prefix):
+    _cdll_cache: dict[str, tuple[ctypes.CDLL | None, str, str]] = field(
+        default_factory=dict
+    )
+
+    def _check_prefix(
+        self, library_basename: str, filename_prefixes: list[str]
+    ) -> str | None:
+        """Return the prefix library_basename starts with
+
+        Return None if none matches.
+        """
+        for prefix in filename_prefixes:
+            if library_basename.startswith(prefix):
+                return prefix
+        return None
+
+    def create_controller(
+        self, filepath: str, parent: ThreadpoolController
+    ) -> LibController | None:
+        """Create the associated controller, if there is one."""
+        result = self._controller_cache.get(filepath, _MISSING)
+        if result is not _MISSING:
+            controller_class, filepath, prefix = result
+            if controller_class is None:
+                return None
+            return controller_class(filepath=filepath, prefix=prefix, parent=parent)
+
+        # It's not in the cache, so proceed to actually search for it.
+
+        # Required to resolve symlinks
+        original_filepath = filepath
+        filepath = _realpath(filepath)
+        # `lower` required to take account of OpenMP dll case on Windows
+        # (vcomp, VCOMP, Vcomp, ...)
+        filename = os.path.basename(filepath).lower()
+
+        # Loop through supported libraries to find if this filename corresponds
+        # to a supported one.
+        for controller_class in _ALL_CONTROLLERS:
+            # check if filename matches a supported prefix
+            prefix = self._check_prefix(filename, controller_class.filename_prefixes)
+
+            # filename does not match any of the prefixes of the candidate
+            # library. move to next library.
+            if prefix is None:
+                continue
+
+            # Legacy workaround for BLAS libraries that conda-forge used to expose
+            # on Windows as libblas.dll, disambiguated via implementation-specific
+            # symbols. Current conda-forge stacks no longer load libblas.dll (e.g.
+            # MKL is exposed as mkl_rt.<version>.dll instead), so this path is
+            # kept for older installs but cannot be exercised in today's CI.
+            if prefix == "libblas":
+                if filename.endswith(".dll"):
+                    libblas = ctypes.CDLL(filepath, _RTLD_NOLOAD)
+                    if not any(
+                        hasattr(libblas, func)
+                        for func in controller_class.check_symbols
+                    ):
+                        continue
+                else:
+                    # Non-Windows libblas DSOs (e.g. from openblas) lack the symbols
+                    # needed to instantiate a controller and would duplicate entries.
+                    continue
+
+            # filename matches a prefix. Now we check if the library has the symbols we
+            # are looking for. If none of the symbols exists, it's very likely not the
+            # expected library (e.g. a library having a common prefix with one of the
+            # our supported libraries). Otherwise, create and store the library
+            # controller.
+            lib_controller = controller_class(
+                filepath=filepath, prefix=prefix, parent=parent
+            )
+
+            if not hasattr(controller_class, "check_symbols") or any(
+                hasattr(lib_controller.dynlib, func)
+                for func in controller_class.check_symbols
+            ):
+                self._controller_cache[original_filepath] = (
+                    controller_class,
+                    filepath,
+                    prefix,
+                )
+                return lib_controller
+
+        # Didn't find any matching libraries.
+        self._controller_cache[original_filepath] = (None, "", "")
+        return None
+
+    def get_cdll(self, filepath: str) -> _CachingCDLL:
+        """Get the ``CDLL`` for a path, loading if necessary."""
+        result = self._cdll_cache.get(filepath, _MISSING)
+        if result is _MISSING:
+            result = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
+            self._cdll_cache[filepath] = result
+        return result
+
+
+_CDLL_CACHE = _CDLLCache()
 
 
 class OpenBLASController(LibController):
@@ -1559,69 +1693,15 @@ class ThreadpoolController:
 
     def _make_controller_from_path(self, filepath):
         """Store a library controller if it is supported and selected"""
-        # Required to resolve symlinks
-        filepath = _realpath(filepath)
-        # `lower` required to take account of OpenMP dll case on Windows
-        # (vcomp, VCOMP, Vcomp, ...)
-        filename = os.path.basename(filepath).lower()
-
-        # Loop through supported libraries to find if this filename corresponds
-        # to a supported one.
-        for controller_class in _ALL_CONTROLLERS:
-            # check if filename matches a supported prefix
-            prefix = self._check_prefix(filename, controller_class.filename_prefixes)
-
-            # filename does not match any of the prefixes of the candidate
-            # library. move to next library.
-            if prefix is None:
-                continue
-
-            # Legacy workaround for BLAS libraries that conda-forge used to expose
-            # on Windows as libblas.dll, disambiguated via implementation-specific
-            # symbols. Current conda-forge stacks no longer load libblas.dll (e.g.
-            # MKL is exposed as mkl_rt.<version>.dll instead), so this path is
-            # kept for older installs but cannot be exercised in today's CI.
-            if prefix == "libblas":
-                if filename.endswith(".dll"):
-                    libblas = ctypes.CDLL(filepath, _RTLD_NOLOAD)
-                    if not any(
-                        hasattr(libblas, func)
-                        for func in controller_class.check_symbols
-                    ):
-                        continue
-                else:
-                    # Non-Windows libblas DSOs (e.g. from openblas) lack the symbols
-                    # needed to instantiate a controller and would duplicate entries.
-                    continue
-
-            # filename matches a prefix. Now we check if the library has the symbols we
-            # are looking for. If none of the symbols exists, it's very likely not the
-            # expected library (e.g. a library having a common prefix with one of the
-            # our supported libraries). Otherwise, create and store the library
-            # controller.
-            lib_controller = controller_class(
-                filepath=filepath, prefix=prefix, parent=self
-            )
-
-            if filepath in (lib.filepath for lib in self.lib_controllers):
-                # We already have a controller for this library.
-                continue
-
-            if not hasattr(controller_class, "check_symbols") or any(
-                hasattr(lib_controller.dynlib, func)
-                for func in controller_class.check_symbols
+        lib_controller = _CDLL_CACHE.create_controller(filepath, self)
+        if lib_controller is not None:
+            if lib_controller.filepath in (
+                lib.filepath for lib in self.lib_controllers
             ):
-                self.lib_controllers.append(lib_controller)
+                # We already have a controller for this library.
+                return
 
-    def _check_prefix(self, library_basename, filename_prefixes):
-        """Return the prefix library_basename starts with
-
-        Return None if none matches.
-        """
-        for prefix in filename_prefixes:
-            if library_basename.startswith(prefix):
-                return prefix
-        return None
+            self.lib_controllers.append(lib_controller)
 
     def _warn_if_incompatible_openmp(self):
         """Raise a warning if llvm-OpenMP and intel-OpenMP are both loaded"""

@@ -56,15 +56,20 @@ _WINDOWS_MAX_LIBRARY_PATH_LENGTH = 2600
 _SYSTEM_UINT = ctypes.c_uint64 if sys.maxsize > 2**32 else ctypes.c_uint32
 _SYSTEM_UINT_HALF = ctypes.c_uint32 if sys.maxsize > 2**32 else ctypes.c_uint16
 
-# On glibc, dl_iterate_phdr has an internal lock, and that plus calling back
-# into Python and the need to (re)acquire the GIL can result in deadlocks. To
-# avoid that, listing shared libraries can use a Linux-specific mechanism that
-# doesn't have these issues (/proc/self/maaps). Since it's the Linux kernel,
-# musl works fine too.
+# On glibc 2.39 and earlier, dl_iterate_phdr has an internal lock, and that
+# plus calling back into Python and the need to (re)acquire the GIL can result
+# in deadlocks. To avoid that, listing shared libraries can use a
+# Linux-specific mechanism that doesn't have these issues (/proc/self/maaps).
+# Since it's the Linux kernel, musl works fine too.
 #
 # The downside is this mechanism is slower, so avoid it when safe alternatives
 # are available (Python 3.14+ with free-threading has dllist(), and no GIL to
 # cause deadlocks).
+#
+# On glibc 2.40 and later, dl has a read-write lock, and dl_iterate_phdr should
+# only use the read version since it's not modifying anything. So you no longer
+# get deadlocks purely from dl_iterate_phdr. You can still deadlock with
+# dlopen() though.
 _USE_PROCFS = (
     # Only available on Linux:
     sys.platform == "linux"

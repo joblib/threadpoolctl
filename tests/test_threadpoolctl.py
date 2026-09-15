@@ -1142,6 +1142,9 @@ def test_controller_parallelism_no_deadlocks():
         buf = (ctypes.c_void_p * 20)()
         for _ in range(100):
             limiter = threadpool_limits()
+            # On glibc 2.39, backtrace() calling dl_iterate_phdr() is enough to
+            # cause deadlocks. On 2.40 and later, they switched to a read-write
+            # lock, so this won't deadlock at all...
             backtrace_gil(buf, 20)
             backtrace_nogil(buf, 20)
 

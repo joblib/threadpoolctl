@@ -26,6 +26,17 @@ from .utils import threadpool_info_from_subprocess
 from .utils import select
 
 
+def stdlib_dllist():
+    """Return ctypes.util.dllist when _load_libraries would use it, else None."""
+    if sys.platform in ("linux", "emscripten"):
+        return None
+    try:
+        from ctypes.util import dllist
+    except ImportError:
+        return None
+    return dllist
+
+
 def is_old_openblas(lib_controller):
     # Possible bug in getting maximum number of threads with OpenBLAS < 0.2.16
     # and OpenBLAS does not expose its version before 0.3.4.
@@ -820,16 +831,15 @@ def test_threadpool_controller_repeated_init():
         ThreadpoolController()
 
 
-def test_dllist_oserror_emits_warning(monkeypatch):
+def test_dllist_oserror_emits_warning():
     """dllist listing failures warn instead of raising, so they can be reported."""
 
     def boom():
         raise OSError("EnumProcessModules failed: simulated race")
 
-    monkeypatch.setattr(threadpoolctl, "dllist", boom)
     controller = ThreadpoolController._from_controllers([])
     with pytest.warns(RuntimeWarning, match="ctypes.util.dllist failed"):
-        controller._find_libraries_with_python()
+        controller._find_libraries_with_python(boom)
     assert controller.lib_controllers == []
 
 
@@ -894,7 +904,7 @@ def test_windows_library_path_longer_than_max_path(tmp_path):
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-only test")
 @pytest.mark.skipif(
-    threadpoolctl.dllist is not None,
+    stdlib_dllist() is not None,
     reason="Python 3.14+ dllist does not apply the internal path length limit",
 )
 def test_windows_library_path_exceeds_internal_limit(tmp_path, monkeypatch):
@@ -1143,3 +1153,24 @@ def test_controller_parallelism_no_deadlocks():
 
     for t in threads:
         t.join()
+
+
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"),
+    reason="ctypes.util is only avoided on Linux (#225)",
+)
+def test_linux_does_not_import_ctypes_util():
+    # ctypes.util on CPython 3.14 Linux allocates a process-lifetime CFUNCTYPE
+    # callback; importing it in the parent is enough to abort after fork with
+    # some libffi builds. See https://github.com/joblib/threadpoolctl/issues/225.
+    path = os.path.dirname(os.path.dirname(__file__))
+    env = os.environ.copy()
+    env["PYTHONPATH"] = path + os.pathsep + env.get("PYTHONPATH", "")
+    script = """
+import sys
+import threadpoolctl
+assert "ctypes.util" not in sys.modules, sorted(sys.modules)
+threadpoolctl.threadpool_info()
+assert "ctypes.util" not in sys.modules
+"""
+    subprocess.check_call([sys.executable, "-c", script], env=env)

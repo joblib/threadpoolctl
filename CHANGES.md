@@ -51,6 +51,11 @@
 
   - On Linux, start using /proc/self/maps for listing shared libraries.
 
+- Avoid importing ``ctypes.util`` on Linux (and load libc with
+  ``ctypes.CDLL(None)``) so ``threadpool_info()`` does not create libffi
+  closures that can abort after ``os.fork()`` on some libffi builds.
+  https://github.com/joblib/threadpoolctl/pull/242
+
 3.6.0 (2025-03-13)
 ==================
 

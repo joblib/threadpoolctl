@@ -20,17 +20,9 @@ import textwrap
 from threading import Thread
 from typing import Callable, Literal, final
 import warnings
-from ctypes.util import find_library
 from abc import ABC, abstractmethod
 from functools import lru_cache
 from contextlib import ContextDecorator
-
-try:
-    from ctypes.util import dllist
-except ImportError:
-    # CPython before 3.14 or on emscripten does not provide dll inspection.
-    dllist = None
-
 
 __version__ = "3.7.0.dev0"
 __all__ = [
@@ -1133,6 +1125,18 @@ class ThreadpoolController:
 
     def _load_libraries(self):
         """Loop through loaded shared libraries and store the supported ones"""
+        # ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
+        # process-lifetime CFUNCTYPE callback that is not fork-safe with some
+        # libffi builds (#225). dllist also uses dl_iterate_phdr internally
+        # (#239), which we already avoid on Linux via /proc/self/maps.
+        dllist = None
+        if sys.platform not in ("linux", "emscripten"):
+            try:
+                from ctypes.util import dllist
+            except ImportError:
+                # CPython before 3.14 does not provide dll inspection.
+                dllist = None
+
         if sys.platform == "linux" and os.path.exists("/proc/self/maps"):
             # On glibc, dl_iterate_phdr has an internal lock, and that plus
             # calling back into Python and the need to (re)acquire the GIL
@@ -1140,14 +1144,11 @@ class ThreadpoolController:
             # mechanism that doesn't have these issues; since it's Linux, musl
             # works fine too.
             self._find_libraries_with_linux()
-        elif dllist is not None and sys.platform != "emscripten":
+        elif dllist is not None:
             # On Python 3.14+, this functionality is built-in. Once Python 3.13
             # is no longer supported by threadpoolctl, most of the equivalent
             # threadpoolctl implementations can be removed.
-            #
-            # We don't use this on Linux since it uses dl_iterate_phdr
-            # internally and so might still have deadlock issues.
-            self._find_libraries_with_python()
+            self._find_libraries_with_python(dllist)
         elif sys.platform == "darwin":
             self._find_libraries_with_dyld()
         elif sys.platform == "win32":
@@ -1178,12 +1179,11 @@ class ThreadpoolController:
         for filepath in filepaths:
             self._make_controller_from_path(filepath)
 
-    def _find_libraries_with_python(self):
+    def _find_libraries_with_python(self, dllist):
         """Loop through loaded libraries and return binders on supported ones
 
         Uses Python's built-in support for this functionality.
         """
-        assert dllist is not None
         try:
             filepaths = dllist()
         except OSError as exc:
@@ -1652,13 +1652,13 @@ class ThreadpoolController:
         """Load the lib-C for unix systems."""
         libc = cls._system_libraries.get("libc")
         if libc is None:
-            # Remark: If libc is statically linked or if Python is linked against an
-            # alternative implementation of libc like musl, find_library will return
-            # None and CDLL will load the main program itself which should contain the
-            # libc symbols. We still name it libc for convenience.
-            # If the main program does not contain the libc symbols, it's ok because
-            # we check their presence later anyway.
-            libc = ctypes.CDLL(find_library("c"), mode=_RTLD_NOLOAD)
+            # dlopen(NULL) rather than ctypes.util.find_library("c"). Importing
+            # ctypes.util on CPython 3.14 Linux creates a process-lifetime
+            # CFUNCTYPE callback that is not fork-safe with some libffi builds
+            # (issue #225). If libc is statically linked or Python is linked
+            # against musl, the main program still exports the libc symbols we
+            # need. If it does not, we check for those symbols later anyway.
+            libc = ctypes.CDLL(None, mode=_RTLD_NOLOAD)
             cls._system_libraries["libc"] = libc
         return libc
 

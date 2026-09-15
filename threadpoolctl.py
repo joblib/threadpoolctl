@@ -1195,7 +1195,8 @@ class ThreadpoolController:
                 f"({exc!r}). Native thread pools will not be inspected for "
                 "this ThreadpoolController. Please report a minimal "
                 "reproducer at https://github.com/joblib/threadpoolctl/issues "
-                "so it can be forwarded to CPython.",
+                "so it can be investigated and possibly be reported upstream to "
+                "CPython.",
                 RuntimeWarning,
             )
             return

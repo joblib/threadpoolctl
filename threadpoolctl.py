@@ -1161,7 +1161,7 @@ class ThreadpoolController:
             # Non-Linux Unix platforms.
             self._find_libraries_with_dl_iterate_phdr()
 
-    _PATH_RE = re.compile(r" (/[^\n]+\.so[^\n]*)\n", re.MULTILINE)
+    _PATH_RE = re.compile(rb" (/[^\n]+\.so[^\n]*)\n", re.MULTILINE)
 
     def _find_libraries_with_linux(self):
         """Loop through loaded libraries and return binders on supported ones
@@ -1169,10 +1169,11 @@ class ThreadpoolController:
         Uses a Linux-specific mechanism:
         https://man7.org/linux/man-pages/man5/proc_pid_maps.5.html
         """
-        with open("/proc/self/maps") as f:
+        with open("/proc/self/maps", "rb") as f:
             maps = f.read()
         filepaths = set(self._PATH_RE.findall(maps))
         for filepath in filepaths:
+            filepath = filepath.decode("utf-8")
             if os.path.exists(filepath):
                 self._make_controller_from_path(filepath)
 

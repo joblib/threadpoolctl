@@ -56,6 +56,8 @@ _WINDOWS_MAX_LIBRARY_PATH_LENGTH = 2600
 _SYSTEM_UINT = ctypes.c_uint64 if sys.maxsize > 2**32 else ctypes.c_uint32
 _SYSTEM_UINT_HALF = ctypes.c_uint32 if sys.maxsize > 2**32 else ctypes.c_uint16
 
+_PROCFS_EXISTS = sys.platform == "linux" and os.path.exists("/proc/self")
+
 
 class _dl_phdr_info(ctypes.Structure):
     _fields_ = [
@@ -1137,7 +1139,7 @@ class ThreadpoolController:
                 # CPython before 3.14 does not provide dll inspection.
                 dllist = None
 
-        if sys.platform == "linux" and os.path.exists("/proc/self/maps"):
+        if _PROCFS_EXISTS:
             # On glibc, dl_iterate_phdr has an internal lock, and that plus
             # calling back into Python and the need to (re)acquire the GIL
             # results in deadlocks. To avoid that, use a Linux-specific

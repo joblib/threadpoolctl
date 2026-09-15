@@ -1161,7 +1161,7 @@ class ThreadpoolController:
             # Non-Linux Unix platforms.
             self._find_libraries_with_dl_iterate_phdr()
 
-    _PATH_RE = re.compile(rb" (/[^\n]+\.so[^\n]*)\n", re.MULTILINE)
+    _PATH_RE = re.compile(rb" (/[^\n]+\.so[^\n^/]*)\n", re.MULTILINE)
 
     def _find_libraries_with_linux(self):
         """Loop through loaded libraries and return binders on supported ones

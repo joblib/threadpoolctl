@@ -40,7 +40,7 @@ def start_counting_threads() -> Callable[[], int]:
 def set_limits():
     threadpoolctl.threadpool_limits(2)
     print("== Library info ==")
-    pprint(threadpoolctl.threadpool_info())
+    pprint(threadpoolctl.threadpool_info(debugging_info=True))
     print()
 
 

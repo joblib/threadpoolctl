@@ -81,6 +81,8 @@ jobs:
             CC_OUTER_LOOP: "clang"
             CC_INNER_LOOP: "clang"
             INSTALL_LIBOMP: "homebrew"
+            INSTALL_OPENCV: "true"
+
           # MacOS env with OpenBLAS and OpenMP installed through conda-forge compilers
           - name: pylatest_conda_forge_clang_openblas
             os: macos-latest
@@ -88,6 +90,8 @@ jobs:
             PACKAGER: "conda-forge"
             BLAS: "openblas"
             INSTALL_LIBOMP: "conda-forge"
+            INSTALL_OPENCV: "true"
+
           # MacOS env with FlexiBLAS
           - name: pylatest_flexiblas
             os: macos-latest
@@ -119,6 +123,8 @@ jobs:
             PYTHON_VERSION: "*"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
+            INSTALL_OPENCV: "true"
+
           # Linux + Python 3.9 and homogeneous runtime nesting.
           - name: py39_conda_openblas_clang_clang
             os: ubuntu-latest
@@ -127,6 +133,8 @@ jobs:
             BLAS: "openblas"
             CC_OUTER_LOOP: "clang-18"
             CC_INNER_LOOP: "clang-18"
+            INSTALL_OPENCV: "true"
+
           # Linux environment with MKL and Clang (known to be unsafe for
           # threadpoolctl) to only test the warning from multiple OpenMP.
           - name: pylatest_conda_mkl_clang_gcc
@@ -146,6 +154,8 @@ jobs:
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
             MKL_THREADING_LAYER: "INTEL"
+            INSTALL_OPENCV: "true"
+
           # Linux + Python 3.11 with numpy / scipy installed with pip from PyPI
           # and heterogeneous OpenMP runtimes.
           - name: py311_pip_openblas_gcc_clang

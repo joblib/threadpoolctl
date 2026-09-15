@@ -53,22 +53,22 @@ jobs:
             BLAS: "mkl"
             INSTALL_OPENCV: "true"
           # Windows env with numpy, scipy, OpenBLAS installed through conda-forge
-          - name: py311_conda_forge_openblas
+          - name: pylatest_conda_forge_openblas
             os: windows-latest
-            PYTHON_VERSION: "3.11"
+            PYTHON_VERSION: "*"
             PACKAGER: "conda-forge"
             BLAS: "openblas"
             INSTALL_OPENCV: "true"
-          # Windows env with numpy, scipy installed through conda
-          - name: py310_conda
+          # Windows env with numpy, scipy installed through conda default channel
+          - name: py311_conda
             os: windows-latest
-            PYTHON_VERSION: "3.10"
+            PYTHON_VERSION: "3.11"
             PACKAGER: "conda"
             INSTALL_OPENCV: "true"
           # Windows env with numpy, scipy installed through pip
-          - name: py39_pip
+          - name: py310_pip
             os: windows-latest
-            PYTHON_VERSION: "3.9"
+            PYTHON_VERSION: "3.10"
             PACKAGER: "pip"
             INSTALL_OPENCV: "true"
 

@@ -1,5 +1,5 @@
-3.7.0 (TBD)
-===========
+3.7.0 (2026-09-15)
+==================
 
 - Fixed an intermittent `OSError` on Windows when DLLs are loaded or unloaded
   concurrently during library discovery (for example when importing conda-forge

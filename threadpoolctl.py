@@ -1175,6 +1175,8 @@ class ThreadpoolController:
             if start_index == -1 or ".so" not in line:
                 continue
             filepath = line[start_index:]
+            if filepath in filepaths:
+                continue
             if os.path.exists(filepath):
                 filepaths.add(filepath)
 

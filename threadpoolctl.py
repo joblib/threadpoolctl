@@ -795,7 +795,7 @@ class _ThreadpoolLimiter:
 
         if warning_apis:
             warnings.warn(
-                "Multiple value possible for following user apis: "
+                "Multiple values possible for following user apis: "
                 + ", ".join(warning_apis)
                 + ". Returning the minimum."
             )

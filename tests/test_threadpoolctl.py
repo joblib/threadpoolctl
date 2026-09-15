@@ -496,7 +496,7 @@ def test_get_original_num_threads(limit):
                 assert original_num_threads["blas"] is None
 
             if len(libopenblas_paths) >= 2:
-                with pytest.warns(None, match="Multiple value possible"):
+                with pytest.warns(UserWarning, match="Multiple values possible"):
                     threadpoolctx.get_original_num_threads()
 
 

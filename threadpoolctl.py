@@ -1174,8 +1174,7 @@ class ThreadpoolController:
         filepaths = set(self._PATH_RE.findall(maps))
         for filepath in filepaths:
             filepath = filepath.decode("utf-8")
-            if os.path.exists(filepath):
-                self._make_controller_from_path(filepath)
+            self._make_controller_from_path(filepath)
 
     def _find_libraries_with_python(self, dllist):
         """Loop through loaded libraries and return binders on supported ones
@@ -1597,9 +1596,13 @@ class ThreadpoolController:
             # expected library (e.g. a library having a common prefix with one of the
             # our supported libraries). Otherwise, create and store the library
             # controller.
-            lib_controller = controller_class(
-                filepath=filepath, prefix=prefix, parent=self
-            )
+            try:
+                lib_controller = controller_class(
+                    filepath=filepath, prefix=prefix, parent=self
+                )
+            except OSError:
+                # Probably because we couldn't load the filepath as a CDLL.
+                continue
 
             if filepath in (lib.filepath for lib in self.lib_controllers):
                 # We already have a controller for this library.

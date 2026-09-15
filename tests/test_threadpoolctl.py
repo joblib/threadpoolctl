@@ -6,10 +6,11 @@ import os
 import pytest
 import re
 import subprocess
+import shutil
 import sys
-from shutil import which
 from threading import Thread
 
+import threadpoolctl
 from threadpoolctl import threadpool_limits, threadpool_info
 from threadpoolctl import LibController, ThreadpoolController
 from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
@@ -18,6 +19,8 @@ from threadpoolctl import _determine_thread_limit_scope
 from .utils import cython_extensions_compiled
 from .utils import check_nested_prange_blas
 from .utils import libopenblas_paths
+from .utils import get_openblas_dll_path
+from .utils import make_long_windows_path
 from .utils import scipy
 from .utils import threadpool_info_from_subprocess
 from .utils import select
@@ -493,7 +496,7 @@ def test_get_original_num_threads(limit):
                 assert original_num_threads["blas"] is None
 
             if len(libopenblas_paths) >= 2:
-                with pytest.warns(None, match="Multiple value possible"):
+                with pytest.warns(UserWarning, match="Multiple values possible"):
                     threadpoolctx.get_original_num_threads()
 
 
@@ -803,6 +806,154 @@ def test_custom_controller():
     assert ThreadpoolController().info() == original_info
 
 
+def test_threadpool_controller_repeated_init():
+    """Stress-test repeated library discovery.
+
+    Non-regression test for a Windows-specific problem where DLLs loaded or
+    unloaded concurrently during discovery could raise an OSError. The failure
+    was originally reproduced after importing OpenCV on Windows conda-forge;
+    see https://github.com/joblib/threadpoolctl/issues/217
+    """
+    pytest.importorskip("cv2")
+
+    for _ in range(100):
+        ThreadpoolController()
+
+
+def test_dllist_oserror_emits_warning(monkeypatch):
+    """dllist listing failures warn instead of raising, so they can be reported."""
+
+    def boom():
+        raise OSError("EnumProcessModules failed: simulated race")
+
+    monkeypatch.setattr(threadpoolctl, "dllist", boom)
+    controller = ThreadpoolController._from_controllers([])
+    with pytest.warns(RuntimeWarning, match="ctypes.util.dllist failed"):
+        controller._find_libraries_with_python()
+    assert controller.lib_controllers == []
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-only test")
+def test_windows_library_path_longer_than_max_path(tmp_path):
+    """OpenBLAS loaded from a path longer than MAX_PATH is discovered.
+
+    Covers both Windows enumerators: ``ctypes.util.dllist`` on Python 3.14+
+    (``GetModuleFileNameW`` with a large buffer) and the Toolhelp /
+    ``GetModuleFileNameExW`` path on older Pythons.
+
+    Regression test inspired by the local repro in
+    https://github.com/joblib/threadpoolctl/pull/189#issuecomment-2714235916
+    """
+    src_dll = get_openblas_dll_path()
+    if src_dll is None:
+        pytest.skip("Requires OpenBLAS on Windows")
+
+    long_path = make_long_windows_path(
+        tmp_path, "libopenblas_long_path_test.dll", min_length=261
+    )
+    extended_path = os.path.abspath(str(long_path))
+    # Win32 APIs reject paths longer than MAX_PATH unless they use the
+    # extended-length prefix ``\\?\``. Skip rewriting if abspath already
+    # returned that form.
+    if not extended_path.startswith("\\\\?\\"):
+        # UNC paths (``\\server\share\...``) need ``\\?\UNC\server\share\...``
+        # rather than ``\\?\\server\...``.
+        if extended_path.startswith("\\\\"):
+            extended_path = "\\\\?\\UNC\\" + extended_path[2:]
+        else:
+            extended_path = "\\\\?\\" + extended_path
+    shutil.copy2(src_dll, extended_path)
+    ctypes.CDLL(extended_path)
+
+    expected_path = os.path.abspath(str(long_path))
+    # Compare using the canonical path without the ``\\?\`` prefix.
+    # ``\\?\C:\...`` becomes ``C:\...``; ``\\?\UNC\server\share`` becomes
+    # ``\\server\share``.
+    if expected_path.startswith("\\\\?\\"):
+        expected_path = expected_path[4:]
+        if expected_path.startswith("UNC\\"):
+            expected_path = "\\\\" + expected_path[4:]
+    expected_path = os.path.normcase(os.path.normpath(expected_path))
+    openblas_info = ThreadpoolController().select(internal_api="openblas").info()
+
+    long_path_entries = [info for info in openblas_info if len(info["filepath"]) > 260]
+    assert len(long_path_entries) >= 1
+    normalized_filepaths = []
+    for info in long_path_entries:
+        filepath = info["filepath"]
+        # Same prefix stripping as expected_path so discovery results match
+        # whether the enumerator kept ``\\?\``: dllist (Python 3.14+) or
+        # GetModuleFileNameExW on the Toolhelp / EnumProcessModulesEx path.
+        if filepath.startswith("\\\\?\\"):
+            filepath = filepath[4:]
+            if filepath.startswith("UNC\\"):
+                filepath = "\\\\" + filepath[4:]
+        normalized_filepaths.append(os.path.normcase(os.path.normpath(filepath)))
+    assert expected_path in normalized_filepaths
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-only test")
+@pytest.mark.skipif(
+    threadpoolctl.dllist is not None,
+    reason="Python 3.14+ dllist does not apply the internal path length limit",
+)
+def test_windows_library_path_exceeds_internal_limit(tmp_path, monkeypatch):
+    """Libraries with a path longer than the internal limit are ignored.
+
+    Regression test inspired by the local repro in
+    https://github.com/joblib/threadpoolctl/pull/189#issuecomment-2714235916
+    """
+    src_dll = get_openblas_dll_path()
+    if src_dll is None:
+        pytest.skip("Requires OpenBLAS on Windows")
+
+    monkeypatch.setattr(threadpoolctl, "_WINDOWS_MAX_LIBRARY_PATH_LENGTH", 300)
+
+    long_path = make_long_windows_path(
+        tmp_path, "libopenblas_path_too_long.dll", min_length=400
+    )
+    extended_path = os.path.abspath(str(long_path))
+    # Copy/load still need the Win32 extended-length prefix ``\\?\`` because
+    # 400 characters is past MAX_PATH, even though this test's internal limit
+    # is 300. Do not rewrite if abspath already returned that prefix.
+    if not extended_path.startswith("\\\\?\\"):
+        # Drive paths become ``\\?\C:\...``. UNC paths (``\\server\share\...``)
+        # must use ``\\?\UNC\server\share\...``, not ``\\?\\server\...``.
+        if extended_path.startswith("\\\\"):
+            extended_path = "\\\\?\\UNC\\" + extended_path[2:]
+        else:
+            extended_path = "\\\\?\\" + extended_path
+    shutil.copy2(src_dll, extended_path)
+    ctypes.CDLL(extended_path)
+
+    expected_path = os.path.abspath(str(long_path))
+    # Assert absence using the unprefixed form. Discovery may report
+    # ``\\?\C:\...`` or ``\\?\UNC\...``; stripping those prefixes (and turning
+    # ``UNC\`` back into ``\\``) keeps the comparison independent of that.
+    if expected_path.startswith("\\\\?\\"):
+        expected_path = expected_path[4:]
+        if expected_path.startswith("UNC\\"):
+            expected_path = "\\\\" + expected_path[4:]
+    expected_path = os.path.normcase(os.path.normpath(expected_path))
+    with pytest.warns(RuntimeWarning, match="path too long"):
+        info = ThreadpoolController().info()
+
+    filepaths = set()
+    for entry in info:
+        if "filepath" not in entry:
+            continue
+        filepath = entry["filepath"]
+        # Same prefix stripping as expected_path. Without it, a ``\\?\``
+        # filepath would not match expected_path and the "ignored" assertion
+        # could pass even if the library was actually discovered.
+        if filepath.startswith("\\\\?\\"):
+            filepath = filepath[4:]
+            if filepath.startswith("UNC\\"):
+                filepath = "\\\\" + filepath[4:]
+        filepaths.add(os.path.normcase(os.path.normpath(filepath)))
+    assert expected_path not in filepaths
+
+
 def parse_version(version: str) -> list[int]:
     return list(map(int, version.split(".")))
 
@@ -861,7 +1012,7 @@ def test_setting_limit_on_thread_local_blas_api_is_reported_as_thread_local(
 
 
 @pytest.mark.skipif(
-    sys.platform != "linux" or which("strace") is None,
+    sys.platform != "linux" or shutil.which("strace") is None,
     reason="requires strace on Linux",
 )
 def test_setting_limit_on_thread_local_blas_api_is_actually_thread_local(
@@ -925,7 +1076,10 @@ def test_conda_blas_detection_after_import(module):
 
     info = threadpool_info_from_subprocess(module)
 
-    conda = which("conda") or which("micromamba") or which("mamba")
+    conda = shutil.which("conda") or shutil.which("micromamba") or shutil.which("mamba")
+    if conda is None:
+        pytest.skip("conda, micromamba, or mamba not found")
+
     conda_list_output = subprocess.check_output([conda, "list", "--json"], text=True)
     conda_list_items = json.loads(conda_list_output)
     blas_names_from_conda = [

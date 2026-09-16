@@ -71,6 +71,12 @@ jobs:
             PYTHON_VERSION: "3.10"
             PACKAGER: "pip"
             INSTALL_OPENCV: "true"
+          # Windows + Python 3.15 from conda-forge, numpy / scipy from PyPI.
+          - name: py315_pip
+            os: windows-latest
+            PYTHON_VERSION: "3.15"
+            PACKAGER: "pip"
+            INSTALL_OPENCV: "true"
 
           # MacOS env with OpenMP installed through homebrew
           - name: py39_conda_homebrew_libomp
@@ -164,6 +170,14 @@ jobs:
             PYTHON_VERSION: "3.11"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "clang-18"
+          # Linux + Python 3.15 with numpy / scipy installed with pip from PyPI.
+          - name: py315_pip
+            os: ubuntu-latest
+            PACKAGER: "pip"
+            PYTHON_VERSION: "3.15"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+            INSTALL_OPENCV: "true"
           # Linux environment with numpy from conda-forge channel and openblas-openmp
           - name: pylatest_conda_forge
             os: ubuntu-latest

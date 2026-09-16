@@ -58,26 +58,30 @@ _SYSTEM_UINT_HALF = ctypes.c_uint32 if sys.maxsize > 2**32 else ctypes.c_uint16
 
 # On glibc 2.39 and earlier, dl_iterate_phdr has an internal lock, and that
 # plus calling back into Python and the need to (re)acquire the GIL can result
-# in deadlocks. To avoid that, listing shared libraries can use a
-# Linux-specific mechanism that doesn't have these issues (/proc/self/maaps).
-# Since it's the Linux kernel, musl works fine too.
-#
-# The downside is this mechanism is slower, so avoid it when safe alternatives
-# are available (Python 3.14+ with free-threading has dllist(), and no GIL to
-# cause deadlocks).
+# in deadlocks.
 #
 # On glibc 2.40 and later, dl has a read-write lock, and dl_iterate_phdr should
 # only use the read version since it's not modifying anything. So you no longer
 # get deadlocks purely from dl_iterate_phdr. You can still deadlock with
 # dlopen() though.
+#
+# To avoid that deadlock, listing shared libraries can use a Linux-specific
+# mechanism that doesn't have these issues (/proc/self/maps). Since it's the
+# Linux kernel, musl works fine too.
+#
+# The downside is this mechanism is slower, so avoid it when safe alternatives
+# are available.
 _USE_PROCFS = (
     # Only available on Linux:
     sys.platform == "linux"
     # Make sure /proc is mounted:
     and os.path.exists("/proc/self")
-    # If dllist() is available, and there is no GIL, no need to use /proc. It's
-    # possible dllist() might work even if there is a GIL, but that's harder to
-    # prove. See https://github.com/python/cpython/issues/157573
+    # If dllist() is available (3.14+), and there is no GIL, no need to use
+    # /proc. It's possible dllist() might work in GIL builds too starting in
+    # Python 3.15, where it is written in C instead of being equivalent to
+    # threadpoolctl's implementation. But see
+    # https://github.com/python/cpython/issues/157573. We should consider
+    # enabling it on GIL Python too once threadpoolctl supports 3.15.
     and not (
         sys.version_info[:2] >= (3, 14)
         and not getattr(sys, "_is_gil_enabled", lambda: True)()

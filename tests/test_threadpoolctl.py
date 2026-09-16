@@ -1167,7 +1167,11 @@ def test_controller_parallelism_no_deadlocks():
 
 @pytest.mark.skipif(
     not sys.platform.startswith("linux"),
-    reason="ctypes.util is only avoided on Linux (#225)",
+    reason="ctypes.util is only avoided on Linux (#225) in Python 3.14",
+)
+@pytest.mark.skipif(
+    sys.version_info[:2] >= (3, 15),
+    reason="Python 3.15 shouldn't have the issue in #225",
 )
 def test_linux_does_not_import_ctypes_util():
     # ctypes.util on CPython 3.14 Linux allocates a process-lifetime CFUNCTYPE

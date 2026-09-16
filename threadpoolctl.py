@@ -1161,7 +1161,7 @@ class ThreadpoolController:
         # libffi builds (#225). dllist also uses dl_iterate_phdr internally
         # (#239), which we already avoid on Linux via /proc/self/maps.
         dllist = None
-        if sys.platform != "emscripten" or (
+        if sys.platform != "emscripten" and (
             # Python 3.15 doesn't have the CFUNCTYPE anymore:
             sys.platform == "linux"
             and sys.version_info[:2] >= (3, 15)

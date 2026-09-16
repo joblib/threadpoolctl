@@ -76,14 +76,13 @@ _USE_PROCFS = (
     sys.platform == "linux"
     # Make sure /proc is mounted:
     and os.path.exists("/proc/self")
-    # If dllist() is available (3.14+), and there is no GIL, no need to use
-    # /proc. It's possible dllist() might work in GIL builds too starting in
-    # Python 3.15, where it is written in C instead of being equivalent to
-    # threadpoolctl's implementation. But see
-    # https://github.com/python/cpython/issues/157573. We should consider
+    # If dllist() is available (3.14+), written in C so no risk of GC part way
+    # (3.15+), and there is no GIL, no need to use /proc, since dllist() is
+    # faster. It's possible dllist() might work in GIL builds too but see
+    # https://github.com/python/cpython/issues/157573. So we should consider
     # enabling it on GIL Python too once threadpoolctl supports 3.15.
     and not (
-        sys.version_info[:2] >= (3, 14)
+        sys.version_info[:2] >= (3, 15)
         and not getattr(sys, "_is_gil_enabled", lambda: True)()
     )
 )
@@ -1162,7 +1161,10 @@ class ThreadpoolController:
         # libffi builds (#225). dllist also uses dl_iterate_phdr internally
         # (#239), which we already avoid on Linux via /proc/self/maps.
         dllist = None
-        if sys.platform != "emscripten":
+        if sys.platform != "emscripten" or (
+            # Python 3.15 doesn't have the CFUNCTYPE anymore:
+            sys.platform == "linux" and sys.version_info[:2] >= (3, 15)
+        ):
             try:
                 from ctypes.util import dllist
             except ImportError:

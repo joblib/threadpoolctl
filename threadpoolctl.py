@@ -1163,7 +1163,8 @@ class ThreadpoolController:
         dllist = None
         if sys.platform != "emscripten" or (
             # Python 3.15 doesn't have the CFUNCTYPE anymore:
-            sys.platform == "linux" and sys.version_info[:2] >= (3, 15)
+            sys.platform == "linux"
+            and sys.version_info[:2] >= (3, 15)
         ):
             try:
                 from ctypes.util import dllist

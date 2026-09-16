@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ctypes
-import gc
 import json
 import os
 import pytest
@@ -1141,10 +1140,14 @@ def test_controller_parallelism_no_deadlocks():
             limiter = threadpool_limits()
             # dlopen():
             try:
+                # Should be available in most Linux, and importantly isn't
+                # loaded by default into Python:
                 dll = ctypes.CDLL("libncurses.so.6")
                 del dll
             except OSError:
                 done.append(False)
+                return
+            del limiter
         done.append(True)
 
     threads = []

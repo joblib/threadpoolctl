@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ctypes
+import gc
 import json
 import os
 import pytest
@@ -1131,31 +1132,34 @@ def test_controller_parallelism_no_deadlocks():
     if sys.platform != "linux" or not hasattr(ctypes.PyDLL(None), "backtrace"):
         pytest.skip("Testing glibc on Linux")
 
-    # Internally, backtrace() calls dl_iterate_phdr which can result in
-    # deadlocks if threadpoolctl is also using dl_iterate_phdr.
-    backtrace_gil = ctypes.PyDLL(None).backtrace
-    backtrace_gil.argtypes = [ctypes.c_void_p, ctypes.c_int]
-    backtrace_nogil = ctypes.CDLL(None).backtrace
-    backtrace_nogil.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    done = []
 
     def create_controllers():
         buf = (ctypes.c_void_p * 20)()
         for _ in range(100):
+            # May use dl_iterate_phdr() on Linux:
             limiter = threadpool_limits()
-            # On glibc 2.39, backtrace() calling dl_iterate_phdr() is enough to
-            # cause deadlocks. On 2.40 and later, they switched to a read-write
-            # lock, so this won't deadlock at all...
-            backtrace_gil(buf, 20)
-            backtrace_nogil(buf, 20)
+            # dlopen():
+            try:
+                dll = ctypes.CDLL("libncurses.so.6")
+                del dll
+            except OSError:
+                done.append(False)
+        done.append(True)
 
     threads = []
-    for _ in range(os.cpu_count()):
+    for _ in range(os.cpu_count() * 4):
         t = Thread(target=create_controllers)
         threads.append(t)
         t.start()
 
     for t in threads:
         t.join()
+
+    if False in done:
+        pytest.skip("libncurses.so.6 not available")
+
+    assert len(done) == os.cpu_count() * 4
 
 
 @pytest.mark.skipif(

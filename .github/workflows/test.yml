@@ -221,25 +221,6 @@ jobs:
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
 
-          # Python 3.15, with GIL
-          - name: py315_gil_pip_openblas
-            os: ubuntu-latest
-            PACKAGER: "conda-forge"
-            BLAS: "openblas"
-            PYTHON_VERSION: "3.15"
-            CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "gcc"
-
-          # Python 3.15, free-threaded
-          - name: py315_freethreaded_pip_openblas
-            os: ubuntu-latest
-            PACKAGER: "conda-forge"
-            BLAS: "openblas"
-            PYTHON_VERSION: "3.15"
-            FREETHREADING: "1"
-            CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "gcc"
-
           # Python 3.14, free-threaded
           - name: py315_freethreaded_pip_openblas
             os: ubuntu-latest

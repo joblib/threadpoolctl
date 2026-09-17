@@ -225,6 +225,7 @@ jobs:
           - name: py315_gil_pip_openblas
             os: ubuntu-latest
             PACKAGER: "conda-forge"
+            BLAS: "openblas"
             PYTHON_VERSION: "3.15"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
@@ -233,6 +234,7 @@ jobs:
           - name: py315_freethreaded_pip_openblas
             os: ubuntu-latest
             PACKAGER: "conda-forge"
+            BLAS: "openblas"
             PYTHON_VERSION: "3.15"
             FREETHREADING: "1"
             CC_OUTER_LOOP: "gcc"
@@ -242,6 +244,7 @@ jobs:
           - name: py315_freethreaded_pip_openblas
             os: ubuntu-latest
             PACKAGER: "conda-forge"
+            BLAS: "openblas"
             PYTHON_VERSION: "3.14"
             FREETHREADING: "1"
             CC_OUTER_LOOP: "gcc"
@@ -252,6 +255,7 @@ jobs:
           - name: ubuntu24_04
             os: ubuntu-24.04
             PACKAGER: "conda-forge"
+            BLAS: "openblas"
             PYTHON_VERSION: "3.14"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"

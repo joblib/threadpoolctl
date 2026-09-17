@@ -53,9 +53,10 @@ make_conda() {
     conda update -n base conda conda-libmamba-solver -q --yes
     conda config --set solver libmamba
 
+    conda config --show-sources
+
     if [[ "$CHANNEL" == "conda-forge" ]]; then
         conda config --add channels conda-forge
-        conda config --remove channels defaults
         # Support Python release candidates
         conda config --add channels conda-forge/label/python_rc
     fi

@@ -83,7 +83,7 @@ elif [[ "$PACKAGER" == "conda-forge" ]]; then
     if [[ "$INSTALL_OPENCV" == "true" ]]; then
         TO_INSTALL="$TO_INSTALL opencv"
     fi
-    make_conda "conda-forge" "$TO_INSTALL"
+    make_conda "conda-forge" "$TO_INSTALL -c conda-forge/label/python_rc"
 
 elif [[ "$PACKAGER" == "pip" ]]; then
     # Use conda to build an empty python env and then use pip to install

@@ -1121,47 +1121,27 @@ def test_conda_blas_detection_after_import(module):
 
 
 def test_controller_parallelism_no_deadlocks():
-    """Creating a controller in parallel to itself does not cause deadlocks.
+    """
+    Creating a controller in parallel to itself and other operations loading
+    shared libraries does not cause deadlocks.
 
     Non-regression test for https://github.com/joblib/threadpoolctl/issues/239
-
-    Lacking the fixes from PR #243, this deadlocks on Conda environments, at
-    least, but possibly not on PyPI with Python from a Linux distro.
     """
     if sys.platform != "linux":
         pytest.skip("Testing glibc on Linux")
 
-    done = []
+    # Deadlock isn't always reliable, so run multiple times:
+    for _ in range(10):
+        process = subprocess.run(
+            [sys.executable, "-m", "tests._dl_iterate_phdr_deadlock"], timeout=10
+        )
 
-    def create_controllers():
-        for _ in range(100):
-            # May use dl_iterate_phdr() on Linux:
-            limiter = threadpool_limits()
-            # dlopen():
-            try:
-                # Should be available in most Linux, and importantly isn't
-                # loaded by default into Python:
-                dll = ctypes.CDLL("libncurses.so.6")
-                del dll
-            except OSError:
-                done.append(False)
-                return
-            del limiter
-        done.append(True)
+        if process.returncode == 7:
+            # Special code indicating it couldn't load any shared libraries.
+            pytest.skip("Couldn't find any of the exected shared libraries")
 
-    threads = []
-    for _ in range(os.cpu_count() * 4):
-        t = Thread(target=create_controllers)
-        threads.append(t)
-        t.start()
-
-    for t in threads:
-        t.join()
-
-    if False in done:
-        pytest.skip("libncurses.so.6 not available")
-
-    assert len(done) == os.cpu_count() * 4
+        # Special code indicating success:
+        assert process.returncode == 17
 
 
 @pytest.mark.skipif(

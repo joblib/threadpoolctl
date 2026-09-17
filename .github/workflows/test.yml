@@ -224,24 +224,26 @@ jobs:
           # Python 3.15, with GIL
           - name: py315_gil_pip_openblas
             os: ubuntu-latest
-            PACKAGER: "pip"
-            PYTHON_VERSION: "3.15-dev"
+            PACKAGER: "conda-forge"
+            PYTHON_VERSION: "3.15"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
 
           # Python 3.15, free-threaded
           - name: py315_freethreaded_pip_openblas
             os: ubuntu-latest
-            PACKAGER: "pip"
-            PYTHON_VERSION: "3.15t-dev"
+            PACKAGER: "conda-forge"
+            PYTHON_VERSION: "3.15"
+            FREETHREADING: "1"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
 
           # Python 3.14, free-threaded
           - name: py315_freethreaded_pip_openblas
             os: ubuntu-latest
-            PACKAGER: "pip"
-            PYTHON_VERSION: "3.14t"
+            PACKAGER: "conda-forge"
+            PYTHON_VERSION: "3.14"
+            FREETHREADING: "1"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
 
@@ -249,7 +251,7 @@ jobs:
           # latest Ubuntus.
           - name: ubuntu24_04
             os: ubuntu-24.04
-            PACKAGER: "pip"
+            PACKAGER: "conda-forge"
             PYTHON_VERSION: "3.14"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"

@@ -24,6 +24,22 @@ from abc import ABC, abstractmethod
 from functools import lru_cache
 from contextlib import ContextDecorator
 
+# ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
+# process-lifetime CFUNCTYPE callback that is not fork-safe with some libffi
+# builds (#225). dllist also uses dl_iterate_phdr internally (#239), which we
+# already avoid on Linux via /proc/self/maps on older versions of Python.
+dllist = None
+if sys.platform != "emscripten" and (
+    # Python 3.15 doesn't have the CFUNCTYPE anymore:
+    sys.platform == "linux" and sys.version_info[:2] >= (3, 15)
+):
+    try:
+        from ctypes.util import dllist
+    except ImportError:
+        # CPython before 3.14 does not provide dll inspection.
+        dllist = None
+
+
 __version__ = "3.8.0.dev0"
 __all__ = [
     "threadpool_limits",
@@ -56,35 +72,12 @@ _WINDOWS_MAX_LIBRARY_PATH_LENGTH = 2600
 _SYSTEM_UINT = ctypes.c_uint64 if sys.maxsize > 2**32 else ctypes.c_uint32
 _SYSTEM_UINT_HALF = ctypes.c_uint32 if sys.maxsize > 2**32 else ctypes.c_uint16
 
-# On glibc 2.39 and earlier, dl_iterate_phdr has an internal lock, and that
-# plus calling back into Python and the need to (re)acquire the GIL can result
-# in deadlocks.
-#
-# On glibc 2.40 and later, dl has a read-write lock, and dl_iterate_phdr should
-# only use the read version since it's not modifying anything. So you no longer
-# get deadlocks purely from dl_iterate_phdr. You can still deadlock with
-# dlopen() though.
-#
-# To avoid that deadlock, listing shared libraries can use a Linux-specific
-# mechanism that doesn't have these issues (/proc/self/maps). Since it's the
-# Linux kernel, musl works fine too.
-#
-# The downside is this mechanism is slower, so avoid it when safe alternatives
-# are available.
-_USE_PROCFS = (
+
+_HAS_PROCFS = (
     # Only available on Linux:
     sys.platform == "linux"
     # Make sure /proc is mounted:
     and os.path.exists("/proc/self")
-    # If dllist() is available (3.14+), written in C so no risk of GC part way
-    # (3.15+), and there is no GIL, no need to use /proc, since dllist() is
-    # faster. It's possible dllist() might work in GIL builds too but see
-    # https://github.com/python/cpython/issues/157573. So we should consider
-    # enabling it on GIL Python too once threadpoolctl supports 3.15.
-    and not (
-        sys.version_info[:2] >= (3, 15)
-        and not getattr(sys, "_is_gil_enabled", lambda: True)()
-    )
 )
 
 
@@ -1156,24 +1149,31 @@ class ThreadpoolController:
 
     def _load_libraries(self):
         """Loop through loaded shared libraries and store the supported ones"""
-        # ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
-        # process-lifetime CFUNCTYPE callback that is not fork-safe with some
-        # libffi builds (#225). dllist also uses dl_iterate_phdr internally
-        # (#239), which we already avoid on Linux via /proc/self/maps.
-        dllist = None
-        if sys.platform != "emscripten" and (
-            # Python 3.15 doesn't have the CFUNCTYPE anymore:
-            sys.platform == "linux"
-            and sys.version_info[:2] >= (3, 15)
+        # On glibc 2.39 and earlier, dl_iterate_phdr has an internal lock, and
+        # that plus calling back into Python and the need to (re)acquire the
+        # GIL can result in deadlocks.
+        #
+        # On glibc 2.40 and later, dl has a read-write lock, and
+        # dl_iterate_phdr should only use the read version since it's not
+        # modifying anything. So you no longer get deadlocks purely from
+        # dl_iterate_phdr. You can still deadlock with dlopen() though.
+        #
+        # To avoid that deadlock, listing shared libraries can use a
+        # Linux-specific mechanism that doesn't have these issues
+        # (/proc/self/maps). Since it's the Linux kernel, musl works fine too.
+        #
+        # The downside is this mechanism is slower, so avoid it when safe
+        # alternatives are available. In particular, if dllist() is available
+        # (3.14+), written in C so no risk of GC part way (3.15+), and there is
+        # no GIL, no need to use /proc, since dllist() is faster. It's possible
+        # dllist() might work in GIL builds too but see
+        # https://github.com/python/cpython/issues/157573. So we should
+        # consider enabling it on GIL Python too once threadpoolctl supports
+        # 3.15.
+        if _HAS_PROCFS and not (
+            sys.version_info[:2] >= (3, 15)
+            and not getattr(sys, "_is_gil_enabled", lambda: True)()
         ):
-            try:
-                from ctypes.util import dllist
-            except ImportError:
-                # CPython before 3.14 does not provide dll inspection.
-                dllist = None
-
-        if _USE_PROCFS:
-            # See comment on _USE_PROCFS.
             self._find_libraries_with_linux()
         elif dllist is not None:
             # On Python 3.14+, this functionality is built-in. Once Python 3.13

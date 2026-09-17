@@ -50,15 +50,15 @@ make_conda() {
 
     # Need to source conda.sh before first conda command
     source "$CONDA/etc/profile.d/conda.sh"
+    conda update -n base conda conda-libmamba-solver -q --yes
+    conda config --set solver libmamba
+
     if [[ "$CHANNEL" == "conda-forge" ]]; then
         conda config --add channels conda-forge
         conda config --remove channels defaults
         # Support Python release candidates
         conda config --add channels conda-forge/label/python_rc
     fi
-
-    conda update -n base conda conda-libmamba-solver -q --yes
-    conda config --set solver libmamba
 
     conda create -n testenv -q --yes python=$PYTHON_VERSION $TO_INSTALL
     conda activate testenv

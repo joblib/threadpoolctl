@@ -221,6 +221,39 @@ jobs:
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
 
+          # Python 3.15, with GIL
+          - name: py315_gil_pip_openblas
+            os: ubuntu-latest
+            PACKAGER: "pip"
+            PYTHON_VERSION: "3.15-dev"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+
+          # Python 3.15, free-threaded
+          - name: py315_freethreaded_pip_openblas
+            os: ubuntu-latest
+            PACKAGER: "pip"
+            PYTHON_VERSION: "3.15t-dev"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+
+          # Python 3.14, free-threaded
+          - name: py315_freethreaded_pip_openblas
+            os: ubuntu-latest
+            PACKAGER: "pip"
+            PYTHON_VERSION: "3.14t"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+
+          # Ubuntu 24.04, which has glibc with different dl_iterate_phdr than
+          # latest Ubuntus.
+          - name: ubuntu24_04
+            os: ubuntu-24.04
+            PACKAGER: "pip"
+            PYTHON_VERSION: "3.14"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+
     env: ${{ matrix }}
 
     runs-on: ${{ matrix.os }}

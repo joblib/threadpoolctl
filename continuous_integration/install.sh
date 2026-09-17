@@ -53,6 +53,10 @@ make_conda() {
     # prevent mixing conda channels
     conda config --set channel_priority strict
     conda config --add channels $CHANNEL
+    if [[ "$CHANNEL" == "conda-forge" ]]; then
+        # Support Python release candidates
+        conda config --add channels conda-forge/label/python_rc
+    fi
 
     conda update -n base conda conda-libmamba-solver -q --yes
     conda config --set solver libmamba
@@ -83,7 +87,7 @@ elif [[ "$PACKAGER" == "conda-forge" ]]; then
     if [[ "$INSTALL_OPENCV" == "true" ]]; then
         TO_INSTALL="$TO_INSTALL opencv"
     fi
-    make_conda "conda-forge" "$TO_INSTALL -c conda-forge/label/python_rc"
+    make_conda "conda-forge" "$TO_INSTALL"
 
 elif [[ "$PACKAGER" == "pip" ]]; then
     # Use conda to build an empty python env and then use pip to install

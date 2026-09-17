@@ -1128,13 +1128,12 @@ def test_controller_parallelism_no_deadlocks():
     Lacking the fixes from PR #243, this deadlocks on Conda environments, at
     least, but possibly not on PyPI with Python from a Linux distro.
     """
-    if sys.platform != "linux" or not hasattr(ctypes.PyDLL(None), "backtrace"):
+    if sys.platform != "linux":
         pytest.skip("Testing glibc on Linux")
 
     done = []
 
     def create_controllers():
-        buf = (ctypes.c_void_p * 20)()
         for _ in range(100):
             # May use dl_iterate_phdr() on Linux:
             limiter = threadpool_limits()

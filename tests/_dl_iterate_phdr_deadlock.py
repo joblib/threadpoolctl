@@ -33,7 +33,10 @@ def create_controllers(done):
             os._exit(7)
 
         # Imports, which also do dlopen():
-        import numpy  # also gets us BLAS
+        try:
+            import numpy  # also gets us BLAS
+        except ImportError:
+            pass
         import _pickle
 
         try:

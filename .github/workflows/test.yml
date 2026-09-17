@@ -222,7 +222,7 @@ jobs:
             CC_INNER_LOOP: "gcc"
 
           # Python 3.14, free-threaded
-          - name: py315_freethreaded_pip_openblas
+          - name: py314_freethreaded_pip_openblas
             os: ubuntu-latest
             PACKAGER: "conda-forge"
             BLAS: "openblas"

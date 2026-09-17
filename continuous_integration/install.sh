@@ -41,7 +41,7 @@ make_conda() {
         fi
     fi
 
-    if [[ "$FREETHREADING" == "1"]]; then
+    if [[ "$FREETHREADING" == "1" ]]; then
         TO_INSTALL="$TO_INSTALL python-freethreading"
     elif [[ "$PYTHON_VERSION" == "*" ]]; then
         # Avoid installing free-threaded python

@@ -180,7 +180,6 @@ jobs:
             PYTHON_VERSION: "3.15"
             PYTHON_RC: "true"
             FREETHREADING: "1"
-            PYTHON_GIL: "0"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
           # Linux environment with numpy from conda-forge channel and openblas-openmp

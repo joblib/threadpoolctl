@@ -20,11 +20,11 @@ import ctypes
 import itertools
 import textwrap
 from threading import Thread
-from typing import Callable, Literal, final
+from typing import Callable, Literal, TypeVar, final
 import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from functools import lru_cache
+from functools import lru_cache, wraps
 from contextlib import ContextDecorator
 
 # ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
@@ -312,6 +312,9 @@ class _CachingCDLL:
         return result
 
 
+_T = TypeVar("_T")
+
+
 @dataclass
 class _CDLLCache:
     """Cache CDLL instances and their associated functions."""
@@ -321,6 +324,10 @@ class _CDLLCache:
     )
 
     _cdll_cache: dict[str, _CachingCDLL] = field(default_factory=dict)
+
+    _method_result_cache: dict[
+        tuple[type[LibController], str, CDLL], object
+    ] = field(default_factory=dict)
 
     def _check_prefix(
         self, library_basename: str, filename_prefixes: list[str]
@@ -419,6 +426,27 @@ class _CDLLCache:
             self._cdll_cache[filepath] = result
         return result
 
+    def cache_method_on_dynlib(
+        self, method: Callable[[LibController], _T]
+    ) -> Callable[[LibController], _T]:
+        """
+        Caching decorator for idempotent read-only methods of
+        ``LibController``.
+        """
+        cache = self._method_result_cache
+        name = method.__name__
+
+        @wraps(method)
+        def wrapper(self):
+            key = (self.__class__, name, self.dynlib._cdll)
+            result = cache.get(key, _MISSING)
+            if result is _MISSING:
+                result = method(self)
+                cache[key] = result
+            return result
+
+        return wrapper
+
 
 _CDLL_CACHE = _CDLLCache()
 
@@ -444,6 +472,7 @@ class OpenBLASController(LibController):
         for prefix, suffix in itertools.product(_symbol_prefixes, _symbol_suffixes)
     )
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def _find_affixes(self):
         for prefix, suffix in itertools.product(
             self._symbol_prefixes, self._symbol_suffixes
@@ -489,6 +518,7 @@ class OpenBLASController(LibController):
             return set_num_threads_func(num_threads)
         return None
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def get_version(self):
         # None means OpenBLAS is not loaded or version < 0.3.4, since OpenBLAS
         # did not expose its version before that.
@@ -501,6 +531,7 @@ class OpenBLASController(LibController):
             return None
         return None
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def _get_threading_layer(self):
         """Return the threading layer of OpenBLAS"""
         get_threading_layer_func = self._get_symbol("openblas_get_parallel")
@@ -513,6 +544,7 @@ class OpenBLASController(LibController):
             return "disabled"
         return "unknown"
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def _get_architecture(self):
         """Return the architecture detected by OpenBLAS"""
         get_architecture_func = self._get_symbol("openblas_get_corename")
@@ -558,6 +590,7 @@ class BLISController(LibController):
         )
         return set_func(num_threads)
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def get_version(self):
         get_version_ = getattr(self.dynlib, "bli_info_get_version_str", None)
         if get_version_ is None:
@@ -566,6 +599,7 @@ class BLISController(LibController):
         get_version_.restype = ctypes.c_char_p
         return get_version_().decode("utf-8")
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def _get_threading_layer(self):
         """Return the threading layer of BLIS"""
         if getattr(self.dynlib, "bli_info_get_enable_openmp", lambda: False)():
@@ -574,6 +608,7 @@ class BLISController(LibController):
             return "pthreads"
         return "disabled"
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def _get_architecture(self):
         """Return the architecture detected by BLIS"""
         bli_arch_query_id = getattr(self.dynlib, "bli_arch_query_id", None)
@@ -637,6 +672,7 @@ class FlexiBLASController(LibController):
         )
         return set_func(num_threads)
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def get_version(self):
         get_version_ = getattr(self.dynlib, "flexiblas_get_version", None)
         if get_version_ is None:
@@ -746,6 +782,7 @@ class MKLController(LibController):
         )
         return set_func(num_threads)
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def get_version(self):
         if not hasattr(self.dynlib, "MKL_Get_Version_String"):
             return None
@@ -759,6 +796,7 @@ class MKLController(LibController):
             version = group.groups()[0]
         return version.strip()
 
+    @_CDLL_CACHE.cache_method_on_dynlib
     def _get_threading_layer(self):
         """Return the threading layer of MKL"""
         # The function mkl_set_threading_layer returns the current threading

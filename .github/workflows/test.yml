@@ -164,6 +164,30 @@ jobs:
             PYTHON_VERSION: "3.11"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "clang-18"
+          # Linux + conda-forge Python RC, extra deps from PyPI.
+          # OpenCV is omitted: no wheels for the current RC ABI yet.
+          - name: pyrc_pip
+            os: ubuntu-latest
+            PACKAGER: "pip"
+            # Using the "*" marker does not select the latest RC release
+            # from the conda-forge `python_rc` channel hence the need to pin
+            # a specific Python version when testing against an RC release.
+            PYTHON_VERSION: "3.15"
+            PYTHON_RC: "true"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+          # Linux + conda-forge free-threaded Python RC, extra deps from PyPI.
+          - name: pyrc_ft_pip
+            os: ubuntu-latest
+            PACKAGER: "pip"
+            # Using the "*" marker does not select the latest RC release
+            # from the conda-forge `python_rc` channel hence the need to pin
+            # a specific Python version when testing against an RC release.
+            PYTHON_VERSION: "3.15"
+            PYTHON_RC: "true"
+            FREETHREADING: "1"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
           # Linux environment with numpy from conda-forge channel and openblas-openmp
           - name: pylatest_conda_forge
             os: ubuntu-latest

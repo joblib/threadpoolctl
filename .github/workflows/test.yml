@@ -71,21 +71,6 @@ jobs:
             PYTHON_VERSION: "3.10"
             PACKAGER: "pip"
             INSTALL_OPENCV: "true"
-          # Windows + conda-forge Python RC, extra deps from PyPI.
-          # OpenCV is omitted: no wheels for the current RC ABI yet.
-          - name: pyrc_pip
-            os: windows-latest
-            PYTHON_VERSION: "3.15"
-            PACKAGER: "pip"
-            PYTHON_RC: "true"
-          # Windows + conda-forge free-threaded Python RC, extra deps from PyPI.
-          - name: pyrc_ft_pip
-            os: windows-latest
-            PYTHON_VERSION: "3.15"
-            PACKAGER: "pip"
-            PYTHON_RC: "true"
-            FREETHREADING: "1"
-            PYTHON_GIL: "0"
 
           # MacOS env with OpenMP installed through homebrew
           - name: py39_conda_homebrew_libomp

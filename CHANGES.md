@@ -1,7 +1,10 @@
 3.8.0 (under development)
 =========================
 
-TODO: update me.
+- Run faster on Linux, where the new `/proc/self/maps` mechanism in 3.7.0 added
+  quite a bit of overhead.
+  https://github.com/joblib/threadpoolctl/pull/250
+
 
 3.7.0 (2026-09-15)
 ==================

@@ -221,6 +221,26 @@ jobs:
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
 
+          # Python 3.14, free-threaded
+          - name: py314_freethreaded_pip_openblas
+            os: ubuntu-latest
+            PACKAGER: "conda-forge"
+            BLAS: "openblas"
+            PYTHON_VERSION: "3.14"
+            FREETHREADING: "1"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+
+          # Ubuntu 24.04, which has glibc with different dl_iterate_phdr than
+          # latest Ubuntus.
+          - name: ubuntu24_04
+            os: ubuntu-24.04
+            PACKAGER: "conda-forge"
+            BLAS: "openblas"
+            PYTHON_VERSION: "3.14"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+
     env: ${{ matrix }}
 
     runs-on: ${{ matrix.os }}

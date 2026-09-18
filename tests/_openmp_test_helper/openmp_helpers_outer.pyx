@@ -1,3 +1,5 @@
+# cython: freethreading_compatible = True
+
 cimport openmp
 from cython.parallel import prange
 from openmp_helpers_inner cimport inner_openmp_loop

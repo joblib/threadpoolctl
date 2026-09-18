@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from contextlib import ContextDecorator
 
-__version__ = "3.7.0.dev0"
+__version__ = "3.8.0.dev0"
 __all__ = [
     "threadpool_limits",
     "threadpool_info",

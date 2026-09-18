@@ -169,6 +169,9 @@ jobs:
           - name: pyrc_pip
             os: ubuntu-latest
             PACKAGER: "pip"
+            # Using the "*" marker does not select the latest RC release
+            # from the conda-forge `python_rc` channel hence the need to pin
+            # a specific Python version when testing against an RC release.
             PYTHON_VERSION: "3.15"
             PYTHON_RC: "true"
             CC_OUTER_LOOP: "gcc"
@@ -177,6 +180,9 @@ jobs:
           - name: pyrc_ft_pip
             os: ubuntu-latest
             PACKAGER: "pip"
+            # Using the "*" marker does not select the latest RC release
+            # from the conda-forge `python_rc` channel hence the need to pin
+            # a specific Python version when testing against an RC release.
             PYTHON_VERSION: "3.15"
             PYTHON_RC: "true"
             FREETHREADING: "1"

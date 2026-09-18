@@ -325,9 +325,9 @@ class _CDLLCache:
 
     _cdll_cache: dict[str, _CachingCDLL] = field(default_factory=dict)
 
-    _method_result_cache: dict[
-        tuple[type[LibController], str, CDLL], object
-    ] = field(default_factory=dict)
+    _method_result_cache: dict[tuple[type[LibController], str, CDLL], object] = field(
+        default_factory=dict
+    )
 
     def _check_prefix(
         self, library_basename: str, filename_prefixes: list[str]
@@ -1144,6 +1144,17 @@ class threadpool_limits(_ThreadpoolLimiter):
         return super().wrap(ThreadpoolController(), limits=limits, user_api=user_api)
 
 
+_INCOMPATIBLE_OPENMP_MESSAGE = """
+Found Intel OpenMP ('libiomp') and LLVM OpenMP ('libomp') loaded at
+the same time. Both libraries are known to be incompatible and this
+can cause random crashes or deadlocks on Linux when loaded in the
+same Python program.
+Using threadpoolctl may cause crashes or deadlocks. For more
+information and possible workarounds, please see
+    https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
+"""
+
+
 class ThreadpoolController:
     """Collection of LibController objects for all loaded supported libraries
 
@@ -1778,19 +1789,8 @@ class ThreadpoolController:
             return
 
         prefixes = [lib_controller.prefix for lib_controller in self.lib_controllers]
-        msg = textwrap.dedent(
-            """
-            Found Intel OpenMP ('libiomp') and LLVM OpenMP ('libomp') loaded at
-            the same time. Both libraries are known to be incompatible and this
-            can cause random crashes or deadlocks on Linux when loaded in the
-            same Python program.
-            Using threadpoolctl may cause crashes or deadlocks. For more
-            information and possible workarounds, please see
-                https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
-            """
-        )
         if "libomp" in prefixes and "libiomp" in prefixes:
-            warnings.warn(msg, RuntimeWarning)
+            warnings.warn(_INCOMPATIBLE_OPENMP_MESSAGE, RuntimeWarning)
 
     @classmethod
     def _get_libc(cls):

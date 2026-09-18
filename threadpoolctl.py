@@ -34,8 +34,7 @@ from contextlib import ContextDecorator
 dllist = None
 if sys.platform != "emscripten" and (
     # Python 3.15 doesn't have the CFUNCTYPE anymore:
-    sys.platform == "linux"
-    and sys.version_info[:2] >= (3, 15)
+    sys.platform == "linux" and sys.version_info[:2] >= (3, 15)
 ):
     try:
         from ctypes.util import dllist
@@ -321,10 +320,7 @@ class _CDLLCache:
         default_factory=dict
     )
 
-    # Map filepath to tuple (CDLL if any, normalized path, prefix):
-    _cdll_cache: dict[str, tuple[ctypes.CDLL | None, str, str]] = field(
-        default_factory=dict
-    )
+    _cdll_cache: dict[str, _CachingCDLL] = field(default_factory=dict)
 
     def _check_prefix(
         self, library_basename: str, filename_prefixes: list[str]
@@ -419,7 +415,7 @@ class _CDLLCache:
         """Get the ``CDLL`` for a path, loading if necessary."""
         result = self._cdll_cache.get(filepath, _MISSING)
         if result is _MISSING:
-            result = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
+            result = _CachingCDLL(ctypes.CDLL(filepath, mode=_RTLD_NOLOAD))
             self._cdll_cache[filepath] = result
         return result
 

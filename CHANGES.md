@@ -6,7 +6,8 @@
   https://github.com/joblib/threadpoolctl/pull/250
 
 - Added official support for Python 3.15, and declared support for Python 3.14
-  in package metadata.
+  in package metadata. CI covers both the default and free-threaded 3.15
+  builds.
   https://github.com/joblib/threadpoolctl/issues/251
 
 3.7.0 (2026-09-15)

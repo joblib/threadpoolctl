@@ -1,5 +1,6 @@
 import os
 import sys
+import sysconfig
 
 
 def set_cc_variables(var_name="CC"):
@@ -20,3 +21,20 @@ def get_openmp_flag():
     elif sys.platform == "darwin" and "openmp" in os.getenv("CPPFLAGS", ""):
         return []
     return ["-fopenmp"]
+
+
+def cython_compiler_directives(**extra):
+    """Return Cython compiler directives for the OpenMP test helpers.
+
+    On free-threaded CPython, mark the extensions as GIL-free so importing
+    them does not re-enable the GIL (which would fail CI under ``-W error``).
+    """
+    directives = {
+        "language_level": 3,
+        "boundscheck": False,
+        "wraparound": False,
+    }
+    directives.update(extra)
+    if sysconfig.get_config_var("Py_GIL_DISABLED"):
+        directives["freethreading_compatible"] = True
+    return directives

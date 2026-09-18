@@ -4,6 +4,7 @@ from Cython.Build import cythonize
 
 from build_utils import set_cc_variables
 from build_utils import get_openmp_flag
+from build_utils import cython_compiler_directives
 
 original_environ = os.environ.copy()
 try:
@@ -29,11 +30,7 @@ try:
         name="_openmp_test_helper_nested_prange_blas",
         ext_modules=cythonize(
             ext_modules,
-            compiler_directives={
-                "language_level": 3,
-                "boundscheck": False,
-                "wraparound": False,
-            },
+            compiler_directives=cython_compiler_directives(),
         ),
     )
 

@@ -41,7 +41,7 @@ make_conda() {
         fi
     fi
 
-    if [[ "$FREETHREADING" == "1" ]]; then
+    if [[ "$FREETHREADING" == "1" || "$PYTHON_FREETHREADED" == "true" ]]; then
         TO_INSTALL="$TO_INSTALL python-freethreading"
     elif [[ "$PYTHON_VERSION" == "*" ]]; then
         # Avoid installing free-threaded python
@@ -134,6 +134,7 @@ if [[ "$UNAMESTR" == "Linux" && "$NO_NUMPY" != "true" ]]; then
 fi
 
 python --version
+python -c "import sys, sysconfig; print('Py_GIL_DISABLED', sysconfig.get_config_var('Py_GIL_DISABLED')); print('sys._is_gil_enabled', getattr(sys, '_is_gil_enabled', lambda: 'n/a')())"
 python -c "import numpy; print(f'numpy {numpy.__version__}')" || echo "no numpy"
 python -c "import scipy; print(f'scipy {scipy.__version__}')" || echo "no scipy"
 

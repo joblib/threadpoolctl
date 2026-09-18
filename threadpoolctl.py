@@ -24,6 +24,23 @@ from abc import ABC, abstractmethod
 from functools import lru_cache
 from contextlib import ContextDecorator
 
+# ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
+# process-lifetime CFUNCTYPE callback that is not fork-safe with some libffi
+# builds (#225). dllist also uses dl_iterate_phdr internally (#239), which we
+# already avoid on Linux via /proc/self/maps on older versions of Python.
+dllist = None
+if sys.platform != "emscripten" and (
+    # Python 3.15 doesn't have the CFUNCTYPE anymore:
+    sys.platform == "linux"
+    and sys.version_info[:2] >= (3, 15)
+):
+    try:
+        from ctypes.util import dllist
+    except ImportError:
+        # CPython before 3.14 does not provide dll inspection.
+        dllist = None
+
+
 __version__ = "3.8.0.dev0"
 __all__ = [
     "threadpool_limits",
@@ -55,6 +72,14 @@ _WINDOWS_MAX_LIBRARY_PATH_LENGTH = 2600
 # https://linux.die.net/man/3/dl_iterate_phdr for more details.
 _SYSTEM_UINT = ctypes.c_uint64 if sys.maxsize > 2**32 else ctypes.c_uint32
 _SYSTEM_UINT_HALF = ctypes.c_uint32 if sys.maxsize > 2**32 else ctypes.c_uint16
+
+
+_HAS_PROCFS = (
+    # Only available on Linux:
+    sys.platform == "linux"
+    # Make sure /proc is mounted:
+    and os.path.exists("/proc/self")
+)
 
 
 class _dl_phdr_info(ctypes.Structure):
@@ -1125,24 +1150,31 @@ class ThreadpoolController:
 
     def _load_libraries(self):
         """Loop through loaded shared libraries and store the supported ones"""
-        # ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
-        # process-lifetime CFUNCTYPE callback that is not fork-safe with some
-        # libffi builds (#225). dllist also uses dl_iterate_phdr internally
-        # (#239), which we already avoid on Linux via /proc/self/maps.
-        dllist = None
-        if sys.platform not in ("linux", "emscripten"):
-            try:
-                from ctypes.util import dllist
-            except ImportError:
-                # CPython before 3.14 does not provide dll inspection.
-                dllist = None
-
-        if sys.platform == "linux" and os.path.exists("/proc/self/maps"):
-            # On glibc, dl_iterate_phdr has an internal lock, and that plus
-            # calling back into Python and the need to (re)acquire the GIL
-            # results in deadlocks. To avoid that, use a Linux-specific
-            # mechanism that doesn't have these issues; since it's Linux, musl
-            # works fine too.
+        # On glibc 2.39 and earlier, dl_iterate_phdr has an internal lock, and
+        # that plus calling back into Python and the need to (re)acquire the
+        # GIL can result in deadlocks.
+        #
+        # On glibc 2.40 and later, dl has a read-write lock, and
+        # dl_iterate_phdr should only use the read version since it's not
+        # modifying anything. So you no longer get deadlocks purely from
+        # dl_iterate_phdr. You can still deadlock with dlopen() though.
+        #
+        # To avoid that deadlock, listing shared libraries can use a
+        # Linux-specific mechanism that doesn't have these issues
+        # (/proc/self/maps). Since it's the Linux kernel, musl works fine too.
+        #
+        # The downside is this mechanism is slower, so avoid it when safe
+        # alternatives are available. In particular, if dllist() is available
+        # (3.14+), written in C so no risk of GC part way (3.15+), and there is
+        # no GIL, no need to use /proc, since dllist() is faster. It's possible
+        # dllist() might work in GIL builds too but see
+        # https://github.com/python/cpython/issues/157573. So we should
+        # consider enabling it on GIL Python too once threadpoolctl supports
+        # 3.15.
+        if _HAS_PROCFS and not (
+            sys.version_info[:2] >= (3, 15)
+            and not getattr(sys, "_is_gil_enabled", lambda: True)()
+        ):
             self._find_libraries_with_linux()
         elif dllist is not None:
             # On Python 3.14+, this functionality is built-in. Once Python 3.13
@@ -1159,24 +1191,19 @@ class ThreadpoolController:
             # Non-Linux Unix platforms.
             self._find_libraries_with_dl_iterate_phdr()
 
+    _PATH_RE = re.compile(rb" (/[^\n]+\.so[^\n^/]*)\n", re.MULTILINE)
+
     def _find_libraries_with_linux(self):
         """Loop through loaded libraries and return binders on supported ones
 
         Uses a Linux-specific mechanism:
         https://man7.org/linux/man-pages/man5/proc_pid_maps.5.html
         """
-        with open("/proc/self/maps") as f:
+        with open("/proc/self/maps", "rb") as f:
             maps = f.read()
-        filepaths = set()
-        for line in maps.splitlines():
-            start_index = line.find("/")
-            if start_index == -1 or ".so" not in line:
-                continue
-            filepath = line[start_index:]
-            if os.path.exists(filepath):
-                filepaths.add(filepath)
-
+        filepaths = set(self._PATH_RE.findall(maps))
         for filepath in filepaths:
+            filepath = filepath.decode("utf-8")
             self._make_controller_from_path(filepath)
 
     def _find_libraries_with_python(self, dllist):
@@ -1599,9 +1626,13 @@ class ThreadpoolController:
             # expected library (e.g. a library having a common prefix with one of the
             # our supported libraries). Otherwise, create and store the library
             # controller.
-            lib_controller = controller_class(
-                filepath=filepath, prefix=prefix, parent=self
-            )
+            try:
+                lib_controller = controller_class(
+                    filepath=filepath, prefix=prefix, parent=self
+                )
+            except OSError:
+                # Probably because we couldn't load the filepath as a CDLL.
+                continue
 
             if filepath in (lib.filepath for lib in self.lib_controllers):
                 # We already have a controller for this library.

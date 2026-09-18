@@ -1121,43 +1121,36 @@ def test_conda_blas_detection_after_import(module):
 
 
 def test_controller_parallelism_no_deadlocks():
-    """Creating a controller in parallel to itself does not cause deadlocks.
+    """
+    Creating a controller in parallel to itself and other operations loading
+    shared libraries does not cause deadlocks.
 
     Non-regression test for https://github.com/joblib/threadpoolctl/issues/239
-
-    Lacking the fixes from PR #243, this deadlocks on Conda environments, at
-    least, but possibly not on PyPI with Python from a Linux distro.
     """
-    if sys.platform != "linux" or not hasattr(ctypes.PyDLL(None), "backtrace"):
+    if sys.platform != "linux":
         pytest.skip("Testing glibc on Linux")
 
-    # Internally, backtrace() calls dl_iterate_phdr which can result in
-    # deadlocks if threadpoolctl is also using dl_iterate_phdr.
-    backtrace_gil = ctypes.PyDLL(None).backtrace
-    backtrace_gil.argtypes = [ctypes.c_void_p, ctypes.c_int]
-    backtrace_nogil = ctypes.CDLL(None).backtrace
-    backtrace_nogil.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    # Deadlock isn't always reliable, so run multiple times:
+    for _ in range(10):
+        process = subprocess.run(
+            [sys.executable, "-m", "tests._dl_iterate_phdr_deadlock"], timeout=10
+        )
 
-    def create_controllers():
-        buf = (ctypes.c_void_p * 20)()
-        for _ in range(100):
-            limiter = threadpool_limits()
-            backtrace_gil(buf, 20)
-            backtrace_nogil(buf, 20)
+        if process.returncode == 7:
+            # Special code indicating it couldn't load any shared libraries.
+            pytest.skip("Couldn't find any of the exected shared libraries")
 
-    threads = []
-    for _ in range(os.cpu_count() * 4):
-        t = Thread(target=create_controllers)
-        threads.append(t)
-        t.start()
-
-    for t in threads:
-        t.join()
+        # Special code indicating success:
+        assert process.returncode == 17
 
 
 @pytest.mark.skipif(
     not sys.platform.startswith("linux"),
-    reason="ctypes.util is only avoided on Linux (#225)",
+    reason="ctypes.util is only avoided on Linux (#225) in Python 3.14",
+)
+@pytest.mark.skipif(
+    sys.version_info[:2] >= (3, 15),
+    reason="Python 3.15 shouldn't have the issue in #225",
 )
 def test_linux_does_not_import_ctypes_util():
     # ctypes.util on CPython 3.14 Linux allocates a process-lifetime CFUNCTYPE

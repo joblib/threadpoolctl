@@ -71,19 +71,19 @@ jobs:
             PYTHON_VERSION: "3.10"
             PACKAGER: "pip"
             INSTALL_OPENCV: "true"
-          # Windows + Python 3.15 from conda-forge, numpy / scipy from PyPI.
-          - name: py315_pip
+          # Windows + conda-forge Python RC, extra deps from PyPI.
+          # OpenCV is omitted: no wheels for the current RC ABI yet.
+          - name: pyrc_pip
             os: windows-latest
             PYTHON_VERSION: "3.15"
             PACKAGER: "pip"
-            INSTALL_OPENCV: "true"
-          # Windows + free-threaded Python 3.15 from conda-forge, numpy / scipy
-          # from PyPI. OpenCV is omitted because it does not yet ship cp315t
-          # wheels.
-          - name: py315t_pip
+            PYTHON_RC: "true"
+          # Windows + conda-forge free-threaded Python RC, extra deps from PyPI.
+          - name: pyrc_ft_pip
             os: windows-latest
             PYTHON_VERSION: "3.15"
             PACKAGER: "pip"
+            PYTHON_RC: "true"
             PYTHON_FREETHREADED: "true"
             PYTHON_GIL: "0"
 
@@ -179,20 +179,21 @@ jobs:
             PYTHON_VERSION: "3.11"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "clang-18"
-          # Linux + Python 3.15 with numpy / scipy installed with pip from PyPI.
-          - name: py315_pip
+          # Linux + conda-forge Python RC, extra deps from PyPI.
+          # OpenCV is omitted: no wheels for the current RC ABI yet.
+          - name: pyrc_pip
             os: ubuntu-latest
             PACKAGER: "pip"
             PYTHON_VERSION: "3.15"
+            PYTHON_RC: "true"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
-            INSTALL_OPENCV: "true"
-          # Linux + free-threaded Python 3.15. OpenCV is omitted because it
-          # does not yet ship cp315t wheels.
-          - name: py315t_pip
+          # Linux + conda-forge free-threaded Python RC, extra deps from PyPI.
+          - name: pyrc_ft_pip
             os: ubuntu-latest
             PACKAGER: "pip"
             PYTHON_VERSION: "3.15"
+            PYTHON_RC: "true"
             PYTHON_FREETHREADED: "true"
             PYTHON_GIL: "0"
             CC_OUTER_LOOP: "gcc"

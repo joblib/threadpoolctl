@@ -43,7 +43,7 @@ make_conda() {
 
     if [[ "$FREETHREADING" == "1" || "$PYTHON_FREETHREADED" == "true" ]]; then
         TO_INSTALL="$TO_INSTALL python-freethreading"
-    elif [[ "$PYTHON_VERSION" == "*" ]]; then
+    elif [[ "$PYTHON_VERSION" == "*" || "$PYTHON_RC" == "true" ]]; then
         # Avoid installing free-threaded python
         TO_INSTALL="$TO_INSTALL python-gil"
     fi
@@ -53,6 +53,12 @@ make_conda() {
     # prevent mixing conda channels
     conda config --set channel_priority strict
     conda config --add channels $CHANNEL
+    if [[ "$PYTHON_RC" == "true" ]]; then
+        # Python RC builds are on conda-forge main but depend on _python_rc,
+        # which is only published on this label. Keep the label at lower
+        # priority than conda-forge so the interpreter still comes from main.
+        conda config --append channels conda-forge/label/python_rc
+    fi
 
     conda update -n base conda conda-libmamba-solver -q --yes
     conda config --set solver libmamba

@@ -4,7 +4,7 @@ from ctypes import CDLL
 
 import pytest
 
-from threadpoolctl import ThreadpoolController
+from threadpoolctl import ThreadpoolController, _CDLL_CACHE
 
 
 def test_cdlls_are_cached():
@@ -24,21 +24,36 @@ def test_cdlls_are_cached():
     assert cached_cdll is controller2.lib_controllers[0].dynlib
 
 
-def test_cache_methods_on_dynlib():
+def test_cache_methods_on_dynlib(request):
     """
     ``_CDLLCache.cache_method_on_dynlib()`` caches the result, tied to the
     underlying ``CDLL`` as an invalidation key.
     """
     pytest.importorskip("numpy")
 
-    # We assume all BLAS libs have ``get_version()`` wrapped with
-    # ``cache_method_on_dynlib()``, which is currently the case.
     controller = ThreadpoolController()
     libs = controller.select(user_api="blas").lib_controllers
     if not libs:
         pytest.skip("No libraries loaded")
 
-    assert libs[0].get_version() is libs[0].get_version()
+    @_CDLL_CACHE.cache_method_on_dynlib
+    def my_extra_method(self):
+        return object()
 
-    # Access underlying, uncached get_version():
-    assert libs[0].get_version.__wrapped__(libs[0]) is not libs[0].get_version()
+    # Can't use pytest's monkeypatch since this method doesn't already exist,
+    # so add it manually:
+    libs[0].__class__.my_extra_method = my_extra_method
+
+    def cleanup():
+        del libs[0].__class__.my_extra_method
+
+    request.addfinalizer(cleanup)
+
+    # Accessing underlying, uncached method returns different objects each time:
+    initial = libs[0].my_extra_method()
+    assert libs[0].my_extra_method.__wrapped__(libs[0]) is not initial
+    assert libs[0].my_extra_method.__wrapped__(libs[0]) is not initial
+
+    # Only one call should ever happen when using the cached method, however:
+    assert libs[0].my_extra_method() is initial
+    assert libs[0].my_extra_method() is initial

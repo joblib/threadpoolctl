@@ -43,7 +43,7 @@ make_conda() {
 
     if [[ "$FREETHREADING" == "1" ]]; then
         TO_INSTALL="$TO_INSTALL python-freethreading"
-    elif [[ "$PYTHON_VERSION" == "*" ]]; then
+    elif [[ "$PYTHON_VERSION" == "*" || "$PYTHON_RC" == "true" ]]; then
         # Avoid installing free-threaded python
         TO_INSTALL="$TO_INSTALL python-gil"
     fi
@@ -53,6 +53,12 @@ make_conda() {
     # prevent mixing conda channels
     conda config --set channel_priority strict
     conda config --add channels $CHANNEL
+    if [[ "$PYTHON_RC" == "true" ]]; then
+        # Python RC builds are on conda-forge main but depend on _python_rc,
+        # which is only published on this label. Keep the label at lower
+        # priority than conda-forge so the interpreter still comes from main.
+        conda config --append channels conda-forge/label/python_rc
+    fi
 
     conda update -n base conda conda-libmamba-solver -q --yes
     conda config --set solver libmamba
@@ -134,6 +140,7 @@ if [[ "$UNAMESTR" == "Linux" && "$NO_NUMPY" != "true" ]]; then
 fi
 
 python --version
+python -c "import sys, sysconfig; print('Py_GIL_DISABLED', sysconfig.get_config_var('Py_GIL_DISABLED')); print('sys._is_gil_enabled', getattr(sys, '_is_gil_enabled', lambda: 'n/a')())"
 python -c "import numpy; print(f'numpy {numpy.__version__}')" || echo "no numpy"
 python -c "import scipy; print(f'scipy {scipy.__version__}')" || echo "no scipy"
 

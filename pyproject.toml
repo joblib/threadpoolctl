@@ -6,13 +6,12 @@ build-backend = "flit_core.buildapi"
 name = "threadpoolctl"
 authors = [{name = "Thomas Moreau", email = "thomas.moreau.2010@gmail.com"}]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "BSD-3-Clause"
 dynamic = ["version", "description"]
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -25,7 +24,7 @@ homepage = "https://github.com/joblib/threadpoolctl"
 
 [tool.black]
 line-length = 88
-target_version = ['py39', 'py310', 'py311', 'py312', 'py313']
+target_version = ['py310', 'py311', 'py312', 'py313']
 preview = true
 
 [tool.ruff]

@@ -41,6 +41,9 @@
 
   - On Linux, start using /proc/self/maps for listing shared libraries.
 
+- Dropped official support for Python 3.9.
+  https://github.com/joblib/threadpoolctl/pull/XXX
+
 3.6.0 (2025-03-13)
 ==================
 

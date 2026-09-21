@@ -14,6 +14,9 @@ def test_cdlls_are_cached():
     pytest.importorskip("numpy")
 
     controller = ThreadpoolController()
+    if not controller.lib_controllers:
+        pytest.skip("No libraries loaded")
+
     cached_cdll = controller.lib_controllers[0].dynlib
     assert isinstance(cached_cdll, CDLL)
 
@@ -32,6 +35,9 @@ def test_cache_methods_on_dynlib():
     # ``cache_method_on_dynlib()``, which is currently the case.
     controller = ThreadpoolController()
     libs = controller.select(user_api="blas").lib_controllers
+    if not libs:
+        pytest.skip("No libraries loaded")
+
     assert libs[0].get_version() is libs[0].get_version()
 
     # Access underlying, uncached get_version():

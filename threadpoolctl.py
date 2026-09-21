@@ -301,16 +301,19 @@ _T = TypeVar("_T")
 
 @dataclass
 class _CDLLCache:
-    """Cache CDLL instances and their associated functions."""
+    """
+    Cache CDLL instances and their associated method results, as well as which
+    ``LibController`` subclass to use for a given shared library file path.
+    """
 
     _controller_cache: dict[str, type[LibController] | None] = field(
         default_factory=dict
     )
 
-    _cdll_cache: dict[str, CDLL] = field(default_factory=dict)
+    _cdll_cache: dict[str, ctypes.CDLL] = field(default_factory=dict)
 
-    _method_result_cache: dict[tuple[type[LibController], str, CDLL], object] = field(
-        default_factory=dict
+    _method_result_cache: dict[tuple[type[LibController], str, ctypes.CDLL], object] = (
+        field(default_factory=dict)
     )
 
     def _check_prefix(
@@ -328,7 +331,10 @@ class _CDLLCache:
     def create_controller(
         self, filepath: str, parent: ThreadpoolController
     ) -> LibController | None:
-        """Create the associated controller, if there is one."""
+        """
+        Create the associated controller, if there is one, relying on cached
+        info for the given ``filepath``.
+        """
         result = self._controller_cache.get(filepath, _MISSING)
         if result is not _MISSING:
             controller_class, filepath, prefix = result
@@ -403,7 +409,10 @@ class _CDLLCache:
         return None
 
     def get_cdll(self, filepath: str) -> CDLL:
-        """Get the ``CDLL`` for a path, loading if necessary."""
+        """
+        Get the ``CDLL`` for a path, loading if necessary, using a cached
+        version if it was already loaded.
+        """
         result = self._cdll_cache.get(filepath, _MISSING)
         if result is _MISSING:
             result = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
@@ -415,7 +424,8 @@ class _CDLLCache:
     ) -> Callable[[LibController], _T]:
         """
         Caching decorator for idempotent read-only methods of
-        ``LibController``.
+        ``LibController``, with the cache shared across instances that have the
+        same ``CDLL`` instance.
         """
         cache = self._method_result_cache
         name = method.__name__

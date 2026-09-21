@@ -296,23 +296,6 @@ class LibController(ABC):
 _MISSING = object()
 
 
-@dataclass
-class _CachingCDLL:
-    """Wrap a ``CDLL``, caching attributes."""
-
-    _cdll: ctypes.CDLL
-    _cache: dict[str, ctypes._CFuncPtr | None] = field(default_factory=dict)
-
-    def __getattr__(self, symbol: str) -> ctypes._CFuncPtr | None:
-        result = self._cache.get(symbol, _MISSING)
-        if result is _MISSING:
-            result = getattr(self._cdll, symbol, None)
-            self._cache[symbol] = result
-        if result is None:
-            raise AttributeError(f"{self._cdll._name}: undefined attribute {symbol}")
-        return result
-
-
 _T = TypeVar("_T")
 
 
@@ -324,7 +307,7 @@ class _CDLLCache:
         default_factory=dict
     )
 
-    _cdll_cache: dict[str, _CachingCDLL] = field(default_factory=dict)
+    _cdll_cache: dict[str, CDLL] = field(default_factory=dict)
 
     _method_result_cache: dict[tuple[type[LibController], str, CDLL], object] = field(
         default_factory=dict
@@ -419,11 +402,11 @@ class _CDLLCache:
         self._controller_cache[original_filepath] = (None, "", "")
         return None
 
-    def get_cdll(self, filepath: str) -> _CachingCDLL:
+    def get_cdll(self, filepath: str) -> CDLL:
         """Get the ``CDLL`` for a path, loading if necessary."""
         result = self._cdll_cache.get(filepath, _MISSING)
         if result is _MISSING:
-            result = _CachingCDLL(ctypes.CDLL(filepath, mode=_RTLD_NOLOAD))
+            result = ctypes.CDLL(filepath, mode=_RTLD_NOLOAD)
             self._cdll_cache[filepath] = result
         return result
 
@@ -439,7 +422,7 @@ class _CDLLCache:
 
         @wraps(method)
         def wrapper(self):
-            key = (self.__class__, name, self.dynlib._cdll)
+            key = (self.__class__, name, self.dynlib)
             result = cache.get(key, _MISSING)
             if result is _MISSING:
                 result = method(self)

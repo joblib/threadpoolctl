@@ -1,11 +1,32 @@
-3.7.0 (TBD)
-===========
+3.8.0 (under development)
+=========================
+
+- Run faster on Linux, where the new `/proc/self/maps` mechanism in 3.7.0 added
+  quite a bit of overhead.
+  https://github.com/joblib/threadpoolctl/pull/250
+
+- Added official support for Python 3.15, and declared support for Python 3.14
+  in package metadata.
+  https://github.com/joblib/threadpoolctl/issues/251
+
+3.7.0 (2026-09-15)
+==================
+
+- Fixed an intermittent `OSError` on Windows when DLLs are loaded or unloaded
+  concurrently during library discovery (for example when importing conda-forge
+  OpenCV). On Python 3.14+, discovery uses `ctypes.util.dllist` when available.
+  If `dllist` raises `OSError`, threadpoolctl emits a `RuntimeWarning` instead
+  of crashing so the failure can be reported upstream with a minimal
+  reproducer. Older Pythons use a Toolhelp snapshot enumerator, with graceful
+  per-module fallbacks.
+  https://github.com/joblib/threadpoolctl/pull/219
 
 - Added the ability to check whether a limiting API affects just the current
   thread or the whole process. Mainly aimed at debugging and diagnostics, and
   somewhat unreliable, it is therefore enabled by default only for command-line
   usage.
   https://github.com/joblib/threadpoolctl/pull/213
+
 
 - Only warn about simultaneous `libomp` and `libiomp` usage on Linux, where the
   incompatibility is known to cause crashes.
@@ -41,8 +62,13 @@
 
   - On Linux, start using /proc/self/maps for listing shared libraries.
 
+- Avoid importing ``ctypes.util`` on Linux (and load libc with
+  ``ctypes.CDLL(None)``) so ``threadpool_info()`` does not create libffi
+  closures that can abort after ``os.fork()`` on some libffi builds.
+  https://github.com/joblib/threadpoolctl/pull/242
+
 - Dropped official support for Python 3.9.
-  https://github.com/joblib/threadpoolctl/pull/XXX
+  https://github.com/joblib/threadpoolctl/pull/255
 
 3.6.0 (2025-03-13)
 ==================

@@ -51,22 +51,26 @@ jobs:
             PYTHON_VERSION: "*"
             PACKAGER: "conda-forge"
             BLAS: "mkl"
+            INSTALL_OPENCV: "true"
           # Windows env with numpy, scipy, OpenBLAS installed through conda-forge
-          - name: py311_conda_forge_openblas
+          - name: pylatest_conda_forge_openblas
             os: windows-latest
-            PYTHON_VERSION: "3.11"
+            PYTHON_VERSION: "*"
             PACKAGER: "conda-forge"
             BLAS: "openblas"
-          # Windows env with numpy, scipy installed through conda
-          - name: py310_conda
+            INSTALL_OPENCV: "true"
+          # Windows env with numpy, scipy installed through conda default channel
+          - name: py311_conda
             os: windows-latest
-            PYTHON_VERSION: "3.10"
+            PYTHON_VERSION: "3.11"
             PACKAGER: "conda"
+            INSTALL_OPENCV: "true"
           # Windows env with numpy, scipy installed through pip
           - name: py310_pip
             os: windows-latest
             PYTHON_VERSION: "3.10"
             PACKAGER: "pip"
+            INSTALL_OPENCV: "true"
 
           # MacOS env with OpenMP installed through homebrew
           - name: py310_conda_homebrew_libomp
@@ -77,6 +81,8 @@ jobs:
             CC_OUTER_LOOP: "clang"
             CC_INNER_LOOP: "clang"
             INSTALL_LIBOMP: "homebrew"
+            INSTALL_OPENCV: "true"
+
           # MacOS env with OpenBLAS and OpenMP installed through conda-forge compilers
           - name: pylatest_conda_forge_clang_openblas
             os: macos-latest
@@ -84,6 +90,8 @@ jobs:
             PACKAGER: "conda-forge"
             BLAS: "openblas"
             INSTALL_LIBOMP: "conda-forge"
+            INSTALL_OPENCV: "true"
+
           # MacOS env with FlexiBLAS
           - name: pylatest_flexiblas
             os: macos-latest
@@ -115,6 +123,8 @@ jobs:
             PYTHON_VERSION: "*"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
+            INSTALL_OPENCV: "true"
+
           # Linux + Python 3.10 and homogeneous runtime nesting.
           - name: py310_conda_openblas_clang_clang
             os: ubuntu-latest
@@ -123,6 +133,8 @@ jobs:
             BLAS: "openblas"
             CC_OUTER_LOOP: "clang-18"
             CC_INNER_LOOP: "clang-18"
+            INSTALL_OPENCV: "true"
+
           # Linux environment with MKL and Clang (known to be unsafe for
           # threadpoolctl) to only test the warning from multiple OpenMP.
           - name: pylatest_conda_mkl_clang_gcc
@@ -142,6 +154,8 @@ jobs:
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
             MKL_THREADING_LAYER: "INTEL"
+            INSTALL_OPENCV: "true"
+
           # Linux + Python 3.11 with numpy / scipy installed with pip from PyPI
           # and heterogeneous OpenMP runtimes.
           - name: py311_pip_openblas_gcc_clang
@@ -150,6 +164,30 @@ jobs:
             PYTHON_VERSION: "3.11"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "clang-18"
+          # Linux + conda-forge Python RC, extra deps from PyPI.
+          # OpenCV is omitted: no wheels for the current RC ABI yet.
+          - name: pyrc_pip
+            os: ubuntu-latest
+            PACKAGER: "pip"
+            # Using the "*" marker does not select the latest RC release
+            # from the conda-forge `python_rc` channel hence the need to pin
+            # a specific Python version when testing against an RC release.
+            PYTHON_VERSION: "3.15"
+            PYTHON_RC: "true"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+          # Linux + conda-forge free-threaded Python RC, extra deps from PyPI.
+          - name: pyrc_ft_pip
+            os: ubuntu-latest
+            PACKAGER: "pip"
+            # Using the "*" marker does not select the latest RC release
+            # from the conda-forge `python_rc` channel hence the need to pin
+            # a specific Python version when testing against an RC release.
+            PYTHON_VERSION: "3.15"
+            PYTHON_RC: "true"
+            FREETHREADING: "1"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
           # Linux environment with numpy from conda-forge channel and openblas-openmp
           - name: pylatest_conda_forge
             os: ubuntu-latest
@@ -157,6 +195,7 @@ jobs:
             PYTHON_VERSION: "*"
             BLAS: "openblas"
             OPENBLAS_THREADING_LAYER: "openmp"
+            INSTALL_OPENCV: "true"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
           # Linux environment with no numpy and heterogeneous OpenMP runtimes.
@@ -203,6 +242,26 @@ jobs:
             PYTHON_VERSION: "*"
             INSTALL_BLAS: "flexiblas"
             PLATFORM_SPECIFIC_PACKAGES: "mkl"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+
+          # Python 3.14, free-threaded
+          - name: py314_freethreaded_pip_openblas
+            os: ubuntu-latest
+            PACKAGER: "conda-forge"
+            BLAS: "openblas"
+            PYTHON_VERSION: "3.14"
+            FREETHREADING: "1"
+            CC_OUTER_LOOP: "gcc"
+            CC_INNER_LOOP: "gcc"
+
+          # Ubuntu 24.04, which has glibc with different dl_iterate_phdr than
+          # latest Ubuntus.
+          - name: ubuntu24_04
+            os: ubuntu-24.04
+            PACKAGER: "conda-forge"
+            BLAS: "openblas"
+            PYTHON_VERSION: "3.14"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
 

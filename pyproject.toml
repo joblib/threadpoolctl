@@ -26,7 +26,7 @@ homepage = "https://github.com/joblib/threadpoolctl"
 
 [tool.black]
 line-length = 88
-target_version = ['py310', 'py311', 'py312', 'py313', 'py314', 'py315']
+target_version = ['py310', 'py311', 'py312', 'py313', 'py314']
 preview = true
 
 [tool.ruff]

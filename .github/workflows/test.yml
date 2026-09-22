@@ -29,10 +29,10 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: "3.14"
       - name: Install black
         run: |
-          pip install black
+          pip install black==26.5.1
       - name: Run black
         run: |
           black --check --diff .

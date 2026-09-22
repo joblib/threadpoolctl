@@ -1664,8 +1664,7 @@ class ThreadpoolController:
             return
 
         prefixes = [lib_controller.prefix for lib_controller in self.lib_controllers]
-        msg = textwrap.dedent(
-            """
+        msg = textwrap.dedent("""
             Found Intel OpenMP ('libiomp') and LLVM OpenMP ('libomp') loaded at
             the same time. Both libraries are known to be incompatible and this
             can cause random crashes or deadlocks on Linux when loaded in the
@@ -1673,8 +1672,7 @@ class ThreadpoolController:
             Using threadpoolctl may cause crashes or deadlocks. For more
             information and possible workarounds, please see
                 https://github.com/joblib/threadpoolctl/blob/master/multiple_openmp.md
-            """
-        )
+            """)
         if "libomp" in prefixes and "libiomp" in prefixes:
             warnings.warn(msg, RuntimeWarning)
 

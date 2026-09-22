@@ -176,10 +176,10 @@ in specific sections of your Python program:
 ...     a_squared = a @ a
 ```
 
-The threadpools can also be controlled via the object oriented API, which is especially
-useful to avoid searching through all the loaded shared libraries each time. It will
-however not act on libraries loaded after the instantiation of the
-`ThreadpoolController`:
+The threadpools can also be controlled via the object oriented API, which is
+especially useful to avoid searching through all the loaded shared libraries
+each time. **Note that it will not act on libraries loaded after the instantiation
+of the `ThreadpoolController`!**
 
 ```python
 >>> from threadpoolctl import ThreadpoolController
@@ -225,44 +225,40 @@ controlled libraries in that thread.** With Python's
 `concurrent.futures.ThreadPoolExecutor`, you can do so by passing in an
 initializer function that will get called on thread startup.
 
-```python
-from threadpoolctl import threadpool_limits
-from concurrent.futures import ThreadPoolExecutor
-
-# This top-level limiter doesn't actually change the limits initially; it is
-# there to ensure the limits are reset _after_ the Python thread pool is done.
-# This is necessary because some underlying limiting APIs operate on a
-# process-wide basis.
-with threadpool_limits():
-    # Make sure each Python worker thread also calls threadpool_limits(). If
-    # you're using another thread pool class, you will need to do so some other
-    # way.
-    with ThreadPoolExecutor(4, initializer=lambda: threadpool_limits(limits=1)) as pool:
-        # ... run some BLAS-using code in the thread pool ...
-        pool.map(somefunc, someargs)
-```
-
-Whenever `threadpool_limits` is called, it needs to do some work (inspecting and getting access to third-party shared libraries) that can take some time.
-To prevent the performance cost of doing this work every time, you can reuse a
-`ThreadpoolController` object:
+Whenever `threadpool_limits` is called, it creates a new `ThreadpoolController`,
+which needs to do some work (inspecting and getting access to third-party shared
+libraries) that can take some time. To prevent the performance cost of doing
+this work in all the threads, you can reuse a `ThreadpoolController` object
+across the threads.
 
 ```python
 from threadpoolctl import ThreadpoolController
 
-# This won't have any side-effects:
-CONTROLLER = ThreadpoolController()
+# This won't have any side-effects. Because it caches its list of loaded
+# libraries, you need to create a new one if you've imported or loaded any
+# relevant libraries in the interim. So storing this on module level may not be
+# a good idea if you e.g. only do `import numpy` later on.
+controller = ThreadpoolController()
 
 with (
-    CONTROLLER.limit(),
-    ThreadPoolExecutor(4, initializer=lambda: CONTROLLER.limit(limits=1)) as pool,
+    # This top-level limiter doesn't actually change the limits initially; it
+    # is there to ensure the limits are reset _after_ the Python thread pool is
+    # done. This is necessary because some underlying limiting APIs operate on
+    # a process-wide basis.
+    controller.limit(),
+    # Make sure each Python worker thread also calls threadpool_limits(). If
+    # you're using another thread pool class, you will need to do so some other
+    # way.
+    ThreadPoolExecutor(4, initializer=lambda: controller.limit(limits=1)) as pool,
 ):
     # ... run some BLAS-using code in the thread pool ...
     pool.map(somefunc, someargs)
 
 # Later...
+controller = ThreadpoolController()
 with (
-    CONTROLLER.limit(),
-    ThreadPoolExecutor(4, initializer=lambda: CONTROLLER.limit(limits=2)) as pool,
+    controller.limit(),
+    ThreadPoolExecutor(4, initializer=lambda: controller.limit(limits=2)) as pool,
 ):
     # ... run some BLAS-using code in the thread pool ...
     pool.map(somefunc, someargs)
@@ -273,11 +269,12 @@ You can also operate without a context manager:
 ```python
 from threadpoolctl import ThreadpoolController
 
-CONTROLLER = ThreadpoolController()
+controller = ThreadpoolController()
 try:
-    limiter = CONTROLLER.limit()
+    limiter = controller.limit()
     with ThreadPoolExecutor(
-            4, initializer=lambda: CONTROLLER.limit(limits=1)) as pool:
+        4, initializer=lambda: controller.limit(limits=1)
+    ) as pool:
         # ... run some BLAS-using code in the thread pool ...
         pool.map(somefunc, someargs)
 finally:

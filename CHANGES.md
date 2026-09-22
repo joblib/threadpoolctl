@@ -67,6 +67,9 @@
   closures that can abort after ``os.fork()`` on some libffi builds.
   https://github.com/joblib/threadpoolctl/pull/242
 
+- Dropped official support for Python 3.9.
+  https://github.com/joblib/threadpoolctl/pull/255
+
 3.6.0 (2025-03-13)
 ==================
 

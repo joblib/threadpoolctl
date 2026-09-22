@@ -29,10 +29,10 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: "3.14"
       - name: Install black
         run: |
-          pip install black==25.1.0
+          pip install black==26.5.1
       - name: Run black
         run: |
           black --check --diff .
@@ -73,9 +73,9 @@ jobs:
             INSTALL_OPENCV: "true"
 
           # MacOS env with OpenMP installed through homebrew
-          - name: py39_conda_homebrew_libomp
+          - name: py310_conda_homebrew_libomp
             os: macos-latest
-            PYTHON_VERSION: "3.9"
+            PYTHON_VERSION: "3.10"
             PACKAGER: "conda"
             BLAS: "openblas"
             CC_OUTER_LOOP: "clang"
@@ -101,16 +101,16 @@ jobs:
 
           # Linux environments to test that packages that comes with Ubuntu 22.04
           # are correctly handled.
-          - name: py39_ubuntu_atlas_gcc_gcc
+          - name: py310_ubuntu_atlas_gcc_gcc
             os: ubuntu-22.04
-            PYTHON_VERSION: "3.9"
+            PYTHON_VERSION: "3.10"
             PACKAGER: "ubuntu"
             APT_BLAS: "libatlas3-base libatlas-base-dev"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
-          - name: py39_ubuntu_openblas_gcc_gcc
+          - name: py310_ubuntu_openblas_gcc_gcc
             os: ubuntu-22.04
-            PYTHON_VERSION: "3.9"
+            PYTHON_VERSION: "3.10"
             PACKAGER: "ubuntu"
             APT_BLAS: "libopenblas-base libopenblas-dev"
             CC_OUTER_LOOP: "gcc"
@@ -125,11 +125,11 @@ jobs:
             CC_INNER_LOOP: "gcc"
             INSTALL_OPENCV: "true"
 
-          # Linux + Python 3.9 and homogeneous runtime nesting.
-          - name: py39_conda_openblas_clang_clang
+          # Linux + Python 3.10 and homogeneous runtime nesting.
+          - name: py310_conda_openblas_clang_clang
             os: ubuntu-latest
             PACKAGER: "conda"
-            PYTHON_VERSION: "3.9"
+            PYTHON_VERSION: "3.10"
             BLAS: "openblas"
             CC_OUTER_LOOP: "clang-18"
             CC_INNER_LOOP: "clang-18"

@@ -595,9 +595,6 @@ def test_command_line_command_flag():
         assert lib_info in this_process_info
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="need recent subprocess.run options"
-)
 def test_command_line_import_flag():
     result = subprocess.run(
         [

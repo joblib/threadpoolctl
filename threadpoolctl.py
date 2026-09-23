@@ -1772,9 +1772,12 @@ def get_cached_controller() -> ThreadpoolController:
     """
     global _CACHED_CONTROLLER, _CACHED_SYS_MODULES_LEN
     with _CACHE_LOCK:
-        if _CACHED_CONTROLLER is None or len(sys.modules) != _CACHED_SYS_MODULES_LEN:
+        # Do this once, so there's no race condition with imports in other
+        # threads:
+        num_modules = len(sys.modules)
+        if _CACHED_CONTROLLER is None or num_modules != _CACHED_SYS_MODULES_LEN:
             _CACHED_CONTROLLER = ThreadpoolController()
-            _CACHED_SYS_MODULES_LEN = len(sys.modules)
+            _CACHED_SYS_MODULES_LEN = num_modules
     return _CACHED_CONTROLLER
 
 

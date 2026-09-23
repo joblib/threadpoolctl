@@ -1141,6 +1141,19 @@ def test_controller_parallelism_no_deadlocks():
         assert process.returncode == 17
 
 
+def test_get_cached_controller():
+    """
+    ``get_cached_controller()`` returns a cached ``ThreadpoolController``, and
+    invalidates the cache if new modules are imported.
+    """
+    process = subprocess.run(
+        [sys.executable, "-m", "tests._get_cached_controller"], timeout=10
+    )
+
+    # Special code indicating success:
+    assert process.returncode == 17
+
+
 @pytest.mark.skipif(
     not sys.platform.startswith("linux"),
     reason="ctypes.util is only avoided on Linux (#225) in Python 3.14",

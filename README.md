@@ -178,8 +178,9 @@ in specific sections of your Python program:
 
 The threadpools can also be controlled via the object oriented API, which is
 especially useful to avoid searching through all the loaded shared libraries
-each time. **Note that it will not act on libraries loaded after the instantiation
-of the `ThreadpoolController`!**
+each time. That is, you can reuse a `ThreadpoolController` to reduce performance
+overhead. **However, note that it will not act on libraries loaded after the
+instantiation of the `ThreadpoolController`!**
 
 ```python
 >>> from threadpoolctl import ThreadpoolController
@@ -189,6 +190,32 @@ of the `ThreadpoolController`!**
 >>> with controller.limit(limits=1, user_api='blas'):
 ...     a = np.random.randn(1000, 1000)
 ...     a_squared = a @ a
+```
+
+As a compromise between speed and catching newly loaded controllable libraries
+you can use `get_cached_controller()`. This will notice any newly loaded
+libraries triggered by importing new libraries, but might miss new libraries
+loaded by compiled extensions directly using mechanisms like `dlopen()` on Linux
+(as opposed to linked), or via `ctypes.CDLL`.
+
+```python
+from threadpoolctl import get_cached_controller
+# This ThreadpoolController will not know about the BLAS library loaded by
+# NumPy, since it hasn't yet been imported:
+controller = get_cached_controller()
+
+# Calling the API again doesn't create a new instance, so it's fast:
+assert get_cached_controller() is controller
+
+import numpy as np
+
+# Now that NumPy has been imported, a new ThreadpoolController is returned that
+# will know about NumPy's linked BLAS:
+assert get_cached_controller() is not controller
+
+with controller.limit(limits=1, user_api='blas'):
+     a = np.random.randn(1000, 1000)
+     a_squared = a @ a
 ```
 
 ### Restricting the Limits to the Scope of a Function

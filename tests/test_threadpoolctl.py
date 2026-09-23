@@ -11,7 +11,7 @@ import sys
 from threading import Thread
 
 import threadpoolctl
-from threadpoolctl import threadpool_limits, threadpool_info
+from threadpoolctl import get_cached_controller, threadpool_limits, threadpool_info
 from threadpoolctl import LibController, ThreadpoolController
 from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
 from threadpoolctl import _determine_thread_limit_scope
@@ -734,10 +734,13 @@ def test_flexiblas_switch():
     # at first, only "OPENBLAS_CONDA" is loaded
     assert fb_controller.current_backend == "OPENBLAS_CONDA"
     assert fb_controller.loaded_backends == ["OPENBLAS_CONDA"]
+    cached_controller = get_cached_controller()
 
     fb_controller.switch_backend("NETLIB")
     assert fb_controller.current_backend == "NETLIB"
     assert fb_controller.loaded_backends == ["OPENBLAS_CONDA", "NETLIB"]
+    # Switching invalidated the cached controller:
+    assert get_cached_controller() is not cached_controller
 
     if sys.platform == "linux":
         mkl_path = f"{os.getenv('CONDA_PREFIX')}/lib/libmkl_rt.so"

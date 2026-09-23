@@ -43,6 +43,14 @@ if sys.platform != "emscripten" and (
         # CPython before 3.14 does not provide dll inspection.
         dllist = None
 
+# Ensure we don't get spurious cache invalidation the first time
+# ThreadpoolController is created, as the Windows dll listing methods import
+# from there:
+if sys.platform == "win32":
+    from ctypes import wintypes
+
+    del wintypes
+
 
 __version__ = "3.8.0.dev0"
 __all__ = [

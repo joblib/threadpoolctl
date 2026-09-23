@@ -1146,6 +1146,11 @@ def test_get_cached_controller():
     ``get_cached_controller()`` returns a cached ``ThreadpoolController``, and
     invalidates the cache if new modules are imported.
     """
+    pytest.importorskip("numpy")
+    controller = ThreadpoolController().select(use_api="blas")
+    if not controller.lib_controllers:
+        pytest.skip("No BLAS in NumPy")
+
     process = subprocess.run(
         [sys.executable, "-m", "tests._get_cached_controller"], timeout=10
     )

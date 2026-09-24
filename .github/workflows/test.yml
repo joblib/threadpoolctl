@@ -30,12 +30,12 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.14"
-      - name: Install black
+      - name: Install ruff
         run: |
-          pip install black==26.5.1
-      - name: Run black
+          pip install ruff==0.16.8
+      - name: Run ruff format
         run: |
-          black --check --diff .
+          ruff format --check --diff .
 
   testing:
     needs: linting

@@ -272,14 +272,11 @@ from threadpoolctl import ThreadpoolController
 controller = ThreadpoolController()
 try:
     limiter = controller.limit()
-    with ThreadPoolExecutor(
-        4, initializer=lambda: controller.limit(limits=1)
-    ) as pool:
+    with ThreadPoolExecutor(4, initializer=lambda: controller.limit(limits=1)) as pool:
         # ... run some BLAS-using code in the thread pool ...
         pool.map(somefunc, someargs)
 finally:
     limiter.restore_original_limits()
-
 ```
 
 ### Switching Back And Forth Between Main Thread and Python Threads

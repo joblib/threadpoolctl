@@ -199,7 +199,19 @@ loaded by compiled extensions directly using mechanisms like `dlopen()` on Linux
 (as opposed to linked), or via `ctypes.CDLL`.
 
 ```python
+import numpy
+
+with get_cached_controller().limit(limits=1, user_api='blas'):
+     a = np.random.randn(1000, 1000)
+     a_squared = a @ a
+```
+
+To get a sense of how `get_cached_controller()` cache invalidation happens,
+consider the following example:
+
+```python
 from threadpoolctl import get_cached_controller
+
 # This ThreadpoolController will not know about the BLAS library loaded by
 # NumPy, since it hasn't yet been imported:
 controller = get_cached_controller()
@@ -212,10 +224,6 @@ import numpy as np
 # Now that NumPy has been imported, a new ThreadpoolController is returned that
 # will know about NumPy's linked BLAS:
 assert get_cached_controller() is not controller
-
-with controller.limit(limits=1, user_api='blas'):
-     a = np.random.randn(1000, 1000)
-     a_squared = a @ a
 ```
 
 ### Restricting the Limits to the Scope of a Function

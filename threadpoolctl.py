@@ -58,6 +58,7 @@ __all__ = [
     "threadpool_info",
     "ThreadpoolController",
     "LibController",
+    "get_cached_controller",
     "register",
 ]
 

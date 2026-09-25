@@ -2,7 +2,6 @@
 
 from threadpoolctl import get_cached_controller, ThreadpoolController
 
-
 controller = get_cached_controller()
 assert isinstance(controller, ThreadpoolController)
 # Same controller is returned on another call:

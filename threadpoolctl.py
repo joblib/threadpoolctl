@@ -1780,6 +1780,9 @@ def get_cached_controller() -> ThreadpoolController:
     creating a new ``ThreadpoolController`` instance.
     """
     global _CACHED_CONTROLLER, _CACHED_SYS_MODULES_LEN
+    # Fast path, with no lock:
+    if _CACHED_SYS_MODULES_LEN == len(sys.modules) and _CACHED_CONTROLLER is not None:
+        return _CACHED_CONTROLLER
     with _CACHE_LOCK:
         # Do this once, so there's no race condition with imports in other
         # threads:

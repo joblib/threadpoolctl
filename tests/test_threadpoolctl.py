@@ -3,27 +3,34 @@ from __future__ import annotations
 import ctypes
 import json
 import os
-import pytest
 import re
-import subprocess
 import shutil
+import subprocess
 import sys
-from threading import Thread
+
+import pytest
 
 import threadpoolctl
-from threadpoolctl import threadpool_limits, threadpool_info
-from threadpoolctl import LibController, ThreadpoolController
-from threadpoolctl import _ALL_PREFIXES, _ALL_USER_APIS
-from threadpoolctl import _determine_thread_limit_scope
+from threadpoolctl import (
+    _ALL_PREFIXES,
+    _ALL_USER_APIS,
+    LibController,
+    ThreadpoolController,
+    _determine_thread_limit_scope,
+    threadpool_info,
+    threadpool_limits,
+)
 
-from .utils import cython_extensions_compiled
-from .utils import check_nested_prange_blas
-from .utils import libopenblas_paths
-from .utils import get_openblas_dll_path
-from .utils import make_long_windows_path
-from .utils import scipy
-from .utils import threadpool_info_from_subprocess
-from .utils import select
+from .utils import (
+    check_nested_prange_blas,
+    cython_extensions_compiled,
+    get_openblas_dll_path,
+    libopenblas_paths,
+    make_long_windows_path,
+    scipy,
+    select,
+    threadpool_info_from_subprocess,
+)
 
 
 def stdlib_dllist():

@@ -1,11 +1,12 @@
 import json
 import os
 import sys
-import threadpoolctl
 from glob import glob
 from os.path import dirname, normpath
 from pathlib import Path
 from subprocess import check_output
+
+import threadpoolctl
 
 # Path to shipped openblas for libraries such as numpy or scipy
 libopenblas_patterns = []
@@ -36,7 +37,7 @@ if sys.platform == "win32":
 
 try:
     import scipy
-    import scipy.linalg  # noqa: F401
+    import scipy.linalg
 
     scipy.linalg.svd([[1, 2], [3, 4]])
 

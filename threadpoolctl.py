@@ -11,18 +11,19 @@ maximal number of threads they can use.
 # adapted from code by Intel developer @anton-malakhov available at
 # https://github.com/IntelPython/smp (Copyright (c) 2017, Intel Corporation)
 # and also published under the BSD 3-Clause license
+import ctypes
+import itertools
 import os
 import re
 import sys
-import ctypes
-import itertools
 import textwrap
-from threading import Thread
-from typing import Callable, Literal, final
 import warnings
 from abc import ABC, abstractmethod
-from functools import lru_cache
+from collections.abc import Callable
 from contextlib import ContextDecorator
+from functools import lru_cache
+from threading import Thread
+from typing import Literal, final
 
 # ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
 # process-lifetime CFUNCTYPE callback that is not fork-safe with some libffi
@@ -42,11 +43,11 @@ if sys.platform != "emscripten" and (
 
 __version__ = "3.8.0.dev0"
 __all__ = [
-    "threadpool_limits",
-    "threadpool_info",
-    "ThreadpoolController",
     "LibController",
+    "ThreadpoolController",
     "register",
+    "threadpool_info",
+    "threadpool_limits",
 ]
 
 
@@ -1051,7 +1052,7 @@ class ThreadpoolController:
         return {"limits": 1, "user_api": "blas"}
 
     @_format_docstring(
-        USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
+        USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),
         BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
         OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
     )
@@ -1104,7 +1105,7 @@ class ThreadpoolController:
         return _ThreadpoolLimiter(self, limits=limits, user_api=user_api)
 
     @_format_docstring(
-        USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
+        USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),
         BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
         OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
     )

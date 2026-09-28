@@ -37,7 +37,6 @@ def create_controllers(done):
             import numpy  # also gets us BLAS
         except ImportError:
             pass
-        import _pickle
 
         try:
             import tests._openmp_test_helper.nested_prange_blas

@@ -1,6 +1,5 @@
 """Check tests are not skipped in every ci job"""
 
-
 import os
 import sys
 import xml.etree.ElementTree as ET

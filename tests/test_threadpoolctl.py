@@ -401,7 +401,7 @@ def test_openmp_nesting(nthreads_outer):
 
     # The number of threads available in the inner loop should have been
     # set to 1 to avoid oversubscription and preserve performance:
-    if inner_omp != outer_omp:
+    if inner_omp != outer_omp:  # noqa: SIM102
         if inner_num_threads != 1:
             # XXX: this does not always work when nesting independent openmp
             # implementations. See: https://github.com/jeremiedbb/Nested_OpenMP
@@ -796,7 +796,7 @@ def test_custom_controller():
     # used by a library.
     try:
         import tests._pyMylib  # noqa
-    except:
+    except:  # noqa: E722
         pytest.skip("requires my_thread_lib to be compiled")
 
     controller = ThreadpoolController()
@@ -1136,7 +1136,7 @@ def test_controller_parallelism_no_deadlocks():
 
     # Deadlock isn't always reliable, so run multiple times:
     for _ in range(10):
-        process = subprocess.run(
+        process = subprocess.run(  # noqa: PLW1510
             [sys.executable, "-m", "tests._dl_iterate_phdr_deadlock"], timeout=10
         )
 

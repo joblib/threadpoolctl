@@ -15,6 +15,7 @@ from threadpoolctl import (
 )
 
 # Make sure we have some BLAS libraries loaded:
+from . import utils as _  # noqa: F401
 
 
 class FakeThreadLocalAPI(threadlocal):

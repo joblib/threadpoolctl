@@ -679,10 +679,10 @@ _ALL_CONTROLLERS = [
 ]
 
 # Helpers for the doc and test names
-_ALL_USER_APIS = list(set(lib.user_api for lib in _ALL_CONTROLLERS))
+_ALL_USER_APIS = list(set(lib.user_api for lib in _ALL_CONTROLLERS))  # noqa: C401
 _ALL_INTERNAL_APIS = [lib.internal_api for lib in _ALL_CONTROLLERS]
 _ALL_PREFIXES = list(
-    set(prefix for lib in _ALL_CONTROLLERS for prefix in lib.filename_prefixes)
+    set(prefix for lib in _ALL_CONTROLLERS for prefix in lib.filename_prefixes)  # noqa: C401
 )
 _ALL_BLAS_LIBRARIES = [
     lib.internal_api for lib in _ALL_CONTROLLERS if lib.user_api == "blas"
@@ -985,7 +985,7 @@ class ThreadpoolController:
     # We use a class level cache instead of an instance level cache because
     # it's very unlikely that a shared library will be unloaded and reloaded
     # during the lifetime of a program.
-    _system_libraries = dict()
+    _system_libraries = dict()  # noqa: C408, RUF012
 
     def __init__(self):
         self.lib_controllers = []
@@ -1734,7 +1734,7 @@ def _main():
             print("WARNING: could not import", module, file=sys.stderr)
 
     if options.command:
-        exec(options.command)
+        exec(options.command)  # noqa: S102
 
     print(json.dumps(threadpool_info(debugging_info=True), indent=2))
 

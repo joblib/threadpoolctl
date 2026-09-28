@@ -51,7 +51,7 @@ try:
 except ImportError:
     scipy = None
 
-libopenblas_paths = set(
+libopenblas_paths = set(  # noqa: C401
     path for pattern in libopenblas_patterns for path in glob(pattern)
 )
 
@@ -109,7 +109,7 @@ def select(info, **kwargs):
 def get_openblas_dll_path():
     """Return a path to an OpenBLAS DLL that can be copied for Windows tests."""
     if libopenblas_paths:
-        return sorted(
+        return sorted(  # noqa: FURB192
             libopenblas_paths,
             key=lambda path: (
                 0

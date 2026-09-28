@@ -36,6 +36,9 @@ jobs:
       - name: Run ruff format
         run: |
           ruff format --check --diff .
+      - name: Run ruff check
+        run: |
+          ruff check .
 
   testing:
     needs: linting

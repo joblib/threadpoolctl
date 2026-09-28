@@ -33,13 +33,12 @@ jobs:
       - name: Install ruff
         run: |
           pip install ruff==0.16.8
-      - name: Run ruff format
-        run: |
-          ruff format --check --diff .
       - name: Run ruff check
         run: |
-          ruff check .
-
+          ruff check --output-format=full .
+      - name: Run ruff format
+        run: |
+          ruff format --diff .
   testing:
     needs: linting
     timeout-minutes: 30

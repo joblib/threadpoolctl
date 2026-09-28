@@ -26,3 +26,6 @@ homepage = "https://github.com/joblib/threadpoolctl"
 
 [tool.ruff]
 line-length = 88
+
+[tool.ruff.lint]
+unfixable = ["F401"]

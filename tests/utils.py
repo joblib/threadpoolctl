@@ -51,9 +51,7 @@ try:
 except ImportError:
     scipy = None
 
-libopenblas_paths = set(  # noqa: C401
-    path for pattern in libopenblas_patterns for path in glob(pattern)
-)
+libopenblas_paths = {path for pattern in libopenblas_patterns for path in glob(pattern)}
 
 
 try:

@@ -300,6 +300,24 @@ jobs:
         run: |
           ./continuous_integration/install.sh
 
+      - name: Record Windows CPU information
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force crash_diagnostics | Out-Null
+
+          Get-CimInstance Win32_Processor |
+            Select-Object Name, Manufacturer, NumberOfCores,
+              NumberOfLogicalProcessors, ProcessorId |
+            ConvertTo-Json -Depth 3 |
+            Tee-Object -FilePath crash_diagnostics/cpu.json
+
+          Get-CimInstance Win32_ComputerSystem |
+            Select-Object Manufacturer, Model, TotalPhysicalMemory,
+              NumberOfLogicalProcessors |
+            ConvertTo-Json -Depth 3 |
+            Tee-Object -FilePath crash_diagnostics/system.json
+
       - name: Install ProcDump for Windows OpenBLAS diagnostic
         if: matrix.os == 'windows-latest' && matrix.name == 'pylatest_conda_forge_openblas'
         shell: pwsh
@@ -312,6 +330,8 @@ jobs:
 
       - name: Capture Windows OpenBLAS diagnostic crashes
         if: matrix.os == 'windows-latest' && matrix.name == 'pylatest_conda_forge_openblas'
+        env:
+          OPENBLAS_VERBOSE: "2"
         run: |
           source "$CONDA/etc/profile.d/conda.sh"
           conda activate testenv

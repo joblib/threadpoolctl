@@ -89,8 +89,20 @@ jobs:
           Expand-Archive -LiteralPath $archive -DestinationPath $toolDir
           "PROCDUMP_PATH=$(Join-Path $toolDir 'procdump64.exe')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Run Windows OpenBLAS diagnostic without ProcDump
+        id: direct
+        continue-on-error: true
+        env:
+          OPENBLAS_VERBOSE: "2"
+        run: |
+          source "$CONDA/etc/profile.d/conda.sh"
+          conda activate testenv
+          PYTHONPATH=. python -u -X faulthandler tests/empirical_scope_observation.py blas
+
       - name: Capture Windows OpenBLAS diagnostic crashes
-        if: matrix.os == 'windows-latest' && matrix.name == 'pylatest_conda_forge_openblas'
+        id: procdump
+        if: ${{ !cancelled() && (steps.direct.outcome == 'success' || steps.direct.outcome == 'failure') }}
+        continue-on-error: true
         env:
           OPENBLAS_VERBOSE: "2"
         run: |
@@ -98,11 +110,26 @@ jobs:
           conda activate testenv
           PYTHONPATH=. python -X faulthandler continuous_integration/capture_windows_blas_crash.py
 
+      - name: Check for crash dumps
+        id: dumps
+        if: always()
+        shell: pwsh
+        run: |
+          $found = Test-Path -Path 'crash_diagnostics/*.dmp'
+          "found=$($found.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
       - name: Upload Windows OpenBLAS crash diagnostics
-        if: always() && matrix.os == 'windows-latest' && matrix.name == 'pylatest_conda_forge_openblas'
+        if: always() && steps.dumps.outputs.found == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: windows-openblas-crash-${{ github.run_id }}-${{ github.run_attempt }}
           path: crash_diagnostics/
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Fail if either diagnostic failed or a dump was captured
+        if: always() && (steps.direct.outcome == 'failure' || steps.procdump.outcome == 'failure' || steps.dumps.outputs.found == 'true')
+        shell: pwsh
+        run: |
+          Write-Output '::error::OpenBLAS diagnostic failed. Check both diagnostic logs and any uploaded crash dump.'
+          exit 1

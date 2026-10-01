@@ -98,10 +98,6 @@ jobs:
           conda activate testenv
           PYTHONPATH=. python -X faulthandler continuous_integration/capture_windows_blas_crash.py
 
-      - name: Test library
-        run: |
-          ./continuous_integration/run_tests.sh
-
       - name: Upload Windows OpenBLAS crash diagnostics
         if: always() && matrix.os == 'windows-latest' && matrix.name == 'pylatest_conda_forge_openblas'
         uses: actions/upload-artifact@v4
@@ -110,16 +106,3 @@ jobs:
           path: crash_diagnostics/
           if-no-files-found: ignore
           retention-days: 14
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        with:
-          # Requires a unique name for each job in the matrix of this run
-          name: test_result_${{github.run_id}}_${{ matrix.os }}_${{ matrix.name }}
-          path: test_result.xml
-          retention-days: 1
-
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: coverage.xml

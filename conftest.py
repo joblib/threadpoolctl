@@ -3,4 +3,5 @@ collect_ignore = [
     "tests/_openmp_test_helper.py",
     "tests/_limit_blas.py",
     "tests/_dl_iterate_phdr_deadlock.py",
+    "tests/_get_cached_controller.py",
 ]

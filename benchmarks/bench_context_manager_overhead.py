@@ -2,7 +2,7 @@ import time
 from argparse import ArgumentParser
 from pprint import pprint
 from statistics import mean, stdev
-from threadpoolctl import threadpool_info, threadpool_limits
+from threadpoolctl import get_cached_controller, threadpool_info, threadpool_limits
 
 parser = ArgumentParser(description="Measure threadpool_limits call overhead.")
 parser.add_argument(
@@ -27,4 +27,18 @@ for _ in range(args.n_calls):
         pass
     timings.append(time.time() - t)
 
-print(f"Overhead per call: {mean(timings) * 1e3:.3f} +/-{stdev(timings) * 1e3:.3f} ms")
+print(
+    f"Overhead per `with threadpool_limits()` call: {mean(timings) * 1e3:.3f} +/-{stdev(timings) * 1e3:.3f} ms"
+)
+
+
+timings = []
+for _ in range(args.n_calls):
+    t = time.time()
+    with get_cached_controller().limit(limits=1):
+        pass
+    timings.append(time.time() - t)
+
+print(
+    f"Overhead per `with get_cached_controller().limit()` call: {mean(timings) * 1e3:.3f} +/-{stdev(timings) * 1e3:.3f} ms"
+)

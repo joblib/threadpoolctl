@@ -21,249 +21,19 @@ concurrency:
 
 jobs:
 
-  linting:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.14"
-      - name: Install black
-        run: |
-          pip install black==26.5.1
-      - name: Run black
-        run: |
-          black --check --diff .
-
   testing:
-    needs: linting
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
-
-          # Windows env with numpy, scipy,MKL installed through conda-forge
-          - name: pylatest_conda_forge_mkl
-            os: windows-latest
-            PYTHON_VERSION: "*"
-            PACKAGER: "conda-forge"
-            BLAS: "mkl"
-            INSTALL_OPENCV: "true"
-          # Windows env with numpy, scipy, OpenBLAS installed through conda-forge
+          # Reproduce the intermittent Windows OpenBLAS access violation.
           - name: pylatest_conda_forge_openblas
             os: windows-latest
             PYTHON_VERSION: "*"
             PACKAGER: "conda-forge"
             BLAS: "openblas"
             INSTALL_OPENCV: "true"
-          # Windows env with numpy, scipy installed through conda default channel
-          - name: py311_conda
-            os: windows-latest
-            PYTHON_VERSION: "3.11"
-            PACKAGER: "conda"
-            INSTALL_OPENCV: "true"
-          # Windows env with numpy, scipy installed through pip
-          - name: py310_pip
-            os: windows-latest
-            PYTHON_VERSION: "3.10"
-            PACKAGER: "pip"
-            INSTALL_OPENCV: "true"
-
-          # MacOS env with OpenMP installed through homebrew
-          - name: py310_conda_homebrew_libomp
-            os: macos-latest
-            PYTHON_VERSION: "3.10"
-            PACKAGER: "conda"
-            BLAS: "openblas"
-            CC_OUTER_LOOP: "clang"
-            CC_INNER_LOOP: "clang"
-            INSTALL_LIBOMP: "homebrew"
-            INSTALL_OPENCV: "true"
-
-          # MacOS env with OpenBLAS and OpenMP installed through conda-forge compilers
-          - name: pylatest_conda_forge_clang_openblas
-            os: macos-latest
-            PYTHON_VERSION: "*"
-            PACKAGER: "conda-forge"
-            BLAS: "openblas"
-            INSTALL_LIBOMP: "conda-forge"
-            INSTALL_OPENCV: "true"
-
-          # MacOS env with FlexiBLAS
-          - name: pylatest_flexiblas
-            os: macos-latest
-            PYTHON_VERSION: "*"
-            INSTALL_BLAS: "flexiblas"
-            PLATFORM_SPECIFIC_PACKAGES: "llvm-openmp"
-
-          # Linux environments to test that packages that comes with Ubuntu 22.04
-          # are correctly handled.
-          - name: py310_ubuntu_atlas_gcc_gcc
-            os: ubuntu-22.04
-            PYTHON_VERSION: "3.10"
-            PACKAGER: "ubuntu"
-            APT_BLAS: "libatlas3-base libatlas-base-dev"
-            CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "gcc"
-          - name: py310_ubuntu_openblas_gcc_gcc
-            os: ubuntu-22.04
-            PYTHON_VERSION: "3.10"
-            PACKAGER: "ubuntu"
-            APT_BLAS: "libopenblas-base libopenblas-dev"
-            CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "gcc"
-
-          # Linux environment with development versions of numpy and scipy
-          - name: pylatest_pip_dev
-            os : ubuntu-latest
-            PACKAGER: "pip-dev"
-            PYTHON_VERSION: "*"
-            CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "gcc"
-            INSTALL_OPENCV: "true"
-
-          # Linux + Python 3.10 and homogeneous runtime nesting.
-          - name: py310_conda_openblas_clang_clang
-            os: ubuntu-latest
-            PACKAGER: "conda"
-            PYTHON_VERSION: "3.10"
-            BLAS: "openblas"
-            CC_OUTER_LOOP: "clang-18"
-            CC_INNER_LOOP: "clang-18"
-            INSTALL_OPENCV: "true"
-
-          # Linux environment with MKL and Clang (known to be unsafe for
-          # threadpoolctl) to only test the warning from multiple OpenMP.
-          - name: pylatest_conda_mkl_clang_gcc
-            os: ubuntu-latest
-            PYTHON_VERSION: "*"
-            PACKAGER: "conda"
-            BLAS: "mkl"
-            CC_OUTER_LOOP: "clang-18"
-            CC_INNER_LOOP: "gcc"
-            TESTS: "libomp_libiomp_warning"
-          # Linux environment with MKL, safe for threadpoolctl.
-          - name: pylatest_conda_mkl_gcc_gcc
-            os: ubuntu-latest
-            PYTHON_VERSION: "*"
-            PACKAGER: "conda"
-            BLAS: "mkl"
-            CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "gcc"
-            MKL_THREADING_LAYER: "INTEL"
-            INSTALL_OPENCV: "true"
-
-          # Linux + Python 3.11 with numpy / scipy installed with pip from PyPI
-          # and heterogeneous OpenMP runtimes.
-          - name: py311_pip_openblas_gcc_clang
-            os: ubuntu-latest
-            PACKAGER: "pip"
-            PYTHON_VERSION: "3.11"
-            CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "clang-18"
-          # Linux + conda-forge Python RC, extra deps from PyPI.
-          # OpenCV is omitted: no wheels for the current RC ABI yet.
-          - name: pyrc_pip
-            os: ubuntu-latest
-            PACKAGER: "pip"
-            # Using the "*" marker does not select the latest RC release
-            # from the conda-forge `python_rc` channel hence the need to pin
-            # a specific Python version when testing against an RC release.
-            PYTHON_VERSION: "3.15"
-            PYTHON_RC: "true"
-            CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "gcc"
-          # Linux + conda-forge free-threaded Python RC, extra deps from PyPI.
-          - name: pyrc_ft_pip
-            os: ubuntu-latest
-            PACKAGER: "pip"
-            # Using the "*" marker does not select the latest RC release
-            # from the conda-forge `python_rc` channel hence the need to pin
-            # a specific Python version when testing against an RC release.
-            PYTHON_VERSION: "3.15"
-            PYTHON_RC: "true"
-            FREETHREADING: "1"
-            CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "gcc"
-          # Linux environment with numpy from conda-forge channel and openblas-openmp
-          - name: pylatest_conda_forge
-            os: ubuntu-latest
-            PACKAGER: "conda-forge"
-            PYTHON_VERSION: "*"
-            BLAS: "openblas"
-            OPENBLAS_THREADING_LAYER: "openmp"
-            INSTALL_OPENCV: "true"
-            CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "gcc"
-          # Linux environment with no numpy and heterogeneous OpenMP runtimes.
-          - name: pylatest_conda_nonumpy_gcc_clang
-            os: ubuntu-latest
-            PACKAGER: "conda"
-            PYTHON_VERSION: "*"
-            NO_NUMPY: "true"
-            CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "clang-18"
-
-          # Linux environments with numpy linked to BLIS
-          - name: pylatest_blis_gcc_clang_openmp
-            os: ubuntu-latest
-            PYTHON_VERSION: "*"
-            INSTALL_BLAS: "blis"
-            BLIS_NUM_THREAEDS: "4"
-            CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "gcc"
-            BLIS_CC: "clang-18"
-            BLIS_ENABLE_THREADING: "openmp"
-          - name: pylatest_blis_clang_gcc_pthreads
-            os: ubuntu-latest
-            PYTHON_VERSION: "*"
-            INSTALL_BLAS: "blis"
-            BLIS_NUM_THREADS: "4"
-            CC_OUTER_LOOP: "clang-18"
-            CC_INNER_LOOP: "clang-18"
-            BLIS_CC: "gcc-12"
-            BLIS_ENABLE_THREADING: "pthreads"
-          - name: pylatest_blis_no_threading
-            os: ubuntu-latest
-            PYTHON_VERSION: "*"
-            INSTALL_BLAS: "blis"
-            BLIS_NUM_THREADS: "1"
-            CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "gcc"
-            BLIS_CC: "gcc-12"
-            BLIS_ENABLE_THREADING: "no"
-
-          # Linux env with FlexiBLAS
-          - name: pylatest_flexiblas
-            os: ubuntu-latest
-            PYTHON_VERSION: "*"
-            INSTALL_BLAS: "flexiblas"
-            PLATFORM_SPECIFIC_PACKAGES: "mkl"
-            CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "gcc"
-
-          # Python 3.14, free-threaded
-          - name: py314_freethreaded_pip_openblas
-            os: ubuntu-latest
-            PACKAGER: "conda-forge"
-            BLAS: "openblas"
-            PYTHON_VERSION: "3.14"
-            FREETHREADING: "1"
-            CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "gcc"
-
-          # Ubuntu 24.04, which has glibc with different dl_iterate_phdr than
-          # latest Ubuntus.
-          - name: ubuntu24_04
-            os: ubuntu-24.04
-            PACKAGER: "conda-forge"
-            BLAS: "openblas"
-            PYTHON_VERSION: "3.14"
-            CC_OUTER_LOOP: "gcc"
-            CC_INNER_LOOP: "gcc"
 
     env: ${{ matrix }}
 
@@ -280,15 +50,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Restore ccache
-        if: matrix.INSTALL_BLAS == 'flexiblas'
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ccache
-          key: ccache-flexiblas-${{ matrix.os }}-${{ hashFiles('continuous_integration/install_flexiblas.sh') }}
-          restore-keys: |
-            ccache-flexiblas-${{ matrix.os }}-
-
       - name: Setup conda
         uses: conda-incubator/setup-miniconda@v3
         with:
@@ -300,43 +61,75 @@ jobs:
         run: |
           ./continuous_integration/install.sh
 
-      - name: Test library
+      - name: Record Windows CPU information
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          ./continuous_integration/run_tests.sh
+          New-Item -ItemType Directory -Force crash_diagnostics | Out-Null
 
-      - name: Upload test results
+          Get-CimInstance Win32_Processor |
+            Select-Object Name, Manufacturer, NumberOfCores,
+              NumberOfLogicalProcessors, ProcessorId |
+            ConvertTo-Json -Depth 3 |
+            Tee-Object -FilePath crash_diagnostics/cpu.json
+
+          Get-CimInstance Win32_ComputerSystem |
+            Select-Object Manufacturer, Model, TotalPhysicalMemory,
+              NumberOfLogicalProcessors |
+            ConvertTo-Json -Depth 3 |
+            Tee-Object -FilePath crash_diagnostics/system.json
+
+      - name: Install ProcDump for Windows OpenBLAS diagnostic
+        if: matrix.os == 'windows-latest' && matrix.name == 'pylatest_conda_forge_openblas'
+        shell: pwsh
+        run: |
+          $toolDir = Join-Path $env:RUNNER_TEMP 'procdump'
+          $archive = Join-Path $env:RUNNER_TEMP 'procdump.zip'
+          Invoke-WebRequest https://download.sysinternals.com/files/Procdump.zip -OutFile $archive
+          Expand-Archive -LiteralPath $archive -DestinationPath $toolDir
+          "PROCDUMP_PATH=$(Join-Path $toolDir 'procdump64.exe')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Run Windows OpenBLAS diagnostic without ProcDump
+        id: direct
+        continue-on-error: true
+        env:
+          OPENBLAS_VERBOSE: "2"
+        run: |
+          source "$CONDA/etc/profile.d/conda.sh"
+          conda activate testenv
+          PYTHONPATH=. python -u -X faulthandler tests/empirical_scope_observation.py blas
+
+      - name: Capture Windows OpenBLAS diagnostic crashes
+        id: procdump
+        if: ${{ !cancelled() && (steps.direct.outcome == 'success' || steps.direct.outcome == 'failure') }}
+        continue-on-error: true
+        env:
+          OPENBLAS_VERBOSE: "2"
+        run: |
+          source "$CONDA/etc/profile.d/conda.sh"
+          conda activate testenv
+          PYTHONPATH=. python -X faulthandler continuous_integration/capture_windows_blas_crash.py
+
+      - name: Check for crash dumps
+        id: dumps
+        if: always()
+        shell: pwsh
+        run: |
+          $found = Test-Path -Path 'crash_diagnostics/*.dmp'
+          "found=$($found.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
+      - name: Upload Windows OpenBLAS crash diagnostics
+        if: always() && steps.dumps.outputs.found == 'true'
         uses: actions/upload-artifact@v4
         with:
-          # Requires a unique name for each job in the matrix of this run
-          name: test_result_${{github.run_id}}_${{ matrix.os }}_${{ matrix.name }}
-          path: test_result.xml
-          retention-days: 1
+          name: windows-openblas-crash-${{ github.run_id }}-${{ github.run_attempt }}
+          path: crash_diagnostics/
+          if-no-files-found: ignore
+          retention-days: 14
 
-      - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: coverage.xml
-
-  # Meta-test to ensure that at least one of the above CI configurations had
-  # the necessary platform settings to execute each test without raising
-  # skipping.
-  meta_test:
-    needs: testing
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.12"
-
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Download tests results
-        uses: actions/download-artifact@v4
-        with:
-          path: test_results
-
-      - name: Check no test always skipped
+      - name: Fail if either diagnostic failed or a dump was captured
+        if: always() && (steps.direct.outcome == 'failure' || steps.procdump.outcome == 'failure' || steps.dumps.outputs.found == 'true')
+        shell: pwsh
         run: |
-          python continuous_integration/check_no_test_skipped.py test_results
+          Write-Output '::error::OpenBLAS diagnostic failed. Check both diagnostic logs and any uploaded crash dump.'
+          exit 1

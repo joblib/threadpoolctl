@@ -9,6 +9,16 @@
   in package metadata.
   https://github.com/joblib/threadpoolctl/issues/251
 
+- Faster performance when creating a `ThreadpoolController`.
+  https://github.com/joblib/threadpoolctl/pull/249
+
+- Shared libraries are now cached across runs, whereas previously they would be
+  unloaded after the `ThreadpoolController` was garbage collected.
+  https://github.com/joblib/threadpoolctl/pull/249
+
+- A single shared library can no longer have multiple `LibController` instances.
+  https://github.com/joblib/threadpoolctl/pull/249
+
 3.7.0 (2026-09-15)
 ==================
 

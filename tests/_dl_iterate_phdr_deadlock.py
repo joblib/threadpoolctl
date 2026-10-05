@@ -64,7 +64,7 @@ def main():
     if len(done) != os.cpu_count() * 4:
         sys.exit(1)
 
-    # Special success exist code:
+    # Special success exit code:
     sys.exit(17)
 
 

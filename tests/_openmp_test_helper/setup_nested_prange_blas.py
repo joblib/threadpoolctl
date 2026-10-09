@@ -1,16 +1,15 @@
 import os
-from setuptools import Extension, setup
-from Cython.Build import cythonize
 
-from build_utils import set_cc_variables
-from build_utils import get_openmp_flag
+from build_utils import get_openmp_flag, set_cc_variables
+from Cython.Build import cythonize
+from setuptools import Extension, setup
 
 original_environ = os.environ.copy()
 try:
     set_cc_variables("CC_OUTER_LOOP")
     openmp_flag = get_openmp_flag()
 
-    use_custom_blas = os.getenv("INSTALL_BLAS", False)
+    use_custom_blas = os.getenv("INSTALL_BLAS", False)  # noqa: PLW1508
     libraries = [use_custom_blas] if use_custom_blas else []
     custom_suffix = "_custom" if use_custom_blas else ""
     filename = f"nested_prange_blas{custom_suffix}.pyx"

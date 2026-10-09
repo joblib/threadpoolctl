@@ -4,15 +4,16 @@ the size of a shared process-wide thread pool or a per-thread limit.
 """
 
 import sys
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from os import cpu_count
 from pprint import pprint
-from time import time
 from threading import Thread
-from typing import Callable
+from time import time
+
+import psutil
 
 import threadpoolctl
-import psutil
 
 
 def start_counting_threads() -> Callable[[], int]:

@@ -1,9 +1,8 @@
 import os
-from setuptools import Extension, setup
-from Cython.Build import cythonize
 
-from build_utils import set_cc_variables
-from build_utils import get_openmp_flag
+from build_utils import get_openmp_flag, set_cc_variables
+from Cython.Build import cythonize
+from setuptools import Extension, setup
 
 original_environ = os.environ.copy()
 try:

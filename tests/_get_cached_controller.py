@@ -1,6 +1,6 @@
 """Test script for ``_get_cached_controller``."""
 
-from threadpoolctl import get_cached_controller, ThreadpoolController
+from threadpoolctl import ThreadpoolController, get_cached_controller
 
 controller = get_cached_controller()
 assert isinstance(controller, ThreadpoolController)
@@ -9,8 +9,7 @@ assert controller is get_cached_controller()
 # No libraries loaded:
 assert len(controller.lib_controllers) == 0
 
-# This should result in loading BLAS:
-import numpy as np
+import numpy as np  # noqa: F401 (also gets us BLAS)
 
 # Now a new controller is returned:
 controller2 = get_cached_controller()

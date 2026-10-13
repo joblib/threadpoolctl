@@ -201,9 +201,9 @@ loaded by compiled extensions directly using mechanisms like `dlopen()` on Linux
 ```python
 import numpy
 
-with get_cached_controller().limit(limits=1, user_api='blas'):
-     a = np.random.randn(1000, 1000)
-     a_squared = a @ a
+with get_cached_controller().limit(limits=1, user_api="blas"):
+    a = np.random.randn(1000, 1000)
+    a_squared = a @ a
 ```
 
 To get a sense of how `get_cached_controller()` cache invalidation happens,
@@ -225,6 +225,9 @@ import numpy as np
 # will know about NumPy's linked BLAS:
 assert get_cached_controller() is not controller
 ```
+
+You can clear the cached controller manually by running
+``reset_cached_controller()``.
 
 ### Restricting the Limits to the Scope of a Function
 

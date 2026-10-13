@@ -58,6 +58,7 @@ __all__ = [
     "ThreadpoolController",
     "get_cached_controller",
     "register",
+    "reset_cached_controller",
     "threadpool_info",
     "threadpool_limits",
 ]
@@ -1791,6 +1792,14 @@ def get_cached_controller() -> ThreadpoolController:
             _CACHED_CONTROLLER = ThreadpoolController()
             _CACHED_SYS_MODULES_LEN = num_modules
     return _CACHED_CONTROLLER
+
+
+def reset_cached_controller() -> None:
+    """Clear the cached ``ThreadpoolController``, if any."""
+    global _CACHED_CONTROLLER, _CACHED_SYS_MODULES_LEN
+    with _CACHE_LOCK:
+        _CACHED_CONTROLLER = None
+        _CACHED_SYS_MODULES_LEN = 0
 
 
 if __name__ == "__main__":

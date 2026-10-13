@@ -1,10 +1,11 @@
 # Used by test_setting_limit_on_thread_local_blas_api_is_actually_thread_local()
 
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from time import sleep
-import sys
 
 import numpy as np
+
 import threadpoolctl
 
 ARR = np.ones((1500, 1500))

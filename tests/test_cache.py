@@ -4,7 +4,7 @@ from ctypes import CDLL
 
 import pytest
 
-from threadpoolctl import ThreadpoolController, _CDLL_CACHE
+from threadpoolctl import _CDLL_CACHE, ThreadpoolController
 
 
 def test_cdlls_are_cached():

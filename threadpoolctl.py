@@ -11,21 +11,22 @@ maximal number of threads they can use.
 # adapted from code by Intel developer @anton-malakhov available at
 # https://github.com/IntelPython/smp (Copyright (c) 2017, Intel Corporation)
 # and also published under the BSD 3-Clause license
+
 from __future__ import annotations
 
+import ctypes
+import itertools
 import os
 import re
 import sys
-import ctypes
-import itertools
-import textwrap
-from threading import Thread
-from typing import Callable, Literal, TypeVar, final
 import warnings
 from abc import ABC, abstractmethod
+from collections.abc import Callable
+from contextlib import ContextDecorator
 from dataclasses import dataclass, field
 from functools import lru_cache, wraps
-from contextlib import ContextDecorator
+from threading import Thread
+from typing import Literal, TypeVar, final
 
 # ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
 # process-lifetime CFUNCTYPE callback that is not fork-safe with some libffi
@@ -34,8 +35,7 @@ from contextlib import ContextDecorator
 dllist = None
 if sys.platform != "emscripten" and (
     # Python 3.15 doesn't have the CFUNCTYPE anymore:
-    sys.platform == "linux"
-    and sys.version_info[:2] >= (3, 15)
+    sys.platform == "linux" and sys.version_info[:2] >= (3, 15)
 ):
     try:
         from ctypes.util import dllist
@@ -46,11 +46,11 @@ if sys.platform != "emscripten" and (
 
 __version__ = "3.8.0.dev0"
 __all__ = [
-    "threadpool_limits",
-    "threadpool_info",
-    "ThreadpoolController",
     "LibController",
+    "ThreadpoolController",
     "register",
+    "threadpool_info",
+    "threadpool_limits",
 ]
 
 
@@ -408,7 +408,7 @@ class _CDLLCache:
         self._controller_cache[original_filepath] = (None, "", "")
         return None
 
-    def get_cdll(self, filepath: str) -> CDLL:
+    def get_cdll(self, filepath: str) -> ctypes.CDLL:
         """
         Get the ``CDLL`` for a path, loading if necessary, using a cached
         version if it was already loaded.
@@ -845,10 +845,10 @@ _ALL_CONTROLLERS = [
 ]
 
 # Helpers for the doc and test names
-_ALL_USER_APIS = list(set(lib.user_api for lib in _ALL_CONTROLLERS))
+_ALL_USER_APIS = list({lib.user_api for lib in _ALL_CONTROLLERS})
 _ALL_INTERNAL_APIS = [lib.internal_api for lib in _ALL_CONTROLLERS]
 _ALL_PREFIXES = list(
-    set(prefix for lib in _ALL_CONTROLLERS for prefix in lib.filename_prefixes)
+    {prefix for lib in _ALL_CONTROLLERS for prefix in lib.filename_prefixes}
 )
 _ALL_BLAS_LIBRARIES = [
     lib.internal_api for lib in _ALL_CONTROLLERS if lib.user_api == "blas"
@@ -1162,7 +1162,7 @@ class ThreadpoolController:
     # We use a class level cache instead of an instance level cache because
     # it's very unlikely that a shared library will be unloaded and reloaded
     # during the lifetime of a program.
-    _system_libraries = dict()
+    _system_libraries = {}  # noqa: RUF012
 
     def __init__(self):
         self.lib_controllers = []
@@ -1229,7 +1229,7 @@ class ThreadpoolController:
         return {"limits": 1, "user_api": "blas"}
 
     @_format_docstring(
-        USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
+        USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),
         BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
         OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
     )
@@ -1282,7 +1282,7 @@ class ThreadpoolController:
         return _ThreadpoolLimiter(self, limits=limits, user_api=user_api)
 
     @_format_docstring(
-        USER_APIS=", ".join('"{}"'.format(api) for api in _ALL_USER_APIS),
+        USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),
         BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),
         OPENMP_LIBS=", ".join(_ALL_OPENMP_LIBRARIES),
     )
@@ -1844,7 +1844,7 @@ def _main():
             print("WARNING: could not import", module, file=sys.stderr)
 
     if options.command:
-        exec(options.command)
+        exec(options.command)  # noqa: S102
 
     print(json.dumps(threadpool_info(debugging_info=True), indent=2))
 

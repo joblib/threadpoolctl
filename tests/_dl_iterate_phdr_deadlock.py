@@ -34,13 +34,13 @@ def create_controllers(done):
 
         # Imports, which also do dlopen():
         try:
-            import numpy  # also gets us BLAS
+            import numpy  # noqa: F401 (also gets us BLAS)
         except ImportError:
             pass
-        import _pickle
+        import _pickle  # noqa: F401
 
         try:
-            import tests._openmp_test_helper.nested_prange_blas
+            import tests._openmp_test_helper.nested_prange_blas  # noqa: F401
         except ImportError:
             pass
 
@@ -64,7 +64,7 @@ def main():
     if len(done) != os.cpu_count() * 4:
         sys.exit(1)
 
-    # Special success exist code:
+    # Special success exit code:
     sys.exit(17)
 
 

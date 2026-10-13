@@ -1,11 +1,12 @@
 import json
 import os
 import sys
-import threadpoolctl
 from glob import glob
 from os.path import dirname, normpath
 from pathlib import Path
 from subprocess import check_output
+
+import threadpoolctl
 
 # Path to shipped openblas for libraries such as numpy or scipy
 libopenblas_patterns = []
@@ -36,7 +37,7 @@ if sys.platform == "win32":
 
 try:
     import scipy
-    import scipy.linalg  # noqa: F401
+    import scipy.linalg
 
     scipy.linalg.svd([[1, 2], [3, 4]])
 
@@ -50,9 +51,7 @@ try:
 except ImportError:
     scipy = None
 
-libopenblas_paths = set(
-    path for pattern in libopenblas_patterns for path in glob(pattern)
-)
+libopenblas_paths = {path for pattern in libopenblas_patterns for path in glob(pattern)}
 
 
 try:
@@ -108,12 +107,14 @@ def select(info, **kwargs):
 def get_openblas_dll_path():
     """Return a path to an OpenBLAS DLL that can be copied for Windows tests."""
     if libopenblas_paths:
-        return sorted(
+        return sorted(  # noqa: FURB192
             libopenblas_paths,
             key=lambda path: (
                 0
                 if "libscipy_openblas" in os.path.basename(path).lower()
-                else 1 if "libopenblas" in os.path.basename(path).lower() else 2
+                else 1
+                if "libopenblas" in os.path.basename(path).lower()
+                else 2
             ),
         )[0]
 

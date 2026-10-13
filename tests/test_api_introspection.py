@@ -3,19 +3,19 @@ Tests for get/set number of threads API introspection.
 """
 
 import sys
+from collections.abc import Callable
 from threading import local as threadlocal
-from typing import Callable
 
 import pytest
 
 from threadpoolctl import (
     LibController,
-    _determine_thread_limit_scope,
     ThreadpoolController,
+    _determine_thread_limit_scope,
 )
 
 # Make sure we have some BLAS libraries loaded:
-from . import utils as _
+from . import utils as _  # noqa: F401
 
 
 class FakeThreadLocalAPI(threadlocal):

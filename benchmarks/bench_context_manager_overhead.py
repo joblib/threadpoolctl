@@ -2,6 +2,7 @@ import time
 from argparse import ArgumentParser
 from pprint import pprint
 from statistics import mean, stdev
+
 from threadpoolctl import threadpool_info, threadpool_limits
 
 parser = ArgumentParser(description="Measure threadpool_limits call overhead.")

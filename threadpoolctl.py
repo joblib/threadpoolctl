@@ -15,7 +15,6 @@ import ctypes
 import itertools
 import os
 import re
-import shutil
 import sys
 import textwrap
 import warnings

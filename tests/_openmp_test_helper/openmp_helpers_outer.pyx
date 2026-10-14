@@ -20,5 +20,5 @@ def check_nested_openmp_loops(int n, nthreads=None):
     for i in prange(n, num_threads=num_threads, nogil=True):
         inner_num_threads = inner_openmp_loop(n)
         outer_num_threads = openmp.omp_get_num_threads()
-        
+
     return outer_num_threads, inner_num_threads

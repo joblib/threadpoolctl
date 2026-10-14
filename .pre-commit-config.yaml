@@ -3,7 +3,7 @@ default_language_version:
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: end-of-file-fixer
       - id: trailing-whitespace
@@ -14,7 +14,7 @@ repos:
       - id: detect-private-key
 
   - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: 'v0.16.8'
+    rev: 'v0.17.0'
     hooks:
       - id: ruff
         args: ["--fix"]

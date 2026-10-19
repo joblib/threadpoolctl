@@ -1779,6 +1779,9 @@ def get_cached_controller() -> ThreadpoolController:
     ``CDLL``, and the like.  This is rare, however.  Outside of these
     situations, using ``get_cached_controller()`` will be much faster than
     creating a new ``ThreadpoolController`` instance.
+
+    The cached controller can be explicitly invalidated by calling the
+    `reset_cached_controller()` module level function.
     """
     global _CACHED_CONTROLLER, _CACHED_SYS_MODULES_LEN
     # Fast path, with no lock:

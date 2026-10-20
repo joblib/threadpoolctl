@@ -11,6 +11,9 @@ maximal number of threads they can use.
 # adapted from code by Intel developer @anton-malakhov available at
 # https://github.com/IntelPython/smp (Copyright (c) 2017, Intel Corporation)
 # and also published under the BSD 3-Clause license
+
+from __future__ import annotations
+
 import ctypes
 import itertools
 import os
@@ -22,7 +25,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from contextlib import ContextDecorator
 from functools import lru_cache
-from threading import Thread
+from threading import Lock, Thread
 from typing import Literal, final
 
 # ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
@@ -40,12 +43,22 @@ if sys.platform != "emscripten" and (
         # CPython before 3.14 does not provide dll inspection.
         dllist = None
 
+# Ensure we don't get spurious cache invalidation the first time
+# ThreadpoolController is created, as the Windows dll listing methods import
+# from there:
+if sys.platform == "win32":
+    from ctypes import wintypes
+
+    del wintypes
+
 
 __version__ = "3.8.0.dev0"
 __all__ = [
     "LibController",
     "ThreadpoolController",
+    "get_cached_controller",
     "register",
+    "reset_cached_controller",
     "threadpool_info",
     "threadpool_limits",
 ]
@@ -570,6 +583,11 @@ class FlexiBLASController(LibController):
                     " a backend available in the FlexiBLAS configuration "
                     f"{self.available_backends} or the path to a valid shared library."
                 )
+
+            # Invalidate the global cached controller:
+            global _CACHED_CONTROLLER
+            with _CACHE_LOCK:
+                _CACHED_CONTROLLER = None
 
             # Trigger a new search of loaded shared libraries since loading a new
             # backend caused a dlopen.
@@ -1740,6 +1758,54 @@ def _main():
         exec(options.command)  # noqa: S102
 
     print(json.dumps(threadpool_info(debugging_info=True), indent=2))
+
+
+# A cached instance of ThreadpoolController, created by
+# get_cached_controller():
+_CACHED_CONTROLLER = None
+# Cached number of modules in sys.modules, used by get_cached_controller()
+_CACHED_SYS_MODULES_LEN = 0
+# The lock controlling access to the above:
+_CACHE_LOCK = Lock()
+
+
+def get_cached_controller() -> ThreadpoolController:
+    """Return a cached ``ThreadpoolController``, as a speed optimization.
+
+    The cached version is regenerated if the number of imported of modules has
+    changed, since this indicates the possibility that a new controllable
+    library has been loaded.  Invalidation also happens if Flexiblas is in use
+    and has changed its backend.
+
+    It is possible that somehow a controllable library gets loaded without
+    importing a Python module, e.g. using ``dlopen()`` on Linux, a ctypes
+    ``CDLL``, and the like.  This is rare, however.  Outside of these
+    situations, using ``get_cached_controller()`` will be much faster than
+    creating a new ``ThreadpoolController`` instance.
+
+    The cached controller can be explicitly invalidated by calling the
+    `reset_cached_controller()` module level function.
+    """
+    global _CACHED_CONTROLLER, _CACHED_SYS_MODULES_LEN
+    # Fast path, with no lock:
+    if _CACHED_SYS_MODULES_LEN == len(sys.modules) and _CACHED_CONTROLLER is not None:
+        return _CACHED_CONTROLLER
+    with _CACHE_LOCK:
+        # Do this once, so there's no race condition with imports in other
+        # threads:
+        num_modules = len(sys.modules)
+        if _CACHED_CONTROLLER is None or num_modules != _CACHED_SYS_MODULES_LEN:
+            _CACHED_CONTROLLER = ThreadpoolController()
+            _CACHED_SYS_MODULES_LEN = num_modules
+    return _CACHED_CONTROLLER
+
+
+def reset_cached_controller() -> None:
+    """Clear the cached ``ThreadpoolController``, if any."""
+    global _CACHED_CONTROLLER, _CACHED_SYS_MODULES_LEN
+    with _CACHE_LOCK:
+        _CACHED_CONTROLLER = None
+        _CACHED_SYS_MODULES_LEN = 0
 
 
 if __name__ == "__main__":

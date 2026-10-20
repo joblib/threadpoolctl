@@ -426,11 +426,13 @@ An complete example can be found [here](
 
 ### Sequential BLAS within OpenMP parallel region
 
-Libraries that call BLAS from their own OpenMP parallel regions (for instance
-from a Cython `prange` loop) usually want each of these BLAS calls to be
-sequential, to avoid oversubscription. For this use case, set
-`limits="sequential_blas_under_openmp"` rather than `limits=1` and
-`user_api="blas"`:
+When one wants to have sequential BLAS calls within an OpenMP parallel region, it's
+necessary to set `limits="sequential_blas_under_openmp"` since setting `limits=1` and
+`user_api="blas"` leads to unexpected behavior for OpenBLAS with the OpenMP threading
+layer: OpenBLAS and the calling code share the same OpenMP runtime, so it also sets
+the number of OpenMP threads of the current thread to 1. Inside the limit, any OpenMP
+parallel region started from this thread without an explicit number of threads runs
+on a single thread, and `omp_get_max_threads()` returns 1.
 
 ```python
 from threadpoolctl import ThreadpoolController
@@ -441,13 +443,6 @@ with controller.limit(limits="sequential_blas_under_openmp"):
     # Compiled code with an OpenMP parallel loop that calls BLAS.
     my_openmp_kernel(X)
 ```
-
-With OpenBLAS's OpenMP threading layer, OpenBLAS and the calling code share the
-same OpenMP runtime, so `limits=1` and `user_api="blas"` also sets the number of
-OpenMP threads of the current thread to 1. Inside the limit, any OpenMP parallel
-region started from this thread without an explicit number of threads runs on a
-single thread, and `omp_get_max_threads()` returns 1. See also
-https://github.com/xianyi/OpenBLAS/issues/2985.
 
 `limits="sequential_blas_under_openmp"` doesn't change anything in this
 configuration: OpenBLAS is already sequential by default when it is called from

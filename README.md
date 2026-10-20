@@ -444,11 +444,6 @@ with controller.limit(limits="sequential_blas_under_openmp"):
     my_openmp_kernel(X)
 ```
 
-`limits="sequential_blas_under_openmp"` doesn't change anything in this
-configuration: OpenBLAS is already sequential by default when it is called from
-an OpenMP parallel region. For the other BLAS libraries and threading layers,
-it's the same as `limits=1` and `user_api="blas"`.
-
 ### Known Limitations
 
 - `threadpool_limits` can fail to limit the number of inner threads when nesting

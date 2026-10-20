@@ -1048,6 +1048,9 @@ class ThreadpoolController:
         if self.select(
             internal_api="openblas", threading_layer="openmp"
         ).lib_controllers:
+            # Don't change anything: OpenBLAS is already sequential by default when it
+            # is called from an OpenMP parallel region, and limiting it would also
+            # limit the OpenMP parallel regions of the calling thread.
             return {"limits": None, "user_api": None}
         return {"limits": 1, "user_api": "blas"}
 

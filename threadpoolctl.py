@@ -22,7 +22,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from contextlib import ContextDecorator
 from functools import lru_cache
-from threading import Thread
+from threading import Thread, Lock, current_thread
 from typing import Literal, final
 
 # ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
@@ -290,7 +290,21 @@ class LibController(ABC):
 
 
 class OpenBLASController(LibController):
-    """Controller class for OpenBLAS"""
+    """Controller class for OpenBLAS.
+
+    When OpenMP threading layer is not used, there is a process-wide shared
+    thread pool, so having multiple Python threads change the limit at the same
+    time makes no sense.  Therefore:
+
+        1. Thread pool size can only be set by a single thread, the first
+           thread to call ``set_num_threads()``.  In practice this will usually
+           be the main thread.
+
+        2. Other threads silently do nothing.
+
+        3. ``clear_controlling_thread()`` can be used to reset the thread that
+           can meaningfully use the limiting API.
+    """
 
     user_api = "blas"
     internal_api = "openblas"
@@ -332,7 +346,45 @@ class OpenBLASController(LibController):
             return get_num_threads_func()
         return None
 
+    class _SHARED_STATE:
+        """Shared state across instances."""
+        controlling_thread: Thread | None = None
+        lock = Lock()
+
+    @classmethod
+    def clear_controlling_thread(cls):
+        """Reset which thread can set limits (on non-OpenMP threading layer).
+
+        It's up the caller to ensure the current controlling thread is done.
+        """
+        with cls._SHARED_STATE.lock:
+            cls._SHARED_STATE.controlling_thread = None
+
     def set_num_threads(self, num_threads):
+        if self.threading_layer == "openmp":
+            # Per-thread limits, so no need to be constraining:
+            return self._real_set_num_threads(num_threads)
+
+        # A shared process-wide thread pool, so don't want different Python
+        # threads fighting over limits:
+        this_thread = current_thread()
+
+        match self._SHARED_STATE.controlling_thread:
+            case None:
+                with self._SHARED_STATE.lock:
+                    # Another thread might have changed it, so ensure that's
+                    # not the case:
+                    if self._SHARED_STATE.controlling_thread is None:
+                        self._SHARED_STATE.controlling_thread = this_thread
+                # Controlling thread should now be set, to either this thread
+                # or another, so try again:
+                return self.set_num_threads(num_threads)
+            case controlling_thread if controlling_thread is this_thread:
+                return self._real_set_num_threads(num_threads)
+            case _:
+                return
+
+    def _real_set_num_threads(self, num_threads):
         # The OpenBLAS limiting API is process-wide, and we want current thread
         # limit if possible. When OpenBLAS is backed by OpenMP, using the
         # OpenMP API allows for current thread limiting when OpenMP has that

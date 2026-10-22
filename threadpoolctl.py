@@ -376,6 +376,7 @@ class OpenBLASController(LibController):
 
         match self._SHARED_STATE.controlling_thread:
             case None:
+                # No thread controls OpenBLAS, so try to take control:
                 with self._SHARED_STATE.lock:
                     # Another thread might have changed it, so ensure that's
                     # not the case:
@@ -385,8 +386,10 @@ class OpenBLASController(LibController):
                 # or another, so try again:
                 return self.set_num_threads(num_threads)
             case controlling_thread if controlling_thread is this_thread:
+                # This thread controls OpenBLAS:
                 return self._real_set_num_threads(num_threads)
             case _:
+                # Some other thread controlls OpenBLAS:
                 return
 
     def _real_set_num_threads(self, num_threads):

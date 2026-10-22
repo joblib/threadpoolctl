@@ -154,6 +154,7 @@ def _determine_thread_limit_scope(
         thread = Thread(target=get_and_set)
         thread.start()
         thread.join()
+        OpenBLASController.clear_controlling_thread(force=True)
 
         # First, getting in the same thread as a set should always give same
         # number, if it's a number in a reasonable range. A possible exception
@@ -179,6 +180,7 @@ def _determine_thread_limit_scope(
             return "unknown"
     finally:
         set_n_threads(previous)
+        OpenBLASController.clear_controlling_thread(force=True)
 
 
 class LibController(ABC):

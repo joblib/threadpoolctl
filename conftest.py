@@ -13,4 +13,4 @@ def reset_openblas_controlling_thread():
     try:
         yield
     finally:
-        OpenBLASController.clear_controlling_thread()
+        OpenBLASController.clear_controlling_thread(force=True)

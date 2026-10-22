@@ -352,13 +352,18 @@ class OpenBLASController(LibController):
         lock = Lock()
 
     @classmethod
-    def clear_controlling_thread(cls):
+    def clear_controlling_thread(cls, force: bool=False):
         """Reset which thread can set limits (on non-OpenMP threading layer).
 
         It's up the caller to ensure the current controlling thread is done.
+
+        By default, only the controlling thread has an effect when calling this
+        moethod.  You can have any thread clear the controlling thread by
+        setting ``force=True``.
         """
         with cls._SHARED_STATE.lock:
-            cls._SHARED_STATE.controlling_thread = None
+            if force or cls._SHARED_STATE.controlling_thread is current_thread():
+                cls._SHARED_STATE.controlling_thread = None
 
     def set_num_threads(self, num_threads):
         if self.threading_layer == "openmp":

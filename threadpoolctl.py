@@ -350,11 +350,12 @@ class OpenBLASController(LibController):
 
     class _SHARED_STATE:
         """Shared state across instances."""
+
         controlling_thread: Thread | None = None
         lock = Lock()
 
     @classmethod
-    def clear_controlling_thread(cls, force: bool=False):
+    def clear_controlling_thread(cls, force: bool = False):
         """Reset which thread can set limits (on non-OpenMP threading layer).
 
         It's up the caller to ensure the current controlling thread is done.

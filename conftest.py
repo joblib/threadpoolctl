@@ -7,9 +7,11 @@ collect_ignore = [
     "tests/_dl_iterate_phdr_deadlock.py",
 ]
 
+
 @pytest.fixture(autouse=True)
 def reset_openblas_controlling_thread():
     from threadpoolctl import OpenBLASController
+
     try:
         yield
     finally:

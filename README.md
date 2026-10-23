@@ -231,6 +231,12 @@ libraries) that can take some time. To prevent the performance cost of doing
 this work in all the threads, you can reuse a `ThreadpoolController` object
 across the threads.
 
+OpenBLAS with pthreads or Windows threading layer, affects the whole process,
+and is therefore constrained to only work from the first thread that uses it,
+the controlling thread. Other third party libraries allow setting the limit
+per-thread. So we set limits both in the main thread (in case you're using
+OpenBLAS+pthreads) and in each worker thread.
+
 ```python
 from threadpoolctl import ThreadpoolController
 
@@ -241,11 +247,10 @@ from threadpoolctl import ThreadpoolController
 controller = ThreadpoolController()
 
 with (
-    # This top-level limiter doesn't actually change the limits initially; it
-    # is there to ensure the limits are reset _after_ the Python thread pool is
-    # done. This is necessary because some underlying limiting APIs operate on
-    # a process-wide basis.
-    controller.limit(),
+    # Limit on main thread. This is necessary because some underlying limiting
+    # APIs operate on a process-wide basis. Because it's a context manager, it
+    # will restore the limits after the ``with`` is done.
+    controller.limit(limits=1),
     # Make sure each Python worker thread also calls threadpool_limits(). If
     # you're using another thread pool class, you will need to do so some other
     # way.
@@ -257,7 +262,7 @@ with (
 # Later...
 controller = ThreadpoolController()
 with (
-    controller.limit(),
+    controller.limit(limits=2),
     ThreadPoolExecutor(4, initializer=lambda: controller.limit(limits=2)) as pool,
 ):
     # ... run some BLAS-using code in the thread pool ...
@@ -271,7 +276,7 @@ from threadpoolctl import ThreadpoolController
 
 controller = ThreadpoolController()
 try:
-    limiter = controller.limit()
+    limiter = controller.limit(limits=1)
     with ThreadPoolExecutor(4, initializer=lambda: controller.limit(limits=1)) as pool:
         # ... run some BLAS-using code in the thread pool ...
         pool.map(somefunc, someargs)

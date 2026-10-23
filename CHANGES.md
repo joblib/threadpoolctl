@@ -5,6 +5,14 @@
   quite a bit of overhead.
   https://github.com/joblib/threadpoolctl/pull/250
 
+- When OpenBLAS uses a non-OpenMP threading layer, you can only set the size of
+  its thread pool from a single controlling thread; since it has a shared
+  process-wide thread pool, having multiple Python threads fight over control
+  wouldn't work well. A new API
+  ``OpenBLASController.clear_controlling_thread()`` allows resetting which
+  thread controlls OpenBLAS in these cases.
+  https://github.com/joblib/threadpoolctl/pull/275
+
 - Added official support for Python 3.15, and declared support for Python 3.14
   in package metadata.
   https://github.com/joblib/threadpoolctl/issues/251

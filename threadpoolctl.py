@@ -22,7 +22,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from contextlib import ContextDecorator
 from functools import lru_cache
-from threading import Thread, Lock, current_thread
+from threading import Lock, Thread, current_thread
 from typing import Literal, final
 
 # ctypes.util is not imported on Linux: on CPython 3.14 it allocates a

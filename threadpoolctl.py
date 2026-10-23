@@ -754,7 +754,7 @@ class _ThreadpoolLimiter:
 
     def __init__(self, controller, *, limits=None, user_api=None):
         self._controller = controller
-        self._limits, self._user_api, self._prefixes = self._check_params(
+        self._limits, self._user_api = self._check_params(
             limits, user_api
         )
         self._original_info = self._controller.info()
@@ -820,7 +820,7 @@ class _ThreadpoolLimiter:
         return num_threads
 
     def _check_params(self, limits, user_api):
-        """Suitable values for the _limits, _user_api and _prefixes attributes"""
+        """Suitable values for the _limits and _user_api attributes"""
 
         if isinstance(limits, str) and limits == "sequential_blas_under_openmp":
             (
@@ -841,19 +841,23 @@ class _ThreadpoolLimiter:
 
             if limits is not None:
                 limits = {api: limits for api in user_api}
-            prefixes = []
         else:
             if isinstance(limits, list):
                 # This should be a list of dicts of library info, for
                 # compatibility with the result from threadpool_info.
                 limits = {
-                    lib_info["prefix"]: lib_info["num_threads"] for lib_info in limits
+                    # Use prefix key for backwards compatibility with older
+                    # versions that didn't use the filepath as the key.
+                    lib_info.get("filepath", lib_info["prefix"]): lib_info[
+                        "num_threads"
+                    ]
+                    for lib_info in limits
                 }
             elif isinstance(limits, ThreadpoolController):
                 # To set the limits from the library controllers of a
                 # ThreadpoolController object.
                 limits = {
-                    lib_controller.prefix: lib_controller.num_threads
+                    lib_controller.filepath: lib_controller.num_threads
                     for lib_controller in limits.lib_controllers
                 }
 
@@ -865,25 +869,22 @@ class _ThreadpoolLimiter:
 
             # With a dictionary, can set both specific limit for given
             # libraries and global limit for user_api. Fetch each separately.
-            prefixes = [prefix for prefix in limits if prefix in _ALL_PREFIXES]
             user_api = [api for api in limits if api in _ALL_USER_APIS]
 
-        return limits, user_api, prefixes
+        return limits, user_api
 
     def _set_threadpool_limits(self):
-        """Change the maximal number of threads in selected thread pools.
-
-        Return a list with all the supported libraries that have been found
-        matching `self._prefixes` and `self._user_api`.
-        """
+        """Change the maximal number of threads in selected thread pools."""
         if self._limits is None:
             return
 
         for lib_controller in self._controller.lib_controllers:
-            # self._limits is a dict {key: num_threads} where key is either
-            # a prefix or a user_api. If a library matches both, the limit
-            # corresponding to the prefix is chosen.
-            if lib_controller.prefix in self._limits:
+            # self._limits is a dict {key: num_threads} where key is either a
+            # filepath, a prefix, or a user_api. Libraries are matched in that
+            # order.
+            if lib_controller.filepath in self._limits:
+                num_threads = self._limits[lib_controller.filepath]
+            elif lib_controller.prefix in self._limits:
                 num_threads = self._limits[lib_controller.prefix]
             elif lib_controller.user_api in self._limits:
                 num_threads = self._limits[lib_controller.user_api]
@@ -898,7 +899,7 @@ class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
     """Same as _ThreadpoolLimiter but to be used as a decorator"""
 
     def __init__(self, controller, *, limits=None, user_api=None):
-        self._limits, self._user_api, self._prefixes = self._check_params(
+        self._limits, self._user_api = self._check_params(
             limits, user_api
         )
         self._controller = controller

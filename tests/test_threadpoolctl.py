@@ -140,6 +140,46 @@ def test_threadpool_controller_select(kwargs):
         )
 
 
+@pytest.mark.parametrize(
+    "to_structure",
+    [
+        lambda filepath, limit: [{"filepath": filepath, "num_threads": limit}],
+        lambda filepath, limit: {filepath: limit},
+    ],
+)
+@pytest.mark.parametrize("limit", [1, 3])
+def test_threadpool_limits_by_filepath(to_structure, limit):
+    controller = ThreadpoolController()
+    original_info = controller.info()
+    original_limits = {d["filepath"]: d["num_threads"] for d in original_info}
+
+    for lib_controller in controller.lib_controllers:
+        with threadpool_limits(limits=to_structure(lib_controller.filepath, limit)):
+            # threadpool_limits only sets an upper bound on the number of
+            # threads.
+            assert 0 < lib_controller.num_threads <= limit
+            for other_lib_controller in controller.lib_controllers:
+                if other_lib_controller is lib_controller:
+                    continue
+                assert (
+                    other_lib_controller.get_num_threads()
+                    == original_limits[other_lib_controller.filepath]
+                )
+    assert ThreadpoolController().info() == original_info
+
+
+@pytest.mark.skipif(scipy is None, reason="need numpy and scipy")
+def test_threadpool_limits_prioritizes_filepath_over_prefix():
+    controller = ThreadpoolController()
+    openblases = controller.select(internal_api="openblas").lib_controllers
+    if len(openblases) < 2 or len({ob.prefix for ob in openblases}) == len(openblases):
+        pytest.skip("Need two OpenBLASes with same prefix")
+
+    with controller.limit(limits={openblases[0].filepath: 1, openblases[1].prefix: 3}):
+        assert 0 <= openblases[0].get_num_threads() <= 1
+        assert 0 <= openblases[1].get_num_threads() <= 3
+
+
 @pytest.mark.parametrize("prefix", _ALL_PREFIXES)
 @pytest.mark.parametrize("limit", [1, 3])
 def test_threadpool_limits_by_prefix(prefix, limit):

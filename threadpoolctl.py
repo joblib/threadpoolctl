@@ -741,6 +741,9 @@ def threadpool_info(debugging_info: bool = False):
     return ThreadpoolController().info(debugging_info)
 
 
+_missing = object()
+
+
 class _ThreadpoolLimiter:
     """The guts of ThreadpoolController.limit
 
@@ -845,14 +848,16 @@ class _ThreadpoolLimiter:
             if isinstance(limits, list):
                 # This should be a list of dicts of library info, for
                 # compatibility with the result from threadpool_info.
-                limits = {
+                result = {}
+                for lib_info in limits:
                     # Use prefix key for backwards compatibility with older
                     # versions that didn't use the filepath as the key.
-                    lib_info.get("filepath", lib_info["prefix"]): lib_info[
-                        "num_threads"
-                    ]
-                    for lib_info in limits
-                }
+                    if (filepath := lib_info.get("filepath", _missing)) is not _missing:
+                        key = filepath
+                    else:
+                        key = lib_info["prefix"]
+                    result[key] = lib_info["num_threads"]
+                limits = result
             elif isinstance(limits, ThreadpoolController):
                 # To set the limits from the library controllers of a
                 # ThreadpoolController object.

@@ -13,7 +13,8 @@
   related APIs, the `"filepath"` is used as the unique key identifying
   ``LibController``s, if available, falling back to ``"prefix"``. Previously the
   ``"prefix"`` was checked first.
-  https://github.com/joblib/threadpoolctl/issues/257
+  https://github.com/joblib/threadpoolctl/pull/278
+
 
 3.7.0 (2026-09-15)
 ==================

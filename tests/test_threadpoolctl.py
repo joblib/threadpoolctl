@@ -15,6 +15,7 @@ from threadpoolctl import (
     _ALL_PREFIXES,
     _ALL_USER_APIS,
     LibController,
+    OpenBLASController,
     ThreadpoolController,
     _determine_thread_limit_scope,
     threadpool_info,
@@ -158,6 +159,13 @@ def test_threadpool_limits_by_filepath(to_structure, limit):
             # threadpool_limits only sets an upper bound on the number of
             # threads.
             assert 0 < lib_controller.num_threads <= limit
+            if (
+                isinstance(lib_controller, OpenBLASController)
+                and lib_controller.threading_layer == "openmp"
+            ):
+                # Uses omp_set_num_threads() internally so does actually affect
+                # other libraries
+                continue
             for other_lib_controller in controller.lib_controllers:
                 if other_lib_controller.filepath == lib_controller.filepath:
                     continue

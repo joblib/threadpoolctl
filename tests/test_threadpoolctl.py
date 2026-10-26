@@ -15,8 +15,6 @@ from threadpoolctl import (
     _ALL_PREFIXES,
     _ALL_USER_APIS,
     LibController,
-    OpenBLASController,
-    OpenMPController,
     ThreadpoolController,
     _determine_thread_limit_scope,
     threadpool_info,

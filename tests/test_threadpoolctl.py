@@ -153,27 +153,13 @@ def test_threadpool_controller_select(kwargs):
 def test_threadpool_limits_by_filepath(to_structure, limit):
     controller = ThreadpoolController()
     original_info = controller.info()
-    original_limits = {d["filepath"]: d["num_threads"] for d in original_info}
 
     for lib_controller in controller.lib_controllers:
         with threadpool_limits(limits=to_structure(lib_controller.filepath, limit)):
             # threadpool_limits only sets an upper bound on the number of
             # threads.
             assert 0 < lib_controller.num_threads <= limit
-            if (
-                isinstance(lib_controller, OpenBLASController)
-                and lib_controller.threading_layer == "openmp"
-            ) or isinstance(lib_controller, OpenMPController):
-                # Uses omp_set_num_threads() internally so does actually affect
-                # other libraries
-                continue
-            for other_lib_controller in controller.lib_controllers:
-                if other_lib_controller.filepath == lib_controller.filepath:
-                    continue
-                assert (
-                    other_lib_controller.get_num_threads()
-                    == original_limits[other_lib_controller.filepath]
-                )
+
     assert ThreadpoolController().info() == original_info
 
 

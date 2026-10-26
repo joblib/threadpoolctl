@@ -62,7 +62,7 @@ jobs:
             # TODO: revert to "*" once OpenCV can be imported with Python 3.15
             # on Windows. See
             # https://github.com/conda-forge/opencv-feedstock/issues/557
-            PYTHON_VERSION: "3.14"
+            PYTHON_VERSION: "3.14.8=*_101_cp314"
             PACKAGER: "conda-forge"
             BLAS: "openblas"
             INSTALL_OPENCV: "true"

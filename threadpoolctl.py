@@ -757,9 +757,7 @@ class _ThreadpoolLimiter:
 
     def __init__(self, controller, *, limits=None, user_api=None):
         self._controller = controller
-        self._limits, self._user_api = self._check_params(
-            limits, user_api
-        )
+        self._limits, self._user_api = self._check_params(limits, user_api)
         self._original_info = self._controller.info()
         self._set_threadpool_limits()
 
@@ -904,9 +902,7 @@ class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
     """Same as _ThreadpoolLimiter but to be used as a decorator"""
 
     def __init__(self, controller, *, limits=None, user_api=None):
-        self._limits, self._user_api = self._check_params(
-            limits, user_api
-        )
+        self._limits, self._user_api = self._check_params(limits, user_api)
         self._controller = controller
 
     def __enter__(self):

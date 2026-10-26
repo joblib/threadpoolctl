@@ -16,6 +16,7 @@ from threadpoolctl import (
     _ALL_USER_APIS,
     LibController,
     OpenBLASController,
+    OpenMPController,
     ThreadpoolController,
     _determine_thread_limit_scope,
     threadpool_info,
@@ -162,7 +163,7 @@ def test_threadpool_limits_by_filepath(to_structure, limit):
             if (
                 isinstance(lib_controller, OpenBLASController)
                 and lib_controller.threading_layer == "openmp"
-            ):
+            ) or isinstance(lib_controller, OpenMPController):
                 # Uses omp_set_num_threads() internally so does actually affect
                 # other libraries
                 continue

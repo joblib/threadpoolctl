@@ -159,7 +159,7 @@ def test_threadpool_limits_by_filepath(to_structure, limit):
             # threads.
             assert 0 < lib_controller.num_threads <= limit
             for other_lib_controller in controller.lib_controllers:
-                if other_lib_controller is lib_controller:
+                if other_lib_controller.filepath == lib_controller.filepath:
                     continue
                 assert (
                     other_lib_controller.get_num_threads()

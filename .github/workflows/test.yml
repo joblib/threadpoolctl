@@ -301,7 +301,11 @@ jobs:
         with:
           auto-activate-base: true
           auto-update-conda: true
-          miniforge-version: latest
+          # Windows hardcoded version is workaround for
+          # https://github.com/joblib/threadpoolctl/issues/279, revert once
+          # https://github.com/conda-forge/miniforge/issues/913 is fixesd and
+          # new miniconda released on Windows.
+          miniforge-version: ${{ runner.os == 'Windows' && '26.7.2-1' || 'latest' }}
 
       - name: Install dependencies
         run: |

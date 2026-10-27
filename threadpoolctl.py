@@ -741,6 +741,9 @@ def threadpool_info(debugging_info: bool = False):
     return ThreadpoolController().info(debugging_info)
 
 
+_missing = object()
+
+
 class _ThreadpoolLimiter:
     """The guts of ThreadpoolController.limit
 
@@ -754,9 +757,7 @@ class _ThreadpoolLimiter:
 
     def __init__(self, controller, *, limits=None, user_api=None):
         self._controller = controller
-        self._limits, self._user_api, self._prefixes = self._check_params(
-            limits, user_api
-        )
+        self._limits, self._user_api = self._check_params(limits, user_api)
         self._original_info = self._controller.info()
         self._set_threadpool_limits()
 
@@ -820,7 +821,7 @@ class _ThreadpoolLimiter:
         return num_threads
 
     def _check_params(self, limits, user_api):
-        """Suitable values for the _limits, _user_api and _prefixes attributes"""
+        """Suitable values for the _limits and _user_api attributes"""
 
         if isinstance(limits, str) and limits == "sequential_blas_under_openmp":
             (
@@ -841,19 +842,25 @@ class _ThreadpoolLimiter:
 
             if limits is not None:
                 limits = {api: limits for api in user_api}
-            prefixes = []
         else:
             if isinstance(limits, list):
                 # This should be a list of dicts of library info, for
                 # compatibility with the result from threadpool_info.
-                limits = {
-                    lib_info["prefix"]: lib_info["num_threads"] for lib_info in limits
-                }
+                result = {}
+                for lib_info in limits:
+                    # Use prefix key for backwards compatibility with older
+                    # versions that didn't use the filepath as the key.
+                    if (filepath := lib_info.get("filepath", _missing)) is not _missing:
+                        key = filepath
+                    else:
+                        key = lib_info["prefix"]
+                    result[key] = lib_info["num_threads"]
+                limits = result
             elif isinstance(limits, ThreadpoolController):
                 # To set the limits from the library controllers of a
                 # ThreadpoolController object.
                 limits = {
-                    lib_controller.prefix: lib_controller.num_threads
+                    lib_controller.filepath: lib_controller.num_threads
                     for lib_controller in limits.lib_controllers
                 }
 
@@ -865,25 +872,22 @@ class _ThreadpoolLimiter:
 
             # With a dictionary, can set both specific limit for given
             # libraries and global limit for user_api. Fetch each separately.
-            prefixes = [prefix for prefix in limits if prefix in _ALL_PREFIXES]
             user_api = [api for api in limits if api in _ALL_USER_APIS]
 
-        return limits, user_api, prefixes
+        return limits, user_api
 
     def _set_threadpool_limits(self):
-        """Change the maximal number of threads in selected thread pools.
-
-        Return a list with all the supported libraries that have been found
-        matching `self._prefixes` and `self._user_api`.
-        """
+        """Change the maximal number of threads in selected thread pools."""
         if self._limits is None:
             return
 
         for lib_controller in self._controller.lib_controllers:
-            # self._limits is a dict {key: num_threads} where key is either
-            # a prefix or a user_api. If a library matches both, the limit
-            # corresponding to the prefix is chosen.
-            if lib_controller.prefix in self._limits:
+            # self._limits is a dict {key: num_threads} where key is either a
+            # filepath, a prefix, or a user_api. Libraries are matched in that
+            # order.
+            if lib_controller.filepath in self._limits:
+                num_threads = self._limits[lib_controller.filepath]
+            elif lib_controller.prefix in self._limits:
                 num_threads = self._limits[lib_controller.prefix]
             elif lib_controller.user_api in self._limits:
                 num_threads = self._limits[lib_controller.user_api]
@@ -898,9 +902,7 @@ class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
     """Same as _ThreadpoolLimiter but to be used as a decorator"""
 
     def __init__(self, controller, *, limits=None, user_api=None):
-        self._limits, self._user_api, self._prefixes = self._check_params(
-            limits, user_api
-        )
+        self._limits, self._user_api = self._check_params(limits, user_api)
         self._controller = controller
 
     def __enter__(self):
@@ -935,7 +937,7 @@ class threadpool_limits(_ThreadpoolLimiter):
 
     Parameters
     ----------
-    limits : int, dict, 'sequential_blas_under_openmp' or None (default=None)
+    limits : int, dict, list, 'sequential_blas_under_openmp' or None (default=None)
         The maximal number of threads that can be used in thread pools
 
         - If int, sets the maximum number of threads to `limits` for each
@@ -943,7 +945,14 @@ class threadpool_limits(_ThreadpoolLimiter):
 
         - If it is a dictionary `{{key: max_threads}}`, this function sets a
           custom maximum number of threads for each `key` which can be either a
-          `user_api` or a `prefix` for a specific library.
+          `filepath`, `prefix`, or `user_api` for a specific library,
+          checked in that order.
+
+        - If it is a list, it should be a list of dictionaries of the form
+          `{{"filepath": "/.../", "num_threads": 12}}`. Older versions of
+          threadpoolctl accepted a `"prefix"` instead of `"filepath"`,
+          so for maximal compatibility set both:
+          `[{{"filepath": "...", "prefix": "...", "num_threads": 7}}]`
 
         - If 'sequential_blas_under_openmp', it will chose the appropriate `limits`
           and `user_api` parameters for the specific use case of sequential BLAS
@@ -1077,7 +1086,7 @@ class ThreadpoolController:
 
         Parameters
         ----------
-        limits : int, dict, 'sequential_blas_under_openmp' or None (default=None)
+        limits : int, dict, list, 'sequential_blas_under_openmp' or None (default=None)
             The maximal number of threads that can be used in thread pools
 
             - If int, sets the maximum number of threads to `limits` for each
@@ -1085,7 +1094,14 @@ class ThreadpoolController:
 
             - If it is a dictionary `{{key: max_threads}}`, this function sets a
               custom maximum number of threads for each `key` which can be either a
-              `user_api` or a `prefix` for a specific library.
+              `filepath`, `prefix`, or `user_api` for a specific library,
+              checked in that order.
+
+            - If it is a list, it should be a list of dictionaries of the form
+              `{{"filepath": "/.../", "num_threads": 12}}`. Older versions of
+              threadpoolctl accepted a `"prefix"` instead of `"filepath"`,
+              so for maximal compatibility set both:
+              `[{{"filepath": "...", "prefix": "...", "num_threads": 7}}]`
 
             - If 'sequential_blas_under_openmp', it will chose the appropriate `limits`
               and `user_api` parameters for the specific use case of sequential BLAS
@@ -1123,7 +1139,7 @@ class ThreadpoolController:
 
         Parameters
         ----------
-        limits : int, dict or None (default=None)
+        limits : int, dict, list, 'sequential_blas_under_openmp', or None (default=None)
             The maximal number of threads that can be used in thread pools
 
             - If int, sets the maximum number of threads to `limits` for each
@@ -1131,7 +1147,19 @@ class ThreadpoolController:
 
             - If it is a dictionary `{{key: max_threads}}`, this function sets a
               custom maximum number of threads for each `key` which can be either a
-              `user_api` or a `prefix` for a specific library.
+              `filepath`, `prefix`, or `user_api` for a specific library,
+              checked in that order.
+
+            - If it is a list, it should be a list of dictionaries of the form
+              `{{"filepath": "/.../", "num_threads": 12}}`. Older versions of
+              threadpoolctl accepted a `"prefix"` instead of `"filepath"`,
+              so for maximal compatibility set both:
+              `[{{"filepath": "...", "prefix": "...", "num_threads": 7}}]`
+
+            - If 'sequential_blas_under_openmp', it will chose the appropriate `limits`
+              and `user_api` parameters for the specific use case of sequential BLAS
+              calls within an OpenMP parallel region. The `user_api` parameter is
+              ignored.
 
             - If None, this function does not do anything.
 

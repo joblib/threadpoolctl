@@ -361,7 +361,7 @@ class OpenBLASController(LibController):
         It's up the caller to ensure the current controlling thread is done.
 
         By default, only the controlling thread has an effect when calling this
-        moethod.  You can have any thread clear the controlling thread by
+        method.  You can have any thread clear the controlling thread by
         setting ``force=True``.
         """
         with cls._SHARED_STATE.lock:

@@ -759,11 +759,11 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
     assert openblas_lib.get_num_threads() == orig_num_threads
 
     # The controlling thread can clear, and then another thread can set:
-    clear_and_set()
+    openblas_lib.clear_controlling_thread()
     run_in_thread(openblas_lib.set_num_threads, 1)
     assert openblas_lib.get_num_threads() == 1
 
-    # clear_controlling_thread(Force=True) allows any thread to clear:
+    # clear_controlling_thread(force=True) allows any thread to clear:
     openblas_lib.clear_controlling_thread(force=True)
     openblas_lib.set_num_threads(orig_num_threads)
     assert openblas_lib.get_num_threads() == orig_num_threads

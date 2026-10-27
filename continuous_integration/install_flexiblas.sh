@@ -42,9 +42,7 @@ cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
     -DTESTS=OFF \
     -DOPENBLAS_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libopenblas"$EXTENSION
 
-# The reference BLAS/LAPACK tests are not executed in CI. Building them
-# with a serial make makes the macOS job spend most of its 30 minute
-# limit in this step and time out before NumPy is installed.
+# Enable build parallelism to keep the CI below the 30 min timeout.
 if [[ $(uname) == "Darwin" ]]; then
     NPROC=$(sysctl -n hw.ncpu)
 else

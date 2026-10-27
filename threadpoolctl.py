@@ -294,9 +294,14 @@ class LibController(ABC):
 class OpenBLASController(LibController):
     """Controller class for OpenBLAS.
 
-    When OpenMP threading layer is not used, there is a process-wide shared
-    thread pool, so having multiple Python threads change the limit at the same
-    time makes no sense.  Therefore:
+    When OpenBLAS uses the OpenMP threading layer, each thread that calls into
+    OpenBLAS gets its own OpenBLAS thread pool, and correspondingly the limit
+    set by ``threadpoolctl`` is per-thread.  Each Python thread can therefore
+    set its own limit without consideration for other Python threads.
+
+    In constrast, when the OpenMP threading layer is not used, there is a
+    process-wide shared thread pool, so having multiple Python threads change
+    the limit at the same time makes no sense.  Therefore:
 
         1. Thread pool size can only be set by a single thread, the first
            thread to call ``set_num_threads()``.  In practice this will usually

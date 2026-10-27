@@ -231,11 +231,23 @@ libraries) that can take some time. To prevent the performance cost of doing
 this work in all the threads, you can reuse a `ThreadpoolController` object
 across the threads.
 
-OpenBLAS with pthreads or Windows threading layer, affects the whole process,
-and is therefore constrained to only work from the first thread that uses it,
-the controlling thread. Other third party libraries allow setting the limit
-per-thread. So we set limits both in the main thread (in case you're using
+When setting limits, you want to set limits both in the main thread (in case you're using
 OpenBLAS+pthreads) and in each worker thread.
+
+> **Why you need both:** When setting a limit on OpenBLAS with pthreads or the
+> Windows threading layer, setting the limit affects the whole process, because
+> it uses a process-wide shared thread pool. (This in contrast to some other
+> BLAS/OpenMP libraries, or OpenBLAS backed by OpenMP, that allow setting the
+> limit per-thread.) Having multiple Python threads set limits in this case
+> makes no sense, since they would effectively be arguing over a globally shared
+> resource. ``threadpoolctl`` therefore constrains the limiting API in the
+> OpenBLAS pthreads/Windows case to only work from the first thread that uses
+> it, the so-called controlling thread.
+>
+> For many other libraries, for example OpenMP, the limit is set per thread. As
+> a result, you want to set limits both ways in generic code that doesn't know
+> the underlying BLAS library: in main thread for the process-wide limits, and
+> per-thread for thread-specific limits like OpenMP.
 
 ```python
 from threadpoolctl import ThreadpoolController
@@ -327,6 +339,22 @@ with CONTROLLER.limit(limits=2):
 ```
 
 ## Usage: Additional APIs and details
+
+### OpenBLAS with pthreads/Windows
+
+As mentioned above, OpenBLAS with pthreads or Windows threading layer uses a
+process-wide shared thread pool. As a result, there are only two limits that
+make sense in most circumstances:
+
+* A limit of `1`, which effectively means no OpenBLAS thread pool: all
+  operations run inline in the calling thread. This is a good setting when you
+  have a Python thread pool calling BLAS, and the number of Python threads is
+  close to the number of available cores.
+* A limit equal to the number of available cores. This is a good setting when
+  you are calling BLAS from the main thread and there are no Python threads.
+
+While `threadpoolctl` does not limit you to these two values, you may wish to do
+so yourself in your code.
 
 ### Switching the FlexiBLAS backend
 

@@ -937,7 +937,7 @@ class threadpool_limits(_ThreadpoolLimiter):
 
     Parameters
     ----------
-    limits : int, dict, 'sequential_blas_under_openmp' or None (default=None)
+    limits : int, dict, list, 'sequential_blas_under_openmp' or None (default=None)
         The maximal number of threads that can be used in thread pools
 
         - If int, sets the maximum number of threads to `limits` for each
@@ -945,7 +945,14 @@ class threadpool_limits(_ThreadpoolLimiter):
 
         - If it is a dictionary `{{key: max_threads}}`, this function sets a
           custom maximum number of threads for each `key` which can be either a
-          `user_api` or a `prefix` for a specific library.
+          `filepath`, `prefix`, or `user_api` for a specific library,
+          checked in that order.
+
+        - If it is a list, it should be a list of dictionaries of the form
+          `{{"filepath": "/.../", "num_threads": 12}}`. Older versions of
+          threadpoolctl accepted a `"prefix"` instead of `"filepath"`,
+          so for maximal compatibility set both:
+          `[{{"filepath": "...", "prefix": "...", "num_threads": 7}}]`
 
         - If 'sequential_blas_under_openmp', it will chose the appropriate `limits`
           and `user_api` parameters for the specific use case of sequential BLAS
@@ -1079,7 +1086,7 @@ class ThreadpoolController:
 
         Parameters
         ----------
-        limits : int, dict, 'sequential_blas_under_openmp' or None (default=None)
+        limits : int, dict, list, 'sequential_blas_under_openmp' or None (default=None)
             The maximal number of threads that can be used in thread pools
 
             - If int, sets the maximum number of threads to `limits` for each
@@ -1087,7 +1094,14 @@ class ThreadpoolController:
 
             - If it is a dictionary `{{key: max_threads}}`, this function sets a
               custom maximum number of threads for each `key` which can be either a
-              `user_api` or a `prefix` for a specific library.
+              `filepath`, `prefix`, or `user_api` for a specific library,
+              checked in that order.
+
+            - If it is a list, it should be a list of dictionaries of the form
+              `{{"filepath": "/.../", "num_threads": 12}}`. Older versions of
+              threadpoolctl accepted a `"prefix"` instead of `"filepath"`,
+              so for maximal compatibility set both:
+              `[{{"filepath": "...", "prefix": "...", "num_threads": 7}}]`
 
             - If 'sequential_blas_under_openmp', it will chose the appropriate `limits`
               and `user_api` parameters for the specific use case of sequential BLAS
@@ -1125,7 +1139,7 @@ class ThreadpoolController:
 
         Parameters
         ----------
-        limits : int, dict or None (default=None)
+        limits : int, dict, list, 'sequential_blas_under_openmp', or None (default=None)
             The maximal number of threads that can be used in thread pools
 
             - If int, sets the maximum number of threads to `limits` for each
@@ -1133,7 +1147,19 @@ class ThreadpoolController:
 
             - If it is a dictionary `{{key: max_threads}}`, this function sets a
               custom maximum number of threads for each `key` which can be either a
-              `user_api` or a `prefix` for a specific library.
+              `filepath`, `prefix`, or `user_api` for a specific library,
+              checked in that order.
+
+            - If it is a list, it should be a list of dictionaries of the form
+              `{{"filepath": "/.../", "num_threads": 12}}`. Older versions of
+              threadpoolctl accepted a `"prefix"` instead of `"filepath"`,
+              so for maximal compatibility set both:
+              `[{{"filepath": "...", "prefix": "...", "num_threads": 7}}]`
+
+            - If 'sequential_blas_under_openmp', it will chose the appropriate `limits`
+              and `user_api` parameters for the specific use case of sequential BLAS
+              calls within an OpenMP parallel region. The `user_api` parameter is
+              ignored.
 
             - If None, this function does not do anything.
 

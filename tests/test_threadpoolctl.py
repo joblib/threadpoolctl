@@ -158,7 +158,7 @@ def test_threadpool_limits_by_filepath(to_structure, limit):
             # threads.
             assert 0 < lib_controller.num_threads <= limit
 
-    assert ThreadpoolController().info() == original_info
+        assert ThreadpoolController().info() == original_info
 
 
 @pytest.mark.skipif(scipy is None, reason="need numpy and scipy")

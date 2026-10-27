@@ -7,7 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
-from threading import Thread
+from threading import Thread, current_thread
 
 import pytest
 
@@ -16,6 +16,7 @@ from threadpoolctl import (
     _ALL_PREFIXES,
     _ALL_USER_APIS,
     LibController,
+    OpenBLASController,
     ThreadpoolController,
     _determine_thread_limit_scope,
     threadpool_info,
@@ -800,6 +801,41 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
     openblas_lib.clear_controlling_thread(force=True)
     openblas_lib.set_num_threads(orig_num_threads)
     assert openblas_lib.get_num_threads() == orig_num_threads
+
+
+def _openblas_controlling_thread():
+    openblas_controller = ThreadpoolController().select(internal_api="openblas")
+
+    if not (openblas_controller):
+        pytest.skip("requires OpenBLAS.")
+
+    return OpenBLASController._SHARED_STATE.controlling_thread
+
+
+def test_openblas_controlling_thread_cleared_on_limiter_context_manager_exit():
+
+    with threadpool_limits(limits=1):
+        assert _openblas_controlling_thread() is current_thread()
+        with threadpool_limits(limits=1):
+            assert _openblas_controlling_thread() is current_thread()
+        assert _openblas_controlling_thread() is current_thread()
+    assert _openblas_controlling_thread() is None
+
+
+def test_openblas_controlling_thread_cleared_on_decorator_exit():
+
+    @threadpool_limits.wrap(limits=1)
+    def inner():
+        assert _openblas_controlling_thread() is current_thread()
+
+    @threadpool_limits.wrap(limits=1)
+    def outer():
+        assert _openblas_controlling_thread() is current_thread()
+        inner()
+        assert _openblas_controlling_thread() is current_thread()
+
+    outer()
+    assert _openblas_controlling_thread() is None
 
 
 # skip test if not run in a azure pipelines job since it relies on a specific flexiblas

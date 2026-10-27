@@ -23,6 +23,7 @@ from collections.abc import Callable
 from contextlib import ContextDecorator
 from functools import lru_cache
 from threading import Lock, Thread, current_thread
+from threading import local as thread_local
 from typing import Literal, final
 
 # ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
@@ -311,6 +312,10 @@ class OpenBLASController(LibController):
 
         3. ``clear_controlling_thread()`` can be used to reset the thread that
            can meaningfully use the limiting API.
+
+    ``with threadpool_limits()`` and the function decorator
+    ``threadpool_limits.wrap()`` will automatically clear the controlling
+    thread when they're done, including when nested.
     """
 
     user_api = "blas"
@@ -454,6 +459,28 @@ class OpenBLASController(LibController):
             get_architecture_func.restype = ctypes.c_char_p
             return get_architecture_func().decode("utf-8")
         return None
+
+
+class _OpenBLASOwnership(thread_local):
+    """Count how many paired limit-unlimits have modified OpenBLAS.
+
+    Clear controlling thread if it hits zero.
+    """
+
+    count = 0
+
+    def increment(self):
+        """Increment ownership."""
+        self.count += 1
+
+    def decrement(self):
+        """Decrement ownership."""
+        self.count -= 1
+        if self.count <= 0:
+            OpenBLASController.clear_controlling_thread()
+
+
+_OPENBLAS_OWNERSHIP = _OpenBLASOwnership()
 
 
 class BLISController(LibController):
@@ -830,10 +857,12 @@ class _ThreadpoolLimiter:
         self._set_threadpool_limits()
 
     def __enter__(self):
+        _OPENBLAS_OWNERSHIP.increment()
         return self
 
     def __exit__(self, type, value, traceback):
         self.restore_original_limits()
+        _OPENBLAS_OWNERSHIP.decrement()
 
     @classmethod
     def wrap(cls, controller, *, limits=None, user_api=None):
@@ -979,6 +1008,7 @@ class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
         # decorator.
         self._original_info = self._controller.info()
         self._set_threadpool_limits()
+        _OPENBLAS_OWNERSHIP.increment()
         return self
 
 

@@ -808,7 +808,8 @@ def _openblas_controlling_thread():
 
     if not (openblas_controller):
         pytest.skip("requires OpenBLAS.")
-
+    if {lc.threading_layer for lc in openblas_controller.lib_controllers} == {"openmp"}:
+        pytest.skip("require non-OpenMP OpenBLAS.")
     return OpenBLASController._SHARED_STATE.controlling_thread
 
 

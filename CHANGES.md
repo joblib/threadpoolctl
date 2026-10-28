@@ -19,6 +19,12 @@
 - A single shared library can no longer have multiple `LibController` instances.
   https://github.com/joblib/threadpoolctl/pull/249
 
+- When passing a list of dicts or a dict to `threadpool_limits(limit=...)` and
+  related APIs, the `"filepath"` is used as the unique key identifying
+  ``LibController``s, if available, falling back to ``"prefix"``. Previously the
+  ``"prefix"`` was checked first.
+  https://github.com/joblib/threadpoolctl/pull/278
+
 3.7.0 (2026-09-15)
 ==================
 

@@ -840,7 +840,10 @@ def test_openblas_controlling_thread_cleared_on_decorator_exit():
     assert _openblas_controlling_thread() is None
 
 
-def test_openblas_controlling_thread_manual_increment_decrement_api():
+def test_openblas_controlling_thread_manual_increment_decrement_api(request):
+    limiter = ThreadpoolController().limit()
+    request.addfinalizer(limiter.restore_original_limits)
+
     threadpool_limits(limits=1)
     CONTROLLING_THREAD_OWNERSHIP.increment()
     assert _openblas_controlling_thread() is current_thread()

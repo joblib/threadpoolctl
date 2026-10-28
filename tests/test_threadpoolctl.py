@@ -299,9 +299,11 @@ def test_get_params_for_sequential_blas_under_openmp():
 
     params = controller._get_params_for_sequential_blas_under_openmp()
 
-    if controller.select(
-        internal_api="openblas", threading_layer="openmp"
-    ).lib_controllers:
+    if any(
+        lib_info["internal_api"] == "openblas"
+        and lib_info.get("threading_layer") == "openmp"
+        for lib_info in original_info
+    ):
         assert params["limits"] is None
         assert params["user_api"] is None
 

@@ -10,7 +10,8 @@
   process-wide thread pool, having multiple Python threads fight over control
   wouldn't work well. A new API
   ``OpenBLASController.clear_controlling_thread()`` allows resetting which
-  thread controlls OpenBLAS in these cases.
+  thread controlls OpenBLAS in these cases, and decorator and context manager
+  limit APIs will automatically call that API when they are done.
   https://github.com/joblib/threadpoolctl/pull/275
 
 - Added official support for Python 3.15, and declared support for Python 3.14

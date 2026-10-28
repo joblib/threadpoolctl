@@ -15,6 +15,12 @@
   ``"prefix"`` was checked first.
   https://github.com/joblib/threadpoolctl/pull/278
 
+- Fixed `limits="sequential_blas_under_openmp"`, which left all BLAS libraries
+  unlimited as soon as OpenBLAS was loaded, whatever its threading layer, or a
+  library used the OpenMP threading layer (e.g. BLIS). The limit is now only
+  skipped when OpenBLAS uses the OpenMP threading layer, as documented.
+  https://github.com/joblib/threadpoolctl/pull/XXX
+
 
 3.7.0 (2026-09-15)
 ==================

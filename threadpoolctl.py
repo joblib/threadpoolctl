@@ -1054,9 +1054,12 @@ class ThreadpoolController:
         This function takes into account the unexpected behavior of OpenBLAS with the
         OpenMP threading layer.
         """
-        if self.select(
-            internal_api="openblas", threading_layer="openmp"
-        ).lib_controllers:
+        # select() matches any of its kwargs: chain two calls to require both.
+        if (
+            self.select(internal_api="openblas")
+            .select(threading_layer="openmp")
+            .lib_controllers
+        ):
             # Don't change anything: OpenBLAS is already sequential by default when it
             # is called from an OpenMP parallel region, and limiting it would also
             # limit the OpenMP parallel regions of the calling thread.

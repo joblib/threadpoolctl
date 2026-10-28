@@ -19,7 +19,7 @@
   unlimited as soon as OpenBLAS was loaded, whatever its threading layer, or a
   library used the OpenMP threading layer (e.g. BLIS). The limit is now only
   skipped when OpenBLAS uses the OpenMP threading layer, as documented.
-  https://github.com/joblib/threadpoolctl/pull/XXX
+  https://github.com/joblib/threadpoolctl/pull/283
 
 
 3.7.0 (2026-09-15)

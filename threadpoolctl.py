@@ -461,10 +461,13 @@ class OpenBLASController(LibController):
         return None
 
 
-class _OpenBLASOwnership(thread_local):
+class _ControllingThreadOwnership(thread_local):
     """Count how many paired limit-unlimits have modified OpenBLAS.
 
     Clear controlling thread if it hits zero.
+
+    In the future this could potentialy also apply to non-OpenBLAS libraries
+    that have a shared process pool.
     """
 
     count = 0
@@ -480,7 +483,7 @@ class _OpenBLASOwnership(thread_local):
             OpenBLASController.clear_controlling_thread()
 
 
-_OPENBLAS_OWNERSHIP = _OpenBLASOwnership()
+CONTROLLING_THREAD_OWNERSHIP = _ControllingThreadOwnership()
 
 
 class BLISController(LibController):
@@ -857,12 +860,12 @@ class _ThreadpoolLimiter:
         self._set_threadpool_limits()
 
     def __enter__(self):
-        _OPENBLAS_OWNERSHIP.increment()
+        CONTROLLING_THREAD_OWNERSHIP.increment()
         return self
 
     def __exit__(self, type, value, traceback):
         self.restore_original_limits()
-        _OPENBLAS_OWNERSHIP.decrement()
+        CONTROLLING_THREAD_OWNERSHIP.decrement()
 
     @classmethod
     def wrap(cls, controller, *, limits=None, user_api=None):
@@ -1008,7 +1011,7 @@ class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
         # decorator.
         self._original_info = self._controller.info()
         self._set_threadpool_limits()
-        _OPENBLAS_OWNERSHIP.increment()
+        CONTROLLING_THREAD_OWNERSHIP.increment()
         return self
 
 

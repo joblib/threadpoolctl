@@ -15,6 +15,7 @@ import threadpoolctl
 from threadpoolctl import (
     _ALL_PREFIXES,
     _ALL_USER_APIS,
+    CONTROLLING_THREAD_OWNERSHIP,
     LibController,
     OpenBLASController,
     ThreadpoolController,
@@ -836,6 +837,19 @@ def test_openblas_controlling_thread_cleared_on_decorator_exit():
         assert _openblas_controlling_thread() is current_thread()
 
     outer()
+    assert _openblas_controlling_thread() is None
+
+
+def test_openblas_controlling_thread_manual_increment_decrement_api():
+    threadpool_limits(limits=1)
+    CONTROLLING_THREAD_OWNERSHIP.increment()
+    assert _openblas_controlling_thread() is current_thread()
+    threadpool_limits(limits=1)
+    CONTROLLING_THREAD_OWNERSHIP.increment()
+    assert _openblas_controlling_thread() is current_thread()
+    CONTROLLING_THREAD_OWNERSHIP.decrement()
+    assert _openblas_controlling_thread() is current_thread()
+    CONTROLLING_THREAD_OWNERSHIP.decrement()
     assert _openblas_controlling_thread() is None
 
 

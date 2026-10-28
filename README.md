@@ -465,10 +465,22 @@ An complete example can be found [here](
 ### Sequential BLAS within OpenMP parallel region
 
 When one wants to have sequential BLAS calls within an OpenMP parallel region, it's
-safer to set `limits="sequential_blas_under_openmp"` since setting `limits=1` and
-`user_api="blas"` might not lead to the expected behavior in some configurations
-(e.g. OpenBLAS with the OpenMP threading layer
-https://github.com/xianyi/OpenBLAS/issues/2985).
+necessary to set `limits="sequential_blas_under_openmp"` since setting `limits=1` and
+`user_api="blas"` leads to unexpected behavior for OpenBLAS with the OpenMP threading
+layer: OpenBLAS and the calling code share the same OpenMP runtime, so it also sets
+the number of OpenMP threads of the current thread to 1. Inside the limit, any OpenMP
+parallel region started from this thread without an explicit number of threads runs
+on a single thread, and `omp_get_max_threads()` returns 1.
+
+```python
+from threadpoolctl import ThreadpoolController
+
+controller = ThreadpoolController()
+
+with controller.limit(limits="sequential_blas_under_openmp"):
+    # Compiled code with an OpenMP parallel loop that calls BLAS.
+    my_openmp_kernel(X)
+```
 
 ### Known Limitations
 
@@ -555,6 +567,10 @@ Current libraries where `threadpoolctl` explicitly makes this choice are:
 
 * MKL, for all threading backends.
 * OpenBLAS (v0.3.34 or later) when using the OpenMP backend, on Linux and macOS.
+  threadpoolctl then limits OpenBLAS with `omp_set_num_threads`, so the limit
+  also applies to the OpenMP parallel regions of the calling code. To get
+  sequential BLAS calls within an OpenMP parallel region, see
+  [Sequential BLAS within OpenMP parallel region](#sequential-blas-within-openmp-parallel-region).
 
 When using OpenMP, this is also the default on Linux and macOS. On Windows
 OpenMP has a per-thread worker pool but the limiting API affects all threads in

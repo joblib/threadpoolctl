@@ -2026,10 +2026,10 @@ def get_cached_controller() -> ThreadpoolController:
     `reset_cached_controller()` module level function.
     """
     global _CACHED_CONTROLLER, _CACHED_SYS_MODULES_LEN
-    # Snapshot before the None check. reset_cached_controller() and
-    # FlexiBLASController.switch_backend() can set the global to None
-    # without the fast path holding _CACHE_LOCK. Returning that None
-    # breaks callers. A stale controller instance is acceptable.
+    # Fast path with no lock: snapshot before the `None` check as
+    # `reset_cached_controller()` and `FlexiBLASController.switch_backend()`
+    # can concurrently set the global to `None`. A stale controller instance is
+    # acceptable but returning `None` would break the caller.
     controller = _CACHED_CONTROLLER
     if _CACHED_SYS_MODULES_LEN == len(sys.modules) and controller is not None:
         return controller

@@ -555,12 +555,17 @@ class OpenBLASController(LibController):
         this_thread = current_thread()
 
         match self._SHARED_STATE.controlling_thread:
-            case None:
+            case controlling_thread if (
+                controlling_thread is None or not controlling_thread.is_alive()
+            ):
                 # No thread controls OpenBLAS, so try to take control:
                 with self._SHARED_STATE.lock:
                     # Another thread might have changed it, so ensure that's
                     # not the case:
-                    if self._SHARED_STATE.controlling_thread is None:
+                    if (
+                        self._SHARED_STATE.controlling_thread is None
+                        or not self._SHARED_STATE.controlling_thread.is_alive()
+                    ):
                         self._SHARED_STATE.controlling_thread = this_thread
                 # Controlling thread should now be set, to either this thread
                 # or another, so try again:

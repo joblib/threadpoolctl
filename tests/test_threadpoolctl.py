@@ -7,7 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
-from threading import Thread, current_thread
+from threading import Lock, Thread, current_thread
 
 import pytest
 
@@ -801,10 +801,40 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
     run_in_thread(openblas_lib.set_num_threads, 1)
     assert openblas_lib.get_num_threads() == 1
 
+    # Dead threads lose control:
+    openblas_lib.set_num_threads(orig_num_threads)
+    assert openblas_lib.get_num_threads() == orig_num_threads
+
+    # Release control:
+    openblas_lib.clear_controlling_thread()
+
     # clear_controlling_thread(force=True) allows any thread to clear:
+    was_set, finish = Lock(), Lock()
+    was_set.acquire()
+    finish.acquire()
+
+    def set_and_exit_after_lock_released():
+        openblas_lib.set_num_threads(1)
+        was_set.release()
+        finish.acquire()
+
+    t = Thread(target=set_and_exit_after_lock_released)
+    t.start()
+    was_set.acquire()
+    assert openblas_lib.get_num_threads() == 1
+
+    # This thread can't set since it's not the controller:
+    openblas_lib.set_num_threads(orig_num_threads)
+    assert openblas_lib.get_num_threads() == 1
+
+    # But when forced clear happens, we can set:
     openblas_lib.clear_controlling_thread(force=True)
     openblas_lib.set_num_threads(orig_num_threads)
     assert openblas_lib.get_num_threads() == orig_num_threads
+
+    # Clean up
+    finish.release()
+    t.join()
 
 
 def _openblas_controlling_thread():

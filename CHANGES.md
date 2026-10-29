@@ -13,6 +13,7 @@
   thread controlls OpenBLAS in these cases, and decorator and context manager
   limit APIs will automatically call that API when they are done.
   https://github.com/joblib/threadpoolctl/pull/275
+  https://github.com/joblib/threadpoolctl/pull/289
 
 - Add a new API to get a cached `ThreadpoolController` instance
   (`get_cached_controller()`), as an optimization for cases where limits are set

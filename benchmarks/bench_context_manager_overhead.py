@@ -28,10 +28,10 @@ for _ in range(args.n_calls):
         pass
     timings.append(time.time() - t)
 
-print(
-    f"Overhead per `with threadpool_limits()` call: {mean(timings) * 1e3:.3f} +/-{stdev(timings) * 1e3:.3f} ms"
-)
 
+print(
+    f"Overhead per `with threadpool_limits()` call: {mean(timings) * 1e3:.4f} +/-{stdev(timings) * 1e3:.4f} ms"
+)
 
 timings = []
 for _ in range(args.n_calls):
@@ -41,5 +41,5 @@ for _ in range(args.n_calls):
     timings.append(time.time() - t)
 
 print(
-    f"Overhead per `with get_cached_controller().limit()` call: {mean(timings) * 1e3:.3f} +/-{stdev(timings) * 1e3:.3f} ms"
+    f"Overhead per `with get_cached_controller().limit()` call: {mean(timings) * 1e3:.4f} +/-{stdev(timings) * 1e3:.4f} ms"
 )

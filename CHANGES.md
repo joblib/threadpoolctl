@@ -14,6 +14,16 @@
   in package metadata.
   https://github.com/joblib/threadpoolctl/issues/251
 
+- Faster performance when creating a `ThreadpoolController`.
+  https://github.com/joblib/threadpoolctl/pull/249
+
+- Shared libraries are now cached across runs, whereas previously they would be
+  unloaded after the `ThreadpoolController` was garbage collected.
+  https://github.com/joblib/threadpoolctl/pull/249
+
+- A single shared library can no longer have multiple `LibController` instances.
+  https://github.com/joblib/threadpoolctl/pull/249
+
 - When passing a list of dicts or a dict to `threadpool_limits(limit=...)` and
   related APIs, the `"filepath"` is used as the unique key identifying
   ``LibController``s, if available, falling back to ``"prefix"``. Previously the

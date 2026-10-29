@@ -8,10 +8,14 @@
 - When OpenBLAS uses a non-OpenMP threading layer, you can only set the size of
   its thread pool from a single controlling thread; since it has a shared
   process-wide thread pool, having multiple Python threads fight over control
-  wouldn't work well. A new API
-  ``OpenBLASController.clear_controlling_thread()`` allows resetting which
-  thread controlls OpenBLAS in these cases, and decorator and context manager
-  limit APIs will automatically call that API when they are done.
+  wouldn't work well. Each loaded OpenBLAS library has its own pool and its own
+  controlling thread. A plain ``threadpool_limits(...)`` call or a direct
+  ``set_num_threads()`` keeps that role until
+  ``OpenBLASController.clear_controlling_thread()``. Context managers and
+  decorators release it when the outermost scope that took the claim exits. A
+  later scope does not drop a claim it did not take, for example an OpenMP-only
+  limit or ``limits=None``. A thread that has finished no longer holds the
+  claim; the next ``set_num_threads()`` can take it.
   https://github.com/joblib/threadpoolctl/pull/275
   https://github.com/joblib/threadpoolctl/pull/289
 

@@ -828,18 +828,44 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
     t.join()
 
 
-def _openblas_controlling_thread():
-    openblas_controller = ThreadpoolController().select(internal_api="openblas")
-
-    if not (openblas_controller):
+def _non_openmp_openblas():
+    openblas = ThreadpoolController().select(internal_api="openblas")
+    if not openblas:
         pytest.skip("requires OpenBLAS.")
-    if {lc.threading_layer for lc in openblas_controller.lib_controllers} == {"openmp"}:
+    libs = []
+    seen = set()
+    for lib in openblas.lib_controllers:
+        if lib.threading_layer == "openmp" or lib.filepath in seen:
+            continue
+        seen.add(lib.filepath)
+        libs.append(lib)
+    if not libs:
         pytest.skip("require non-OpenMP OpenBLAS.")
-    return OpenBLASController._SHARED_STATE.controlling_thread
+    return libs
+
+
+def _openblas_controlling_thread():
+    libs = _non_openmp_openblas()
+    holders = {lib._runtime_state().controlling_thread for lib in libs}
+    if len(holders) != 1:
+        return holders
+    return next(iter(holders))
+
+
+def _restore_openblas_thread_counts(libs):
+    originals = [(lib, lib.get_num_threads()) for lib in libs]
+
+    def restore():
+        OpenBLASController.clear_controlling_thread(force=True)
+        for lib, orig in originals:
+            if orig is not None:
+                lib.set_num_threads(orig)
+        OpenBLASController.clear_controlling_thread(force=True)
+
+    return restore
 
 
 def test_openblas_controlling_thread_cleared_on_limiter_context_manager_exit():
-
     with threadpool_limits(limits=1):
         assert _openblas_controlling_thread() is current_thread()
         with threadpool_limits(limits=1):
@@ -849,7 +875,6 @@ def test_openblas_controlling_thread_cleared_on_limiter_context_manager_exit():
 
 
 def test_openblas_controlling_thread_cleared_on_decorator_exit():
-
     @threadpool_limits.wrap(limits=1)
     def inner():
         assert _openblas_controlling_thread() is current_thread()
@@ -865,19 +890,190 @@ def test_openblas_controlling_thread_cleared_on_decorator_exit():
 
 
 def test_openblas_controlling_thread_manual_increment_decrement_api(request):
-    limiter = ThreadpoolController().limit()
-    request.addfinalizer(limiter.restore_original_limits)
+    # The manual counter has to be incremented before set_num_threads, one
+    # count per library. That makes the claim scoped, so the last decrement
+    # releases it.
+    libs = _non_openmp_openblas()
+    lib = libs[0]
+    orig = lib.get_num_threads()
+    if orig is None or orig < 2:
+        pytest.skip("Test requires a non-OpenMP OpenBLAS with at least 2 threads")
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+
+    key = lib._state_key()
+    CONTROLLING_THREAD_OWNERSHIP.increment(key)
+    CONTROLLING_THREAD_OWNERSHIP.increment(key)
+    lib.set_num_threads(1)
+    assert lib._runtime_state().controlling_thread is current_thread()
+    assert not lib._runtime_state().sticky
+    CONTROLLING_THREAD_OWNERSHIP.decrement(key)
+    assert lib._runtime_state().controlling_thread is current_thread()
+    CONTROLLING_THREAD_OWNERSHIP.decrement(key)
+    assert lib._runtime_state().controlling_thread is None
+
+
+def _require_resizable_openblas():
+    libs = _non_openmp_openblas()
+    lib = libs[0]
+    orig = lib.get_num_threads()
+    if orig is None or orig < 2:
+        pytest.skip("Test requires a non-OpenMP OpenBLAS with at least 2 threads")
+    return libs, lib, orig
+
+
+def test_plain_threadpool_limits_claim_survives_later_scopes(request):
+    # A plain call holds the controlling thread. A later with-block, including
+    # one that does not touch OpenBLAS, must not drop that claim.
+    libs, lib, orig = _require_resizable_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
 
     threadpool_limits(limits=1)
-    CONTROLLING_THREAD_OWNERSHIP.increment()
-    assert _openblas_controlling_thread() is current_thread()
-    threadpool_limits(limits=1)
-    CONTROLLING_THREAD_OWNERSHIP.increment()
-    assert _openblas_controlling_thread() is current_thread()
-    CONTROLLING_THREAD_OWNERSHIP.decrement()
-    assert _openblas_controlling_thread() is current_thread()
-    CONTROLLING_THREAD_OWNERSHIP.decrement()
-    assert _openblas_controlling_thread() is None
+    assert lib._runtime_state().controlling_thread is current_thread()
+    assert lib.get_num_threads() == 1
+
+    with threadpool_limits(limits=1, user_api="openmp"):
+        assert lib.get_num_threads() == 1
+    with threadpool_limits(limits=None):
+        assert lib.get_num_threads() == 1
+    with threadpool_limits(limits=orig):
+        assert lib._runtime_state().controlling_thread is current_thread()
+
+    assert lib.get_num_threads() == 1
+    assert lib._runtime_state().controlling_thread is current_thread()
+
+    observed = {}
+
+    def other_thread():
+        lib.set_num_threads(orig)
+        observed["threads"] = lib.get_num_threads()
+        observed["holder"] = lib._runtime_state().controlling_thread
+
+    run_in_thread(other_thread)
+    assert observed["threads"] == 1
+    assert observed["holder"] is current_thread()
+
+    # An explicit clear drops the plain call. The next with-block is then the
+    # sole scope and releases the claim on the way out.
+    OpenBLASController.clear_controlling_thread()
+    assert lib._runtime_state().controlling_thread is None
+    with threadpool_limits(limits=1):
+        assert lib._runtime_state().controlling_thread is current_thread()
+    assert lib._runtime_state().controlling_thread is None
+
+
+def test_direct_set_num_threads_is_not_released_by_limiter_scopes(request):
+    libs, lib, orig = _require_resizable_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+
+    lib.set_num_threads(1)
+    state = lib._runtime_state()
+    assert state.controlling_thread is current_thread()
+    assert state.sticky
+
+    with threadpool_limits(limits=1, user_api="openmp"):
+        pass
+    with threadpool_limits(limits=None):
+        pass
+    with threadpool_limits(limits=orig):
+        assert state.controlling_thread is current_thread()
+
+    assert lib.get_num_threads() == 1
+    assert state.sticky
+    assert state.controlling_thread is current_thread()
+
+    observed = {}
+
+    def other_thread():
+        lib.set_num_threads(orig)
+        observed["threads"] = lib.get_num_threads()
+
+    run_in_thread(other_thread)
+    assert observed["threads"] == 1
+
+
+def test_restore_original_limits_keeps_openblas_controlling_thread(request):
+    libs, lib, orig = _require_resizable_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+
+    limiter = threadpool_limits(limits=1)
+    assert lib.get_num_threads() == 1
+    assert lib._runtime_state().controlling_thread is current_thread()
+
+    limiter.restore_original_limits()
+    assert lib.get_num_threads() == orig
+    assert lib._runtime_state().controlling_thread is current_thread()
+
+    OpenBLASController.clear_controlling_thread()
+    assert lib._runtime_state().controlling_thread is None
+
+
+def test_openblas_controlling_thread_is_per_library(request):
+    libs = _non_openmp_openblas()
+    if len(libs) < 2:
+        pytest.skip("need two non-OpenMP OpenBLAS libraries")
+    first, second = libs[0], libs[1]
+    if any(
+        n is None or n < 2 for n in (first.get_num_threads(), second.get_num_threads())
+    ):
+        pytest.skip("Test requires non-OpenMP OpenBLAS with at least 2 threads")
+    request.addfinalizer(_restore_openblas_thread_counts([first, second]))
+
+    first.set_num_threads(1)
+    observed = {}
+
+    def other_thread():
+        second.set_num_threads(1)
+        observed["holder"] = second._runtime_state().controlling_thread
+        observed["threads"] = second.get_num_threads()
+
+    run_in_thread(other_thread)
+    assert first.get_num_threads() == 1
+    assert first._runtime_state().controlling_thread is current_thread()
+    assert observed["threads"] == 1
+    assert observed["holder"] is not None
+    assert observed["holder"] is not current_thread()
+
+
+def test_openblas_scoped_exit_releases_only_that_library():
+    # Bookkeeping for the ownership leak, including where no pthreads OpenBLAS
+    # is installed. A scope ending on one library must not drop a sticky claim
+    # or a still-held claim on another library.
+    key_a = "\0threadpoolctl-test-openblas-a"
+    key_b = "\0threadpoolctl-test-openblas-b"
+    state_a = threadpoolctl._OpenBLASLimitState()
+    state_b = threadpoolctl._OpenBLASLimitState()
+    OpenBLASController._states[key_a] = state_a
+    OpenBLASController._states[key_b] = state_b
+    try:
+        state_a.controlling_thread = current_thread()
+        state_a.sticky = True
+
+        CONTROLLING_THREAD_OWNERSHIP.increment(key_b)
+        state_b.controlling_thread = current_thread()
+        state_b.sticky = CONTROLLING_THREAD_OWNERSHIP.count_for(key_b) == 0
+        assert state_b.sticky is False
+
+        CONTROLLING_THREAD_OWNERSHIP.decrement(key_b)
+        assert state_b.controlling_thread is None
+        assert state_a.controlling_thread is current_thread()
+        assert state_a.sticky is True
+
+        # A plain call is non-sticky and is held by a leftover count. Ending a
+        # scope on B must not release A.
+        state_a.sticky = False
+        CONTROLLING_THREAD_OWNERSHIP.increment(key_a)
+        CONTROLLING_THREAD_OWNERSHIP.increment(key_b)
+        state_b.controlling_thread = current_thread()
+        state_b.sticky = False
+        CONTROLLING_THREAD_OWNERSHIP.decrement(key_b)
+        assert state_b.controlling_thread is None
+        assert state_a.controlling_thread is current_thread()
+        assert state_a.sticky is False
+        assert CONTROLLING_THREAD_OWNERSHIP.count_for(key_a) == 1
+    finally:
+        OpenBLASController._states.pop(key_a, None)
+        OpenBLASController._states.pop(key_b, None)
+        CONTROLLING_THREAD_OWNERSHIP.reset()
 
 
 # skip test if not run in a azure pipelines job since it relies on a specific flexiblas

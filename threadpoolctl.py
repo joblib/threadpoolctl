@@ -462,6 +462,16 @@ class _CDLLCache:
 _CDLL_CACHE = _CDLLCache()
 
 
+@dataclass
+class _OpenBLASLimitState:
+    """Who may change one OpenBLAS library's thread pool."""
+
+    controlling_thread: Thread | None = None
+    # Set when control is taken outside a limiter scope (direct set_num_threads).
+    sticky: bool = False
+    lock: Lock = field(default_factory=Lock)
+
+
 class OpenBLASController(LibController):
     """Controller class for OpenBLAS.
 
@@ -470,22 +480,29 @@ class OpenBLASController(LibController):
     set by ``threadpoolctl`` is per-thread.  Each Python thread can therefore
     set its own limit without consideration for other Python threads.
 
-    In constrast, when the OpenMP threading layer is not used, there is a
+    In contrast, when the OpenMP threading layer is not used, there is a
     process-wide shared thread pool, so having multiple Python threads change
-    the limit at the same time makes no sense.  Therefore:
+    the limit at the same time makes no sense. Each loaded OpenBLAS library
+    has its own pool and its own controlling thread. Therefore:
 
         1. Thread pool size can only be set by a single thread, the first
-           thread to call ``set_num_threads()``.  In practice this will usually
-           be the main thread.
+           thread to call ``set_num_threads()`` on that library. In practice
+           this will usually be the main thread.
 
-        2. Other threads silently do nothing.
+        2. Other threads silently do nothing. Once the controlling thread has
+           finished, the next ``set_num_threads()`` can take the claim.
 
-        3. ``clear_controlling_thread()`` can be used to reset the thread that
-           can meaningfully use the limiting API.
+        3. ``clear_controlling_thread()`` resets the controlling thread. By
+           default only that thread can do so. ``force=True`` lets any thread
+           clear every OpenBLAS library.
 
-    ``with threadpool_limits()`` and the function decorator
-    ``threadpool_limits.wrap()`` will automatically clear the controlling
-    thread when they're done, including when nested.
+    A plain ``threadpool_limits(...)`` call, and a direct ``set_num_threads()``,
+    keep control until ``clear_controlling_thread()``. ``with
+    threadpool_limits()`` and ``threadpool_limits.wrap()`` release control when
+    the outermost scope that took the claim exits, including when those scopes
+    are nested. A scope that does not touch that OpenBLAS library, and a scope
+    entered while a plain call or a direct ``set_num_threads()`` is still
+    holding the claim, does not release it.
     """
 
     user_api = "blas"
@@ -529,25 +546,76 @@ class OpenBLASController(LibController):
             return get_num_threads_func()
         return None
 
-    class _SHARED_STATE:
-        """Shared state across instances."""
+    # One record per loaded library. Separate OpenBLAS copies (for example
+    # NumPy's and SciPy's) do not share a thread pool, so they do not share a
+    # controlling thread either.
+    _states: dict[str, _OpenBLASLimitState] = {}  # noqa: RUF012
+    _states_lock = Lock()
+    _claim_generation = 0
 
-        controlling_thread: Thread | None = None
-        lock = Lock()
+    def _state_key(self) -> str:
+        if self.filepath is not None:
+            return self.filepath
+        return str(id(self.dynlib))
+
+    def _runtime_state(self) -> _OpenBLASLimitState:
+        """Return the process-wide claim for this OpenBLAS copy."""
+        key = self._state_key()
+        with self._states_lock:
+            state = self._states.get(key)
+            if state is None:
+                state = _OpenBLASLimitState()
+                self._states[key] = state
+            return state
+
+    @classmethod
+    def _snapshot_states(cls) -> list[_OpenBLASLimitState]:
+        with cls._states_lock:
+            return list(cls._states.values())
+
+    @classmethod
+    def _release_scoped_claim(cls, key: str):
+        """Drop this thread's non-sticky claim on one library.
+
+        A sticky claim was taken by a direct ``set_num_threads()`` while no
+        limiter scope was active for that library. Scoped exits must leave it
+        in place.
+        """
+        with cls._states_lock:
+            state = cls._states.get(key)
+        if state is None:
+            return
+        this = current_thread()
+        with state.lock:
+            if state.controlling_thread is this and not state.sticky:
+                state.controlling_thread = None
 
     @classmethod
     def clear_controlling_thread(cls, force: bool = False):
         """Reset which thread can set limits (on non-OpenMP threading layer).
 
-        It's up the caller to ensure the current controlling thread is done.
+        Drops the claim on every OpenBLAS library this thread controls, and
+        resets this thread's ownership count so a later context manager can
+        release a claim of its own. It's up to the caller to ensure the current
+        controlling thread is done.
 
-        By default, only the controlling thread has an effect when calling this
-        method.  You can have any thread clear the controlling thread by
-        setting ``force=True``.
+        By default, only the controlling thread has an effect. Any thread can
+        clear every library by setting ``force=True``.
         """
-        with cls._SHARED_STATE.lock:
-            if force or cls._SHARED_STATE.controlling_thread is current_thread():
-                cls._SHARED_STATE.controlling_thread = None
+        this = current_thread()
+        cleared_this_thread = False
+        for state in cls._snapshot_states():
+            with state.lock:
+                if force or state.controlling_thread is this:
+                    if state.controlling_thread is this:
+                        cleared_this_thread = True
+                    state.controlling_thread = None
+                    state.sticky = False
+        if force:
+            with cls._states_lock:
+                cls._claim_generation += 1
+        if force or cleared_this_thread:
+            CONTROLLING_THREAD_OWNERSHIP.reset()
 
     def set_num_threads(self, num_threads):
         if self.threading_layer == "openmp":
@@ -556,26 +624,31 @@ class OpenBLASController(LibController):
 
         # A shared process-wide thread pool, so don't want different Python
         # threads fighting over limits:
+        CONTROLLING_THREAD_OWNERSHIP.sync()
         this_thread = current_thread()
-        controlling_thread = self._SHARED_STATE.controlling_thread
+        state = self._runtime_state()
+        controlling_thread = state.controlling_thread
         if controlling_thread is None or not controlling_thread.is_alive():
-            # No thread controls OpenBLAS, so try to take control:
-            with self._SHARED_STATE.lock:
-                # Another thread might have changed it, so ensure that's not
-                # the case:
-                if (
-                    self._SHARED_STATE.controlling_thread is None
-                    or not self._SHARED_STATE.controlling_thread.is_alive()
-                ):
-                    self._SHARED_STATE.controlling_thread = this_thread
-            # Controlling thread should now be set, to either this thread or
-            # another, so try again:
+            # No live thread controls this OpenBLAS, so try to take control.
+            # A direct call (ownership count still 0) is sticky: a later
+            # context manager must not drop it. A call made while a limiter
+            # scope is active is released with that scope. A finished thread
+            # no longer holds the claim.
+            with state.lock:
+                holder = state.controlling_thread
+                if holder is None or not holder.is_alive():
+                    state.controlling_thread = this_thread
+                    state.sticky = (
+                        CONTROLLING_THREAD_OWNERSHIP.count_for(self._state_key()) == 0
+                    )
+            # Controlling thread should now be set, to either this thread
+            # or another, so try again:
             return self.set_num_threads(num_threads)
         elif controlling_thread is this_thread:
-            # This thread controls OpenBLAS:
+            # This thread controls this OpenBLAS:
             return self._real_set_num_threads(num_threads)
         else:
-            # Some other thread controlls OpenBLAS: do nothing.
+            # Some other thread controls this OpenBLAS:
             return
 
     def _real_set_num_threads(self, num_threads):
@@ -638,25 +711,63 @@ class OpenBLASController(LibController):
 
 
 class _ControllingThreadOwnership(thread_local):
-    """Count how many paired limit-unlimits have modified OpenBLAS.
+    """Per-library count of OpenBLAS limiter scopes on this thread.
 
-    Clear controlling thread if it hits zero.
+    A count is kept separately for each OpenBLAS copy, keyed by filepath.
+    Hitting zero for a library releases that library's non-sticky controlling
+    thread. A plain ``threadpool_limits(...)`` call increments and never
+    decrements, so it holds its claim until
+    ``OpenBLASController.clear_controlling_thread()``.
 
-    In the future this could potentialy also apply to non-OpenBLAS libraries
-    that have a shared process pool.
+    The counts live on the thread-local instance. A class-level dict would be
+    shared by every thread.
     """
 
-    count = 0
+    generation = 0
 
-    def increment(self):
-        """Increment ownership."""
-        self.count += 1
+    def _counts(self) -> dict[str, int]:
+        counts = getattr(self, "counts", None)
+        if counts is None:
+            counts = {}
+            self.counts = counts
+        return counts
 
-    def decrement(self):
-        """Decrement ownership."""
-        self.count -= 1
-        if self.count <= 0:
-            OpenBLASController.clear_controlling_thread()
+    def sync(self):
+        """Drop this thread's counts when another thread force-clears."""
+        generation = OpenBLASController._claim_generation
+        if self.generation != generation:
+            self.generation = generation
+            self.counts = {}
+
+    def reset(self):
+        """Forget every scope on this thread."""
+        self.generation = OpenBLASController._claim_generation
+        self.counts = {}
+
+    def count_for(self, key: str) -> int:
+        """Active scopes for one OpenBLAS library on this thread."""
+        self.sync()
+        return self._counts().get(key, 0)
+
+    def increment(self, key: str):
+        """Increment ownership of one library."""
+        self.sync()
+        counts = self._counts()
+        counts[key] = counts.get(key, 0) + 1
+
+    def decrement(self, key: str):
+        """Decrement ownership of one library and release a scoped claim at zero."""
+        self.sync()
+        counts = self._counts()
+        current = counts.get(key, 0)
+        if current <= 0:
+            return
+        current -= 1
+        if current == 0:
+            counts.pop(key, None)
+            OpenBLASController._release_scoped_claim(key)
+        else:
+            counts[key] = current
 
 
 CONTROLLING_THREAD_OWNERSHIP = _ControllingThreadOwnership()
@@ -1047,15 +1158,20 @@ class _ThreadpoolLimiter:
         self._controller = controller
         self._limits, self._user_api = self._check_params(limits, user_api)
         self._original_info = self._controller.info()
-        self._set_threadpool_limits()
+        self._openblas_claim_keys: list[str] = []
+        # A plain call never reaches __exit__, so this increment is what makes
+        # the claim stick until clear_controlling_thread(). A `with` block
+        # decrements the same increment on the way out.
+        self._apply_limits_with_openblas_claim()
 
     def __enter__(self):
-        CONTROLLING_THREAD_OWNERSHIP.increment()
         return self
 
     def __exit__(self, type, value, traceback):
-        self.restore_original_limits()
-        CONTROLLING_THREAD_OWNERSHIP.decrement()
+        try:
+            self.restore_original_limits()
+        finally:
+            self._release_openblas_claim()
 
     @classmethod
     def wrap(cls, controller, *, limits=None, user_api=None):
@@ -1166,24 +1282,94 @@ class _ThreadpoolLimiter:
 
         return limits, user_api
 
+    def _num_threads_for(self, lib_controller):
+        """Limit that applies to ``lib_controller``, or None to leave it alone.
+
+        ``self._limits`` is a dict ``{key: num_threads}`` where key is either a
+        filepath, a prefix, or a user_api. Libraries are matched in that order.
+        """
+        if self._limits is None:
+            return None
+        if lib_controller.filepath in self._limits:
+            num_threads = self._limits[lib_controller.filepath]
+        elif lib_controller.prefix in self._limits:
+            num_threads = self._limits[lib_controller.prefix]
+        elif lib_controller.user_api in self._limits:
+            num_threads = self._limits[lib_controller.user_api]
+        else:
+            return None
+        return num_threads
+
+    def _iter_targeted_openblas(self):
+        """Non-OpenMP OpenBLAS libraries this limiter would actually set."""
+        for lib in self._controller.lib_controllers:
+            if (
+                isinstance(lib, OpenBLASController)
+                and lib.threading_layer != "openmp"
+                and self._num_threads_for(lib) is not None
+            ):
+                yield lib
+
+    def _acquire_openblas_claim(self):
+        """Count a scope per library before setting, so the claim is not sticky.
+
+        Only libraries this thread can control are counted. OpenMP-only limits
+        and ``limits=None`` do not take a claim. Libraries are counted
+        separately so a scope that limits one copy does not pin another.
+        """
+        self._openblas_claim_keys = []
+        this = current_thread()
+        seen = set()
+        for lib in self._iter_targeted_openblas():
+            key = lib._state_key()
+            if key in seen:
+                continue
+            seen.add(key)
+            holder = lib._runtime_state().controlling_thread
+            if holder is not None and holder is not this:
+                continue
+            CONTROLLING_THREAD_OWNERSHIP.increment(key)
+            self._openblas_claim_keys.append(key)
+
+    def _release_openblas_claim(self):
+        keys = self._openblas_claim_keys
+        self._openblas_claim_keys = []
+        for key in keys:
+            CONTROLLING_THREAD_OWNERSHIP.decrement(key)
+
+    def _drop_unheld_openblas_claim(self):
+        """Drop counts for libraries another thread won the race for."""
+        this = current_thread()
+        kept = []
+        for key in self._openblas_claim_keys:
+            with OpenBLASController._states_lock:
+                state = OpenBLASController._states.get(key)
+            held = False
+            if state is not None:
+                with state.lock:
+                    held = state.controlling_thread is this
+            if held:
+                kept.append(key)
+            else:
+                CONTROLLING_THREAD_OWNERSHIP.decrement(key)
+        self._openblas_claim_keys = kept
+
+    def _apply_limits_with_openblas_claim(self):
+        self._acquire_openblas_claim()
+        try:
+            self._set_threadpool_limits()
+        except Exception:
+            self._release_openblas_claim()
+            raise
+        self._drop_unheld_openblas_claim()
+
     def _set_threadpool_limits(self):
         """Change the maximal number of threads in selected thread pools."""
         if self._limits is None:
             return
 
         for lib_controller in self._controller.lib_controllers:
-            # self._limits is a dict {key: num_threads} where key is either a
-            # filepath, a prefix, or a user_api. Libraries are matched in that
-            # order.
-            if lib_controller.filepath in self._limits:
-                num_threads = self._limits[lib_controller.filepath]
-            elif lib_controller.prefix in self._limits:
-                num_threads = self._limits[lib_controller.prefix]
-            elif lib_controller.user_api in self._limits:
-                num_threads = self._limits[lib_controller.user_api]
-            else:
-                continue
-
+            num_threads = self._num_threads_for(lib_controller)
             if num_threads is not None:
                 lib_controller.set_num_threads(num_threads)
 
@@ -1194,14 +1380,14 @@ class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
     def __init__(self, controller, *, limits=None, user_api=None):
         self._limits, self._user_api = self._check_params(limits, user_api)
         self._controller = controller
+        self._openblas_claim_keys = []
 
     def __enter__(self):
-        # we need to set the limits here and not in the __init__ because we want the
-        # limits to be set when calling the decorated function, not when creating the
-        # decorator.
+        # Set the limits here and not in __init__ so they apply when the
+        # decorated function is called, not when the decorator is created.
+        # Increment before setting so this scope's claim is not sticky.
         self._original_info = self._controller.info()
-        self._set_threadpool_limits()
-        CONTROLLING_THREAD_OWNERSHIP.increment()
+        self._apply_limits_with_openblas_claim()
         return self
 
 

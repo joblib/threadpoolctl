@@ -322,7 +322,7 @@ with (
 You can also operate without a context manager:
 
 ```python
-from threadpoolctl import ThreadpoolController
+from threadpoolctl import OpenBLASController, ThreadpoolController
 
 controller = ThreadpoolController()
 try:
@@ -332,6 +332,10 @@ try:
         pool.map(somefunc, someargs)
 finally:
     limiter.restore_original_limits()
+    # restore puts the thread counts back. It leaves this thread in control
+    # of any non-OpenMP OpenBLAS it claimed. Drop that when other threads
+    # should be allowed to change those limits again.
+    OpenBLASController.clear_controlling_thread()
 ```
 
 ### Switching Back And Forth Between Main Thread and Python Threads
@@ -381,8 +385,10 @@ with CONTROLLER.limit(limits=2):
 ### OpenBLAS with pthreads/Windows
 
 As mentioned above, OpenBLAS with pthreads or Windows threading layer uses a
-process-wide shared thread pool. As a result, there are only two limits that
-make sense in most circumstances:
+process-wide shared thread pool. Each loaded copy has its own pool and its own
+controlling thread, so a limit on one copy does not decide who may limit
+another. As a result, there are only two limits that make sense in most
+circumstances:
 
 * A limit of `1`, which effectively means no OpenBLAS thread pool: all
   operations run inline in the calling thread. This is a good setting when you

@@ -36,6 +36,8 @@ print("\n------------------------------------------------------------------\n")
 # numpy or scipy and we don't want to pin old versions of these libraries.
 SAFE_SKIPPED_TESTS = [
     "test_multiple_shipped_openblas",
+    # Runs only when two distinct non-OpenMP OpenBLAS copies are loaded.
+    "test_openblas_controlling_thread_is_per_library",
     "test_threadpool_limits_by_prefix[1-libblas]",
     "test_threadpool_limits_by_prefix[3-libblas]",
 ]

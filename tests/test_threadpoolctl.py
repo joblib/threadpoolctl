@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
+from threading import Thread, current_thread
 
 import pytest
 
@@ -14,7 +15,9 @@ import threadpoolctl
 from threadpoolctl import (
     _ALL_PREFIXES,
     _ALL_USER_APIS,
+    CONTROLLING_THREAD_OWNERSHIP,
     LibController,
+    OpenBLASController,
     ThreadpoolController,
     _determine_thread_limit_scope,
     get_cached_controller,
@@ -717,6 +720,143 @@ def test_openblas_threading_layer():
         pytest.skip("Unknown OpenBLAS threading layer.")
 
     assert threading_layer in expected_openblas_threading_layers
+
+
+def run_in_thread(f, *args, **kwargs):
+    thread = Thread(target=lambda: f(*args, **kwargs))
+    thread.start()
+    thread.join()
+
+
+def test_openblas_non_openmp_restricted_to_controlling_thread():
+    """Only one thread can set number of threads for non-OpenMP OpenBLAS."""
+    openblas_controller = ThreadpoolController().select(internal_api="openblas")
+
+    if not (openblas_controller):
+        pytest.skip("requires OpenBLAS.")
+
+    for openblas_lib in openblas_controller.lib_controllers:
+        if openblas_lib.get_num_threads() > 1:
+            if openblas_lib.threading_layer == "openmp":
+                check_openblas_openmp_no_controlling_thread(openblas_lib)
+            else:
+                check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib)
+
+
+def check_openblas_openmp_no_controlling_thread(openblas_lib):
+    orig_num_threads = openblas_lib.get_num_threads()
+    assert orig_num_threads > 1
+
+    # This thread can change num threads:
+    openblas_lib.set_num_threads(1)
+    assert openblas_lib.get_num_threads() == 1
+
+    # Another thread's attempts change _that_ thread:
+    result = []
+
+    def another_thread():
+        openblas_lib.set_num_threads(orig_num_threads)
+        result.append(openblas_lib.get_num_threads())
+
+    run_in_thread(another_thread)
+    assert result[-1] == orig_num_threads
+
+    # This thread is unchanged:
+    assert openblas_lib.get_num_threads() == 1
+
+
+def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
+    orig_num_threads = openblas_lib.get_num_threads()
+    assert orig_num_threads > 1
+
+    # This thread can change num threads:
+    openblas_lib.set_num_threads(1)
+    assert openblas_lib.get_num_threads() == 1
+
+    # Another thread's attempts are no-op:
+    result = []
+
+    def another_thread():
+        openblas_lib.set_num_threads(orig_num_threads)
+        result.append(openblas_lib.get_num_threads())
+
+    run_in_thread(another_thread)
+    assert result[-1] == 1
+    assert openblas_lib.get_num_threads() == 1
+
+    # This thread can still make changes:
+    openblas_lib.set_num_threads(orig_num_threads)
+    assert openblas_lib.get_num_threads() == orig_num_threads
+
+    # Another thread clearing the controlling thread has no effect:
+    def clear_and_set():
+        openblas_lib.clear_controlling_thread()
+        openblas_lib.set_num_threads(1)
+
+    run_in_thread(clear_and_set)
+    assert openblas_lib.get_num_threads() == orig_num_threads
+
+    # The controlling thread can clear, and then another thread can set:
+    openblas_lib.clear_controlling_thread()
+    run_in_thread(openblas_lib.set_num_threads, 1)
+    assert openblas_lib.get_num_threads() == 1
+
+    # clear_controlling_thread(force=True) allows any thread to clear:
+    openblas_lib.clear_controlling_thread(force=True)
+    openblas_lib.set_num_threads(orig_num_threads)
+    assert openblas_lib.get_num_threads() == orig_num_threads
+
+
+def _openblas_controlling_thread():
+    openblas_controller = ThreadpoolController().select(internal_api="openblas")
+
+    if not (openblas_controller):
+        pytest.skip("requires OpenBLAS.")
+    if {lc.threading_layer for lc in openblas_controller.lib_controllers} == {"openmp"}:
+        pytest.skip("require non-OpenMP OpenBLAS.")
+    return OpenBLASController._SHARED_STATE.controlling_thread
+
+
+def test_openblas_controlling_thread_cleared_on_limiter_context_manager_exit():
+
+    with threadpool_limits(limits=1):
+        assert _openblas_controlling_thread() is current_thread()
+        with threadpool_limits(limits=1):
+            assert _openblas_controlling_thread() is current_thread()
+        assert _openblas_controlling_thread() is current_thread()
+    assert _openblas_controlling_thread() is None
+
+
+def test_openblas_controlling_thread_cleared_on_decorator_exit():
+
+    @threadpool_limits.wrap(limits=1)
+    def inner():
+        assert _openblas_controlling_thread() is current_thread()
+
+    @threadpool_limits.wrap(limits=1)
+    def outer():
+        assert _openblas_controlling_thread() is current_thread()
+        inner()
+        assert _openblas_controlling_thread() is current_thread()
+
+    outer()
+    assert _openblas_controlling_thread() is None
+
+
+def test_openblas_controlling_thread_manual_increment_decrement_api(request):
+    limiter = ThreadpoolController().limit()
+    request.addfinalizer(limiter.restore_original_limits)
+
+    threadpool_limits(limits=1)
+    CONTROLLING_THREAD_OWNERSHIP.increment()
+    assert _openblas_controlling_thread() is current_thread()
+    threadpool_limits(limits=1)
+    CONTROLLING_THREAD_OWNERSHIP.increment()
+    assert _openblas_controlling_thread() is current_thread()
+    CONTROLLING_THREAD_OWNERSHIP.decrement()
+    assert _openblas_controlling_thread() is current_thread()
+    CONTROLLING_THREAD_OWNERSHIP.decrement()
+    assert _openblas_controlling_thread() is None
 
 
 # skip test if not run in a azure pipelines job since it relies on a specific flexiblas

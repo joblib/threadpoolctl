@@ -25,7 +25,8 @@ from collections.abc import Callable
 from contextlib import ContextDecorator
 from dataclasses import dataclass, field
 from functools import lru_cache, wraps
-from threading import Lock, Thread
+from threading import Lock, Thread, current_thread
+from threading import local as thread_local
 from typing import Literal, TypeVar, final
 
 # ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
@@ -167,6 +168,7 @@ def _determine_thread_limit_scope(
         thread = Thread(target=get_and_set)
         thread.start()
         thread.join()
+        OpenBLASController.clear_controlling_thread(force=True)
 
         # First, getting in the same thread as a set should always give same
         # number, if it's a number in a reasonable range. A possible exception
@@ -192,6 +194,7 @@ def _determine_thread_limit_scope(
             return "unknown"
     finally:
         set_n_threads(previous)
+        OpenBLASController.clear_controlling_thread(force=True)
 
 
 class LibController(ABC):
@@ -456,7 +459,30 @@ _CDLL_CACHE = _CDLLCache()
 
 
 class OpenBLASController(LibController):
-    """Controller class for OpenBLAS"""
+    """Controller class for OpenBLAS.
+
+    When OpenBLAS uses the OpenMP threading layer, each thread that calls into
+    OpenBLAS gets its own OpenBLAS thread pool, and correspondingly the limit
+    set by ``threadpoolctl`` is per-thread.  Each Python thread can therefore
+    set its own limit without consideration for other Python threads.
+
+    In constrast, when the OpenMP threading layer is not used, there is a
+    process-wide shared thread pool, so having multiple Python threads change
+    the limit at the same time makes no sense.  Therefore:
+
+        1. Thread pool size can only be set by a single thread, the first
+           thread to call ``set_num_threads()``.  In practice this will usually
+           be the main thread.
+
+        2. Other threads silently do nothing.
+
+        3. ``clear_controlling_thread()`` can be used to reset the thread that
+           can meaningfully use the limiting API.
+
+    ``with threadpool_limits()`` and the function decorator
+    ``threadpool_limits.wrap()`` will automatically clear the controlling
+    thread when they're done, including when nested.
+    """
 
     user_api = "blas"
     internal_api = "openblas"
@@ -499,7 +525,54 @@ class OpenBLASController(LibController):
             return get_num_threads_func()
         return None
 
+    class _SHARED_STATE:
+        """Shared state across instances."""
+
+        controlling_thread: Thread | None = None
+        lock = Lock()
+
+    @classmethod
+    def clear_controlling_thread(cls, force: bool = False):
+        """Reset which thread can set limits (on non-OpenMP threading layer).
+
+        It's up the caller to ensure the current controlling thread is done.
+
+        By default, only the controlling thread has an effect when calling this
+        method.  You can have any thread clear the controlling thread by
+        setting ``force=True``.
+        """
+        with cls._SHARED_STATE.lock:
+            if force or cls._SHARED_STATE.controlling_thread is current_thread():
+                cls._SHARED_STATE.controlling_thread = None
+
     def set_num_threads(self, num_threads):
+        if self.threading_layer == "openmp":
+            # Per-thread limits, so no need to be constraining:
+            return self._real_set_num_threads(num_threads)
+
+        # A shared process-wide thread pool, so don't want different Python
+        # threads fighting over limits:
+        this_thread = current_thread()
+
+        match self._SHARED_STATE.controlling_thread:
+            case None:
+                # No thread controls OpenBLAS, so try to take control:
+                with self._SHARED_STATE.lock:
+                    # Another thread might have changed it, so ensure that's
+                    # not the case:
+                    if self._SHARED_STATE.controlling_thread is None:
+                        self._SHARED_STATE.controlling_thread = this_thread
+                # Controlling thread should now be set, to either this thread
+                # or another, so try again:
+                return self.set_num_threads(num_threads)
+            case controlling_thread if controlling_thread is this_thread:
+                # This thread controls OpenBLAS:
+                return self._real_set_num_threads(num_threads)
+            case _:
+                # Some other thread controlls OpenBLAS:
+                return
+
+    def _real_set_num_threads(self, num_threads):
         # The OpenBLAS limiting API is process-wide, and we want current thread
         # limit if possible. When OpenBLAS is backed by OpenMP, using the
         # OpenMP API allows for current thread limiting when OpenMP has that
@@ -556,6 +629,31 @@ class OpenBLASController(LibController):
             get_architecture_func.restype = ctypes.c_char_p
             return get_architecture_func().decode("utf-8")
         return None
+
+
+class _ControllingThreadOwnership(thread_local):
+    """Count how many paired limit-unlimits have modified OpenBLAS.
+
+    Clear controlling thread if it hits zero.
+
+    In the future this could potentialy also apply to non-OpenBLAS libraries
+    that have a shared process pool.
+    """
+
+    count = 0
+
+    def increment(self):
+        """Increment ownership."""
+        self.count += 1
+
+    def decrement(self):
+        """Decrement ownership."""
+        self.count -= 1
+        if self.count <= 0:
+            OpenBLASController.clear_controlling_thread()
+
+
+CONTROLLING_THREAD_OWNERSHIP = _ControllingThreadOwnership()
 
 
 class BLISController(LibController):
@@ -943,10 +1041,12 @@ class _ThreadpoolLimiter:
         self._set_threadpool_limits()
 
     def __enter__(self):
+        CONTROLLING_THREAD_OWNERSHIP.increment()
         return self
 
     def __exit__(self, type, value, traceback):
         self.restore_original_limits()
+        CONTROLLING_THREAD_OWNERSHIP.decrement()
 
     @classmethod
     def wrap(cls, controller, *, limits=None, user_api=None):
@@ -1092,6 +1192,7 @@ class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
         # decorator.
         self._original_info = self._controller.info()
         self._set_threadpool_limits()
+        CONTROLLING_THREAD_OWNERSHIP.increment()
         return self
 
 

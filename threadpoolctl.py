@@ -34,9 +34,13 @@ from typing import Literal, TypeVar, final
 # builds (#225). dllist also uses dl_iterate_phdr internally (#239), which we
 # already avoid on Linux via /proc/self/maps on older versions of Python.
 dllist = None
-if sys.platform != "emscripten" and (
-    # Python 3.15 doesn't have the CFUNCTYPE anymore:
-    sys.platform == "linux" and sys.version_info[:2] >= (3, 15)
+if (
+    sys.platform != "emscripten"
+    and (
+        sys.platform != "linux"
+        # Python 3.15 doesn't have the CFUNCTYPE anymore:
+        or sys.version_info[:2] >= (3, 15)
+    )
 ):
     try:
         from ctypes.util import dllist

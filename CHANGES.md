@@ -16,8 +16,7 @@
 
 - Add a new API to get a cached `ThreadpoolController` instance
   (`get_cached_controller()`), as an optimization for cases where limits are set
-  frequently. See the docstring for caveats. It does not return `None` when the
-  cache is reset concurrently.
+  frequently. See the docstring for caveats.
   https://github.com/joblib/threadpoolctl/issues/257
   https://github.com/joblib/threadpoolctl/pull/285
 

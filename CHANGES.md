@@ -5,6 +5,11 @@
   quite a bit of overhead.
   https://github.com/joblib/threadpoolctl/pull/250
 
+- Add a new API to get a cached `ThreadpoolController` instance
+  (`get_cached_controller()`), as an optimization for cases where limits are set
+  frequently. See the docstring for caveats.
+  https://github.com/joblib/threadpoolctl/issues/257
+
 - Added official support for Python 3.15, and declared support for Python 3.14
   in package metadata.
   https://github.com/joblib/threadpoolctl/issues/251
@@ -24,6 +29,13 @@
   ``LibController``s, if available, falling back to ``"prefix"``. Previously the
   ``"prefix"`` was checked first.
   https://github.com/joblib/threadpoolctl/pull/278
+
+- Fixed `limits="sequential_blas_under_openmp"`, which left all BLAS libraries
+  unlimited as soon as OpenBLAS was loaded, whatever its threading layer, or a
+  library used the OpenMP threading layer (e.g. BLIS). The limit is now only
+  skipped when OpenBLAS uses the OpenMP threading layer, as documented.
+  https://github.com/joblib/threadpoolctl/pull/283
+
 
 3.7.0 (2026-09-15)
 ==================

@@ -28,7 +28,6 @@ from functools import lru_cache, wraps
 from threading import Lock, Thread
 from typing import Literal, TypeVar, final
 
-
 # ctypes.util is not imported on Linux: on CPython 3.14 it allocates a
 # process-lifetime CFUNCTYPE callback that is not fork-safe with some libffi
 # builds (#225). dllist also uses dl_iterate_phdr internally (#239), which we

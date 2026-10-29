@@ -20,6 +20,7 @@ from threadpoolctl import (
     OpenBLASController,
     ThreadpoolController,
     _determine_thread_limit_scope,
+    get_cached_controller,
     threadpool_info,
     threadpool_limits,
 )
@@ -302,9 +303,11 @@ def test_get_params_for_sequential_blas_under_openmp():
 
     params = controller._get_params_for_sequential_blas_under_openmp()
 
-    if controller.select(
-        internal_api="openblas", threading_layer="openmp"
-    ).lib_controllers:
+    if any(
+        lib_info["internal_api"] == "openblas"
+        and lib_info.get("threading_layer") == "openmp"
+        for lib_info in original_info
+    ):
         assert params["limits"] is None
         assert params["user_api"] is None
 
@@ -914,10 +917,13 @@ def test_flexiblas_switch():
     # at first, only "OPENBLAS_CONDA" is loaded
     assert fb_controller.current_backend == "OPENBLAS_CONDA"
     assert fb_controller.loaded_backends == ["OPENBLAS_CONDA"]
+    cached_controller = get_cached_controller()
 
     fb_controller.switch_backend("NETLIB")
     assert fb_controller.current_backend == "NETLIB"
     assert fb_controller.loaded_backends == ["OPENBLAS_CONDA", "NETLIB"]
+    # Switching invalidated the cached controller:
+    assert get_cached_controller() is not cached_controller
 
     if sys.platform == "linux":
         mkl_path = f"{os.getenv('CONDA_PREFIX')}/lib/libmkl_rt.so"
@@ -1319,6 +1325,24 @@ def test_controller_parallelism_no_deadlocks():
 
         # Special code indicating success:
         assert process.returncode == 17
+
+
+def test_get_cached_controller():
+    """
+    ``get_cached_controller()`` returns a cached ``ThreadpoolController``, and
+    invalidates the cache if new modules are imported.
+    """
+    pytest.importorskip("numpy")
+    controller = ThreadpoolController().select(user_api="blas")
+    if not controller.lib_controllers:
+        pytest.skip("No BLAS in NumPy")
+
+    process = subprocess.run(
+        [sys.executable, "-m", "tests._get_cached_controller"], timeout=10, check=False
+    )
+
+    # Special code indicating success:
+    assert process.returncode == 17
 
 
 @pytest.mark.skipif(

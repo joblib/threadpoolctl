@@ -16,8 +16,12 @@
   later scope does not drop a claim it did not take, for example an OpenMP-only
   limit or ``limits=None``. A thread that has finished no longer holds the
   claim; the next ``set_num_threads()`` can take it.
+  ``SHARED_POOL_CONTROL_OWNERSHIP.increment()`` and ``decrement()`` with no key
+  open and close that scope for every shared pool the current thread can
+  control.
   https://github.com/joblib/threadpoolctl/pull/275
   https://github.com/joblib/threadpoolctl/pull/289
+  https://github.com/joblib/threadpoolctl/pull/XXX
 
 - Add a new API to get a cached `ThreadpoolController` instance
   (`get_cached_controller()`), as an optimization for cases where limits are set

@@ -59,6 +59,7 @@ if sys.platform == "win32":
 
 __version__ = "3.8.0.dev0"
 __all__ = [
+    "SHARED_POOL_CONTROL_OWNERSHIP",
     "LibController",
     "ThreadpoolController",
     "get_cached_controller",
@@ -499,6 +500,11 @@ def _snapshot_shared_pool_states() -> list[_SharedPoolState]:
         return list(_SHARED_POOL_STATES.values())
 
 
+def _other_live_thread_holds(holder, this) -> bool:
+    """Whether ``holder`` is a different thread that still owns the pool."""
+    return holder is not None and holder is not this and holder.is_alive()
+
+
 def _release_shared_pool_claim(key: str):
     """Drop this thread's non-sticky claim on one shared pool.
 
@@ -769,11 +775,14 @@ class _SharedPoolControlOwnership(thread_local):
     A count is kept separately for each shared pool, keyed by library filepath.
     Hitting zero for a pool releases that pool's non-sticky controlling thread.
     A plain ``threadpool_limits(...)`` call increments and never decrements, so
-    it holds its claim until ``OpenBLASController.clear_controlling_thread()``.
+    it holds its claim until ``clear_controlling_thread()``.
 
-    The counts live on the thread-local instance. A class-level dict would be
-    shared by every thread. A forced clear drops counts for that controller
-    class only.
+    ``increment()`` and ``decrement()`` with no key apply to every loaded
+    shared pool this thread can control. Call ``increment()`` before
+    ``set_num_threads`` and ``decrement()`` when that scope ends to manage the
+    claim without a context manager. The counts live on the thread-local
+    instance. A class-level dict would be shared by every thread. A forced
+    clear drops counts for that controller class only.
     """
 
     def _counts(self) -> dict[str, int]:
@@ -837,19 +846,56 @@ class _SharedPoolControlOwnership(thread_local):
             counts.pop(key, None)
         self._generations()[owner] = generation
 
+    def _claimable_shared_pool_keys(self) -> list[str]:
+        """Loaded shared pools this thread can control, one key per copy."""
+        this = current_thread()
+        keys = []
+        seen = set()
+        for lib in get_cached_controller().lib_controllers:
+            if not lib._has_shared_pool():
+                continue
+            key = lib._shared_pool_key()
+            if key in seen:
+                continue
+            seen.add(key)
+            holder = lib._shared_pool_state().controlling_thread
+            if _other_live_thread_holds(holder, this):
+                continue
+            keys.append(key)
+        return keys
+
     def count_for(self, key: str) -> int:
         """Active scopes for one shared pool on this thread."""
         self.sync()
         return self._counts().get(key, 0)
 
-    def increment(self, key: str):
-        """Increment ownership of one shared pool."""
+    def increment(self, key: str | None = None):
+        """Increment ownership of one shared pool, or of every controllable one.
+
+        With no ``key``, each loaded library with a process-wide pool that
+        this thread can control is incremented once. Call this before
+        ``set_num_threads`` so the claim stays scoped.
+        """
+        if key is None:
+            for pool_key in self._claimable_shared_pool_keys():
+                self.increment(pool_key)
+            return
         self.sync()
         counts = self._counts()
         counts[key] = counts.get(key, 0) + 1
 
-    def decrement(self, key: str):
-        """Decrement ownership of one shared pool, releasing its scoped claim at zero."""
+    def decrement(self, key: str | None = None):
+        """Decrement ownership, releasing a non-sticky claim when it hits zero.
+
+        With no ``key``, every pool this thread currently counts is
+        decremented once. That closes a matching ``increment()`` and also any
+        pool incremented on its own.
+        """
+        if key is None:
+            self.sync()
+            for pool_key in list(self._counts()):
+                self.decrement(pool_key)
+            return
         self.sync()
         counts = self._counts()
         current = counts.get(key, 0)
@@ -1415,7 +1461,9 @@ class _ThreadpoolLimiter:
                 continue
             seen.add(key)
             holder = lib._shared_pool_state().controlling_thread
-            if holder is not None and holder is not this:
+            # A finished holder does not block this scope. Counting first keeps
+            # the replacement claim non-sticky, so the scope can release it.
+            if _other_live_thread_holds(holder, this):
                 continue
             SHARED_POOL_CONTROL_OWNERSHIP.increment(key)
             self._shared_pool_claim_keys.append(key)

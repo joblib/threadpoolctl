@@ -912,6 +912,73 @@ def test_openblas_controlling_thread_manual_increment_decrement_api(request):
     assert lib._shared_pool_state().controlling_thread is None
 
 
+class _TestSharedPoolController(threadpoolctl._SharedPoolControllerMixin):
+    """Stand-in shared pool addressed by filepath."""
+
+    def __init__(self, key):
+        self.filepath = key
+        self.prefix = key
+        self.user_api = "blas"
+        self.applied = None
+
+    def set_num_threads(self, num_threads):
+        self._set_shared_pool_num_threads(num_threads)
+
+    def _real_set_num_threads(self, num_threads):
+        self.applied = num_threads
+
+
+def test_bare_increment_decrement_covers_every_controllable_pool():
+    # No key: every loaded shared pool this thread can control, and not a pool
+    # another live thread already holds.
+    free_a = _TestSharedPoolController("threadpoolctl-test-bare-a")
+    free_b = _TestSharedPoolController("threadpoolctl-test-bare-b")
+    held = _TestSharedPoolController("threadpoolctl-test-bare-held")
+    started, finish = Lock(), Lock()
+    started.acquire()
+    finish.acquire()
+
+    def hold():
+        held._shared_pool_state().controlling_thread = current_thread()
+        started.release()
+        finish.acquire()
+
+    holder = Thread(target=hold)
+    controller = get_cached_controller()
+    controller.lib_controllers.extend([free_a, free_b, held])
+    try:
+        holder.start()
+        started.acquire()
+        SHARED_POOL_CONTROL_OWNERSHIP.increment()
+        assert SHARED_POOL_CONTROL_OWNERSHIP.count_for(free_a.filepath) == 1
+        assert SHARED_POOL_CONTROL_OWNERSHIP.count_for(free_b.filepath) == 1
+        assert SHARED_POOL_CONTROL_OWNERSHIP.count_for(held.filepath) == 0
+
+        free_a.set_num_threads(1)
+        free_b.set_num_threads(1)
+        assert free_a._shared_pool_state().controlling_thread is current_thread()
+        assert free_b._shared_pool_state().controlling_thread is current_thread()
+        assert free_a._shared_pool_state().sticky is False
+        assert free_b._shared_pool_state().sticky is False
+
+        SHARED_POOL_CONTROL_OWNERSHIP.increment()
+        SHARED_POOL_CONTROL_OWNERSHIP.decrement()
+        assert free_a._shared_pool_state().controlling_thread is current_thread()
+        SHARED_POOL_CONTROL_OWNERSHIP.decrement()
+        assert free_a._shared_pool_state().controlling_thread is None
+        assert free_b._shared_pool_state().controlling_thread is None
+        assert SHARED_POOL_CONTROL_OWNERSHIP.count_for(free_a.filepath) == 0
+        assert SHARED_POOL_CONTROL_OWNERSHIP.count_for(free_b.filepath) == 0
+    finally:
+        finish.release()
+        if holder.ident is not None:
+            holder.join()
+        for lib in (free_a, free_b, held):
+            controller.lib_controllers.remove(lib)
+            threadpoolctl._SHARED_POOL_STATES.pop(lib.filepath, None)
+        SHARED_POOL_CONTROL_OWNERSHIP.reset()
+
+
 def _require_resizable_openblas():
     libs = _non_openmp_openblas()
     lib = libs[0]
@@ -1038,8 +1105,8 @@ def test_openblas_scoped_exit_releases_only_that_library():
     # Bookkeeping for the ownership leak, including where no pthreads OpenBLAS
     # is installed. A scope ending on one library must not drop a sticky claim
     # or a still-held claim on another library.
-    key_a = "\0threadpoolctl-test-openblas-a"
-    key_b = "\0threadpoolctl-test-openblas-b"
+    key_a = "threadpoolctl-test-openblas-a"
+    key_b = "threadpoolctl-test-openblas-b"
     state_a = threadpoolctl._SharedPoolState()
     state_b = threadpoolctl._SharedPoolState()
     threadpoolctl._SHARED_POOL_STATES[key_a] = state_a
@@ -1076,6 +1143,51 @@ def test_openblas_scoped_exit_releases_only_that_library():
         SHARED_POOL_CONTROL_OWNERSHIP.reset()
 
 
+class _DeadHolderLib(threadpoolctl._SharedPoolControllerMixin):
+    """Stand-in library whose pool is already held by a finished thread."""
+
+    def __init__(self, key):
+        self.filepath = key
+        self.prefix = "dead-holder"
+        self.user_api = "blas"
+        self.applied = None
+
+    def set_num_threads(self, num_threads):
+        self._set_shared_pool_num_threads(num_threads)
+
+    def _real_set_num_threads(self, num_threads):
+        self.applied = num_threads
+
+
+def test_scoped_limit_replacing_dead_holder_is_not_sticky():
+    # A with-block that takes over from a finished controlling thread must
+    # release that claim on the way out.
+    key = "threadpoolctl-test-dead-holder"
+    dead = Thread(target=lambda: None)
+    dead.start()
+    dead.join()
+    lib = _DeadHolderLib(key)
+    state = lib._shared_pool_state()
+    state.controlling_thread = dead
+    state.sticky = True
+    limiter = object.__new__(threadpoolctl._ThreadpoolLimiter)
+    limiter._controller = type("C", (), {"lib_controllers": [lib]})()
+    limiter._limits = {key: 1}
+    limiter._shared_pool_claim_keys = []
+    try:
+        limiter._apply_limits_with_shared_pool_claims()
+        assert lib.applied == 1
+        assert state.controlling_thread is current_thread()
+        assert state.sticky is False
+        assert SHARED_POOL_CONTROL_OWNERSHIP.count_for(key) == 1
+        limiter._release_shared_pool_claims()
+        assert state.controlling_thread is None
+        assert SHARED_POOL_CONTROL_OWNERSHIP.count_for(key) == 0
+    finally:
+        threadpoolctl._SHARED_POOL_STATES.pop(key, None)
+        SHARED_POOL_CONTROL_OWNERSHIP.reset()
+
+
 class _OtherSharedPool:
     """Stand-in for a future library with its own shared pool."""
 
@@ -1083,8 +1195,8 @@ class _OtherSharedPool:
 def test_clear_controlling_thread_leaves_other_libraries():
     # OpenBLASController.clear_controlling_thread, including force=True, must
     # not drop a claim or a count owned by another controller class.
-    key_openblas = "\0threadpoolctl-test-openblas-clear"
-    key_other = "\0threadpoolctl-test-other-clear"
+    key_openblas = "threadpoolctl-test-openblas-clear"
+    key_other = "threadpoolctl-test-other-clear"
     state_openblas = threadpoolctl._SharedPoolState(owner=OpenBLASController)
     state_other = threadpoolctl._SharedPoolState(owner=_OtherSharedPool)
     threadpoolctl._SHARED_POOL_STATES[key_openblas] = state_openblas

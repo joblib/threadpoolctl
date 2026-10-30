@@ -473,25 +473,41 @@ class _CDLLCache:
 _CDLL_CACHE = _CDLLCache()
 
 
+@dataclass
+class _SharedPoolState:
+    """Who may change one shared thread pool."""
+
+    controlling_thread: Thread | None = None
+    # Set when control is taken outside a limiter scope (direct set_num_threads).
+    sticky: bool = False
+    lock: Lock = field(default_factory=Lock)
+    # Controller class for this pool, so a clear of one class leaves the others.
+    controller_class: type | None = None
+
+
 # Process-wide claims on shared thread pools, keyed by library. A controller opts in by
 # inheriting _SharedPoolControllerMixin. Separate copies of a library, for example
 # NumPy's and SciPy's OpenBLAS, have separate pools, so each copy has its own record and
 # its own controlling thread.
+#
+# Lock order: take _SHARED_POOL_STATES_LOCK before state.lock. Do not call sync() or
+# count_for() while holding state.lock. Both take the states lock, and releasing a
+# claim takes the states lock before the pool lock.
 _SHARED_POOL_STATES: dict[str, _SharedPoolState] = {}
 _SHARED_POOL_STATES_LOCK = Lock()
-# Bumped per controller class by a forced clear. Other threads then drop that class's
-# counts and keep every other library.
+# Bumped per controller class by a forced clear. A thread drops a class's counts when
+# its stored generation for that class does not match.
 _shared_pool_generations: dict[type, int] = {}
 
 
-def _get_shared_pool_state(key: str, owner: type) -> _SharedPoolState:
+def _get_shared_pool_state(key: str, controller_class: type) -> _SharedPoolState:
     with _SHARED_POOL_STATES_LOCK:
         state = _SHARED_POOL_STATES.get(key)
         if state is None:
-            state = _SharedPoolState(owner=owner)
+            state = _SharedPoolState(controller_class=controller_class)
             _SHARED_POOL_STATES[key] = state
-        elif state.owner is None:
-            state.owner = owner
+        elif state.controller_class is None:
+            state.controller_class = controller_class
         return state
 
 
@@ -503,6 +519,26 @@ def _snapshot_shared_pool_states() -> list[_SharedPoolState]:
 def _other_live_thread_holds(holder, this) -> bool:
     """Whether ``holder`` is a different thread that still owns the pool."""
     return holder is not None and holder is not this and holder.is_alive()
+
+
+def _iter_claimable_shared_pools(controllers):
+    """Yield ``(key, lib)`` for shared pools in ``controllers`` this thread can claim.
+
+    One entry per pool. A pool another live thread already holds is skipped.
+    """
+    this = current_thread()
+    seen = set()
+    for lib in controllers:
+        if not lib._has_shared_pool():
+            continue
+        key = lib._shared_pool_key()
+        if key in seen:
+            continue
+        seen.add(key)
+        holder = lib._shared_pool_state().controlling_thread
+        if _other_live_thread_holds(holder, this):
+            continue
+        yield key, lib
 
 
 def _release_shared_pool_claim(key: str):
@@ -521,8 +557,8 @@ def _release_shared_pool_claim(key: str):
             state.controlling_thread = None
 
 
-def _clear_shared_pool_claims(owner: type, force: bool = False):
-    """Drop claims on shared pools owned by one controller class.
+def _clear_shared_pool_claims(controller_class: type, force: bool = False):
+    """Drop claims on shared pools of one controller class.
 
     Pools of other classes are left untouched, including when ``force`` is
     true. A forced clear also drops that class's counts on other threads the
@@ -531,7 +567,7 @@ def _clear_shared_pool_claims(owner: type, force: bool = False):
     this = current_thread()
     cleared_this_thread = False
     for state in _snapshot_shared_pool_states():
-        if state.owner is not owner:
+        if state.controller_class is not controller_class:
             continue
         with state.lock:
             if force or state.controlling_thread is this:
@@ -541,9 +577,10 @@ def _clear_shared_pool_claims(owner: type, force: bool = False):
                 state.sticky = False
     if force:
         with _SHARED_POOL_STATES_LOCK:
-            _shared_pool_generations[owner] = _shared_pool_generations.get(owner, 0) + 1
+            generation = _shared_pool_generations.get(controller_class, 0) + 1
+            _shared_pool_generations[controller_class] = generation
     if force or cleared_this_thread:
-        SHARED_POOL_CONTROL_OWNERSHIP.reset(owner)
+        SHARED_POOL_CONTROL_OWNERSHIP.reset(controller_class)
 
 
 class _SharedPoolControllerMixin:
@@ -596,8 +633,7 @@ class _SharedPoolControllerMixin:
         state = self._shared_pool_state()
         controlling_thread = state.controlling_thread
         if controlling_thread is None or not controlling_thread.is_alive():
-            # Read the count before taking the pool lock. Syncing ownership takes the
-            # states lock, and releasing a claim takes that lock before the pool lock.
+            # Read the count before state.lock. count_for() takes the states lock.
             count = SHARED_POOL_CONTROL_OWNERSHIP.count_for(self._shared_pool_key())
             with state.lock:
                 holder = state.controlling_thread
@@ -612,19 +648,6 @@ class _SharedPoolControllerMixin:
             return self._real_set_num_threads(num_threads)
         else:
             return
-
-
-@dataclass
-class _SharedPoolState:
-    """Who may change one shared thread pool."""
-
-    controlling_thread: Thread | None = None
-    # Set when control is taken outside a limiter scope (direct set_num_threads).
-    sticky: bool = False
-    lock: Lock = field(default_factory=Lock)
-    # Controller class that owns this pool, so one class can clear its claims without
-    # releasing another library.
-    owner: type | None = None
 
 
 class OpenBLASController(_SharedPoolControllerMixin, LibController):
@@ -804,65 +827,52 @@ class _SharedPoolControlOwnership(thread_local):
         with _SHARED_POOL_STATES_LOCK:
             generations = dict(_shared_pool_generations)
             owned_keys = [
-                (key, state.owner)
+                (key, state.controller_class)
                 for key, state in _SHARED_POOL_STATES.items()
-                if state.owner is not None
+                if state.controller_class is not None
             ]
         local = self._generations()
         stale = {
-            owner
-            for owner, generation in generations.items()
-            if local.get(owner, 0) != generation
+            controller_class
+            for controller_class, generation in generations.items()
+            if local.get(controller_class, 0) != generation
         }
         if not stale:
             return
         counts = self._counts()
-        for key, owner in owned_keys:
-            if owner in stale:
+        for key, controller_class in owned_keys:
+            if controller_class in stale:
                 counts.pop(key, None)
-        for owner in stale:
-            local[owner] = generations[owner]
+        for controller_class in stale:
+            local[controller_class] = generations[controller_class]
 
-    def reset(self, owner: type | None = None):
+    def reset(self, controller_class: type | None = None):
         """Forget scopes on this thread.
 
-        With ``owner``, only that controller class. Without, every library.
+        With ``controller_class``, only that class. Without, every library.
         """
-        if owner is None:
+        if controller_class is None:
             with _SHARED_POOL_STATES_LOCK:
                 generations = dict(_shared_pool_generations)
             self.counts = {}
             self.generations = generations
             return
         with _SHARED_POOL_STATES_LOCK:
-            generation = _shared_pool_generations.get(owner, 0)
+            generation = _shared_pool_generations.get(controller_class, 0)
             keys = [
                 key
                 for key, state in _SHARED_POOL_STATES.items()
-                if state.owner is owner
+                if state.controller_class is controller_class
             ]
         counts = self._counts()
         for key in keys:
             counts.pop(key, None)
-        self._generations()[owner] = generation
+        self._generations()[controller_class] = generation
 
     def _claimable_shared_pool_keys(self) -> list[str]:
-        """Loaded shared pools this thread can control, one key per copy."""
-        this = current_thread()
-        keys = []
-        seen = set()
-        for lib in get_cached_controller().lib_controllers:
-            if not lib._has_shared_pool():
-                continue
-            key = lib._shared_pool_key()
-            if key in seen:
-                continue
-            seen.add(key)
-            holder = lib._shared_pool_state().controlling_thread
-            if _other_live_thread_holds(holder, this):
-                continue
-            keys.append(key)
-        return keys
+        """Pools this thread can control, from the cached controller."""
+        libs = get_cached_controller().lib_controllers
+        return [key for key, _lib in _iter_claimable_shared_pools(libs)]
 
     def count_for(self, key: str) -> int:
         """Active scopes for one shared pool on this thread."""
@@ -873,7 +883,8 @@ class _SharedPoolControlOwnership(thread_local):
         """Increment ownership of one shared pool, or of every controllable one.
 
         With no ``key``, each loaded library with a process-wide pool that
-        this thread can control is incremented once. Call this before
+        this thread can control is incremented once. Those libraries are the
+        ones known to ``get_cached_controller()``. Call this before
         ``set_num_threads`` so the claim stays scoped.
         """
         if key is None:
@@ -1439,32 +1450,22 @@ class _ThreadpoolLimiter:
             return None
         return num_threads
 
-    def _iter_shared_pool_targets(self):
-        """Libraries with a shared pool that this limiter would actually set."""
-        for lib in self._controller.lib_controllers:
-            if lib._has_shared_pool() and self._num_threads_for(lib) is not None:
-                yield lib
-
     def _acquire_shared_pool_claims(self):
         """Count a scope per library before setting, so the claim is not sticky.
 
-        Only libraries this thread can control are counted. OpenMP-only limits
-        and ``limits=None`` do not take a claim. Libraries are counted
-        separately so a scope that limits one copy does not pin another.
+        Only libraries this limiter would set, and that this thread can
+        control, are counted. OpenMP-only limits and ``limits=None`` do not
+        take a claim. Libraries are counted separately so a scope that limits
+        one copy does not pin another. A finished holder does not block this
+        scope: counting first keeps the replacement claim non-sticky.
         """
         self._shared_pool_claim_keys = []
-        this = current_thread()
-        seen = set()
-        for lib in self._iter_shared_pool_targets():
-            key = lib._shared_pool_key()
-            if key in seen:
-                continue
-            seen.add(key)
-            holder = lib._shared_pool_state().controlling_thread
-            # A finished holder does not block this scope. Counting first keeps
-            # the replacement claim non-sticky, so the scope can release it.
-            if _other_live_thread_holds(holder, this):
-                continue
+        targets = [
+            lib
+            for lib in self._controller.lib_controllers
+            if self._num_threads_for(lib) is not None
+        ]
+        for key, _lib in _iter_claimable_shared_pools(targets):
             SHARED_POOL_CONTROL_OWNERSHIP.increment(key)
             self._shared_pool_claim_keys.append(key)
 

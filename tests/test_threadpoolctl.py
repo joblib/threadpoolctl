@@ -1143,22 +1143,6 @@ def test_openblas_scoped_exit_releases_only_that_library():
         SHARED_POOL_CONTROL_OWNERSHIP.reset()
 
 
-class _DeadHolderLib(threadpoolctl._SharedPoolControllerMixin):
-    """Stand-in library whose pool is already held by a finished thread."""
-
-    def __init__(self, key):
-        self.filepath = key
-        self.prefix = "dead-holder"
-        self.user_api = "blas"
-        self.applied = None
-
-    def set_num_threads(self, num_threads):
-        self._set_shared_pool_num_threads(num_threads)
-
-    def _real_set_num_threads(self, num_threads):
-        self.applied = num_threads
-
-
 def test_scoped_limit_replacing_dead_holder_is_not_sticky():
     # A with-block that takes over from a finished controlling thread must
     # release that claim on the way out.
@@ -1166,7 +1150,7 @@ def test_scoped_limit_replacing_dead_holder_is_not_sticky():
     dead = Thread(target=lambda: None)
     dead.start()
     dead.join()
-    lib = _DeadHolderLib(key)
+    lib = _TestSharedPoolController(key)
     state = lib._shared_pool_state()
     state.controlling_thread = dead
     state.sticky = True
@@ -1197,8 +1181,8 @@ def test_clear_controlling_thread_leaves_other_libraries():
     # not drop a claim or a count owned by another controller class.
     key_openblas = "threadpoolctl-test-openblas-clear"
     key_other = "threadpoolctl-test-other-clear"
-    state_openblas = threadpoolctl._SharedPoolState(owner=OpenBLASController)
-    state_other = threadpoolctl._SharedPoolState(owner=_OtherSharedPool)
+    state_openblas = threadpoolctl._SharedPoolState(controller_class=OpenBLASController)
+    state_other = threadpoolctl._SharedPoolState(controller_class=_OtherSharedPool)
     threadpoolctl._SHARED_POOL_STATES[key_openblas] = state_openblas
     threadpoolctl._SHARED_POOL_STATES[key_other] = state_other
     try:

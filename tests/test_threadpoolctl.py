@@ -1015,7 +1015,7 @@ def test_increment_decrement_uses_the_given_controller():
         CONTROLLING_THREAD_OWNERSHIP._reset()
 
 
-def _require_resizable_openblas():
+def _require_resizable_non_openmp_openblas():
     libs = _non_openmp_openblas()
     lib = libs[0]
     orig = lib.get_num_threads()
@@ -1027,7 +1027,7 @@ def _require_resizable_openblas():
 def test_plain_threadpool_limits_claim_survives_later_scopes(request):
     # A plain call holds the controlling thread. A later with-block, including
     # one that does not touch OpenBLAS, must not drop that claim.
-    libs, lib, orig = _require_resizable_openblas()
+    libs, lib, orig = _require_resizable_non_openmp_openblas()
     request.addfinalizer(_restore_openblas_thread_counts(libs))
 
     threadpool_limits(limits=1)
@@ -1065,7 +1065,7 @@ def test_plain_threadpool_limits_claim_survives_later_scopes(request):
 
 
 def test_direct_set_num_threads_is_not_released_by_limiter_scopes(request):
-    libs, lib, orig = _require_resizable_openblas()
+    libs, lib, orig = _require_resizable_non_openmp_openblas()
     request.addfinalizer(_restore_openblas_thread_counts(libs))
 
     lib.set_num_threads(1)
@@ -1095,7 +1095,7 @@ def test_direct_set_num_threads_is_not_released_by_limiter_scopes(request):
 
 
 def test_restore_original_limits_keeps_openblas_controlling_thread(request):
-    libs, lib, orig = _require_resizable_openblas()
+    libs, lib, orig = _require_resizable_non_openmp_openblas()
     request.addfinalizer(_restore_openblas_thread_counts(libs))
 
     limiter = threadpool_limits(limits=1)

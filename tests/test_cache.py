@@ -1,6 +1,5 @@
 """Tests for ``threadpoolctl``'s internal caching layer."""
 
-import os
 import subprocess
 import sys
 from ctypes import CDLL
@@ -72,9 +71,6 @@ def test_register_after_libraries_were_listed():
     """
     # Run in a subprocess to keep the registered controller out of the other
     # tests:
-    path = os.path.dirname(os.path.dirname(__file__))
-    env = os.environ.copy()
-    env["PYTHONPATH"] = path + os.pathsep + env.get("PYTHONPATH", "")
     script = """
 from threadpoolctl import (
     LibController,
@@ -108,4 +104,4 @@ register(FakeController)
 assert ThreadpoolController().select(user_api="fake").lib_controllers
 assert get_cached_controller().select(user_api="fake").lib_controllers
 """
-    subprocess.check_call([sys.executable, "-c", script], env=env)
+    subprocess.check_call([sys.executable, "-c", script])

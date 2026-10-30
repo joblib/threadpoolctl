@@ -490,8 +490,8 @@ class _SharedPoolState:
 # NumPy's and SciPy's OpenBLAS, have separate pools, so each copy has its own record and
 # its own controlling thread.
 #
-# Lock order: take _SHARED_POOL_STATES_LOCK before state.lock. Do not call sync() or
-# count_for() while holding state.lock. Both take the states lock, and releasing a
+# Lock order: take _SHARED_POOL_STATES_LOCK before state.lock. Do not call _sync() or
+# _count_for() while holding state.lock. Both take the states lock, and releasing a
 # claim takes the states lock before the pool lock.
 _SHARED_POOL_STATES: dict[str, _SharedPoolState] = {}
 _SHARED_POOL_STATES_LOCK = Lock()
@@ -579,7 +579,7 @@ def _clear_shared_pool_claims(controller_class: type, force: bool = False):
             generation = _shared_pool_generations.get(controller_class, 0) + 1
             _shared_pool_generations[controller_class] = generation
     if force or cleared_this_thread:
-        SHARED_POOL_CONTROL_OWNERSHIP.reset(controller_class)
+        SHARED_POOL_CONTROL_OWNERSHIP._reset(controller_class)
 
 
 class _SharedPoolControllerMixin:
@@ -623,13 +623,13 @@ class _SharedPoolControllerMixin:
         count is still 0, is sticky: a later context manager must not drop it.
         A call made while a limiter scope is active is released with that scope.
         """
-        SHARED_POOL_CONTROL_OWNERSHIP.sync()
+        SHARED_POOL_CONTROL_OWNERSHIP._sync()
         this_thread = current_thread()
         state = self._shared_pool_state()
         controlling_thread = state.controlling_thread
         if controlling_thread is None or not controlling_thread.is_alive():
-            # Read the count before state.lock. count_for() takes the states lock.
-            count = SHARED_POOL_CONTROL_OWNERSHIP.count_for(self.filepath)
+            # Read the count before state.lock. _count_for() takes the states lock.
+            count = SHARED_POOL_CONTROL_OWNERSHIP._count_for(self.filepath)
             with state.lock:
                 holder = state.controlling_thread
                 if holder is None or not holder.is_alive():
@@ -817,7 +817,7 @@ class _SharedPoolControlOwnership(thread_local):
             self.generations = generations
         return generations
 
-    def sync(self):
+    def _sync(self):
         """Drop counts for libraries another thread has force-cleared."""
         with _SHARED_POOL_STATES_LOCK:
             generations = dict(_shared_pool_generations)
@@ -841,7 +841,7 @@ class _SharedPoolControlOwnership(thread_local):
         for controller_class in stale:
             local[controller_class] = generations[controller_class]
 
-    def reset(self, controller_class: type | None = None):
+    def _reset(self, controller_class: type | None = None):
         """Forget scopes on this thread.
 
         With ``controller_class``, only that class. Without, every library.
@@ -864,9 +864,9 @@ class _SharedPoolControlOwnership(thread_local):
             counts.pop(filepath, None)
         self._generations()[controller_class] = generation
 
-    def count_for(self, filepath: str) -> int:
+    def _count_for(self, filepath: str) -> int:
         """Active scopes for one shared pool on this thread."""
-        self.sync()
+        self._sync()
         return self._counts().get(filepath, 0)
 
     def increment(self, controller: ThreadpoolController | None = None):
@@ -882,7 +882,7 @@ class _SharedPoolControlOwnership(thread_local):
 
     def _increment(self, filepath: str):
         """Count one more scope for a single shared pool."""
-        self.sync()
+        self._sync()
         counts = self._counts()
         counts[filepath] = counts.get(filepath, 0) + 1
 
@@ -895,7 +895,7 @@ class _SharedPoolControlOwnership(thread_local):
         """
         if controller is None:
             controller = get_cached_controller()
-        self.sync()
+        self._sync()
         counts = self._counts()
         seen = set()
         for lib in controller.lib_controllers:
@@ -911,7 +911,7 @@ class _SharedPoolControlOwnership(thread_local):
 
         Reaching zero releases that pool's non-sticky claim.
         """
-        self.sync()
+        self._sync()
         counts = self._counts()
         current = counts.get(filepath, 0)
         if current <= 0:

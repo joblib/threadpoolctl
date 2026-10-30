@@ -19,7 +19,7 @@
   scope of ``set_num_threads`` calls.
   https://github.com/joblib/threadpoolctl/pull/275
   https://github.com/joblib/threadpoolctl/pull/289
-  https://github.com/joblib/threadpoolctl/pull/XXX
+  https://github.com/joblib/threadpoolctl/pull/290
 
 - Add a new API to get a cached `ThreadpoolController` instance
   (`get_cached_controller()`), as an optimization for cases where limits are set

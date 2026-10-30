@@ -485,7 +485,7 @@ class _SharedPoolState:
     controller_class: type | None = None
 
 
-# Process-wide claims on shared thread pools, keyed by library. A controller opts in by
+# Process-wide claims on shared thread pools, keyed by filepath. A controller opts in by
 # inheriting _SharedPoolControllerMixin. Separate copies of a library, for example
 # NumPy's and SciPy's OpenBLAS, have separate pools, so each copy has its own record and
 # its own controlling thread.
@@ -500,12 +500,12 @@ _SHARED_POOL_STATES_LOCK = Lock()
 _shared_pool_generations: dict[type, int] = {}
 
 
-def _get_shared_pool_state(key: str, controller_class: type) -> _SharedPoolState:
+def _get_shared_pool_state(filepath: str, controller_class: type) -> _SharedPoolState:
     with _SHARED_POOL_STATES_LOCK:
-        state = _SHARED_POOL_STATES.get(key)
+        state = _SHARED_POOL_STATES.get(filepath)
         if state is None:
             state = _SharedPoolState(controller_class=controller_class)
-            _SHARED_POOL_STATES[key] = state
+            _SHARED_POOL_STATES[filepath] = state
         elif state.controller_class is None:
             state.controller_class = controller_class
         return state
@@ -522,33 +522,32 @@ def _other_live_thread_holds(holder, this) -> bool:
 
 
 def _iter_claimable_shared_pools(controllers):
-    """Yield ``(key, lib)`` for shared pools in ``controllers`` this thread can claim.
+    """Yield shared-pool libraries in ``controllers`` this thread can claim.
 
-    One entry per pool. A pool another live thread already holds is skipped.
+    One library per filepath. A pool another live thread already holds is skipped.
     """
     this = current_thread()
     seen = set()
     for lib in controllers:
         if not lib._has_shared_pool():
             continue
-        key = lib._shared_pool_key()
-        if key in seen:
+        if lib.filepath in seen:
             continue
-        seen.add(key)
+        seen.add(lib.filepath)
         holder = lib._shared_pool_state().controlling_thread
         if _other_live_thread_holds(holder, this):
             continue
-        yield key, lib
+        yield lib
 
 
-def _release_shared_pool_claim(key: str):
+def _release_shared_pool_claim(filepath: str):
     """Drop this thread's non-sticky claim on one shared pool.
 
     A sticky claim was taken by a direct ``set_num_threads()`` while no limiter
     scope was active for that library. Scoped exits must leave it in place.
     """
     with _SHARED_POOL_STATES_LOCK:
-        state = _SHARED_POOL_STATES.get(key)
+        state = _SHARED_POOL_STATES.get(filepath)
     if state is None:
         return
     this = current_thread()
@@ -597,13 +596,9 @@ class _SharedPoolControllerMixin:
         """Whether this loaded library currently uses a process-wide pool."""
         return True
 
-    def _shared_pool_key(self) -> str:
-        """Identify this library's shared pool, one per loaded copy."""
-        return self.filepath
-
     def _shared_pool_state(self) -> _SharedPoolState:
         """Return the process-wide claim record for this library's shared pool."""
-        return _get_shared_pool_state(self._shared_pool_key(), type(self))
+        return _get_shared_pool_state(self.filepath, type(self))
 
     @classmethod
     def clear_controlling_thread(cls, force: bool = False):
@@ -634,7 +629,7 @@ class _SharedPoolControllerMixin:
         controlling_thread = state.controlling_thread
         if controlling_thread is None or not controlling_thread.is_alive():
             # Read the count before state.lock. count_for() takes the states lock.
-            count = SHARED_POOL_CONTROL_OWNERSHIP.count_for(self._shared_pool_key())
+            count = SHARED_POOL_CONTROL_OWNERSHIP.count_for(self.filepath)
             with state.lock:
                 holder = state.controlling_thread
                 if holder is None or not holder.is_alive():
@@ -800,12 +795,12 @@ class _SharedPoolControlOwnership(thread_local):
     A plain ``threadpool_limits(...)`` call increments and never decrements, so
     it holds its claim until ``clear_controlling_thread()``.
 
-    ``increment()`` and ``decrement()`` with no key apply to every loaded
-    shared pool this thread can control. Call ``increment()`` before
-    ``set_num_threads`` and ``decrement()`` when that scope ends to manage the
-    claim without a context manager. The counts live on the thread-local
-    instance. A class-level dict would be shared by every thread. A forced
-    clear drops counts for that controller class only.
+    ``increment(controller)`` counts every shared pool of ``controller`` that
+    this thread can control. ``decrement(controller)`` counts those pools back
+    down. ``controller`` defaults to ``get_cached_controller()``. Call
+    ``increment()`` before ``set_num_threads`` and ``decrement()`` when that
+    scope ends to manage the claim without a context manager. A forced clear
+    drops counts for that controller class only.
     """
 
     def _counts(self) -> dict[str, int]:
@@ -826,9 +821,9 @@ class _SharedPoolControlOwnership(thread_local):
         """Drop counts for libraries another thread has force-cleared."""
         with _SHARED_POOL_STATES_LOCK:
             generations = dict(_shared_pool_generations)
-            owned_keys = [
-                (key, state.controller_class)
-                for key, state in _SHARED_POOL_STATES.items()
+            owned_filepaths = [
+                (filepath, state.controller_class)
+                for filepath, state in _SHARED_POOL_STATES.items()
                 if state.controller_class is not None
             ]
         local = self._generations()
@@ -840,9 +835,9 @@ class _SharedPoolControlOwnership(thread_local):
         if not stale:
             return
         counts = self._counts()
-        for key, controller_class in owned_keys:
+        for filepath, controller_class in owned_filepaths:
             if controller_class in stale:
-                counts.pop(key, None)
+                counts.pop(filepath, None)
         for controller_class in stale:
             local[controller_class] = generations[controller_class]
 
@@ -859,65 +854,74 @@ class _SharedPoolControlOwnership(thread_local):
             return
         with _SHARED_POOL_STATES_LOCK:
             generation = _shared_pool_generations.get(controller_class, 0)
-            keys = [
-                key
-                for key, state in _SHARED_POOL_STATES.items()
+            filepaths = [
+                filepath
+                for filepath, state in _SHARED_POOL_STATES.items()
                 if state.controller_class is controller_class
             ]
         counts = self._counts()
-        for key in keys:
-            counts.pop(key, None)
+        for filepath in filepaths:
+            counts.pop(filepath, None)
         self._generations()[controller_class] = generation
 
-    def _claimable_shared_pool_keys(self) -> list[str]:
-        """Pools this thread can control, from the cached controller."""
-        libs = get_cached_controller().lib_controllers
-        return [key for key, _lib in _iter_claimable_shared_pools(libs)]
-
-    def count_for(self, key: str) -> int:
+    def count_for(self, filepath: str) -> int:
         """Active scopes for one shared pool on this thread."""
         self.sync()
-        return self._counts().get(key, 0)
+        return self._counts().get(filepath, 0)
 
-    def increment(self, key: str | None = None):
-        """Increment ownership of one shared pool, or of every controllable one.
+    def increment(self, controller: ThreadpoolController | None = None):
+        """Increment every shared pool of ``controller`` this thread can control.
 
-        With no ``key``, each loaded library with a process-wide pool that
-        this thread can control is incremented once. Those libraries are the
-        ones known to ``get_cached_controller()``. Call this before
-        ``set_num_threads`` so the claim stays scoped.
+        ``controller`` defaults to ``get_cached_controller()``. Call this
+        before ``set_num_threads`` so the claim stays scoped.
         """
-        if key is None:
-            for pool_key in self._claimable_shared_pool_keys():
-                self.increment(pool_key)
-            return
+        if controller is None:
+            controller = get_cached_controller()
+        for lib in _iter_claimable_shared_pools(controller.lib_controllers):
+            self._increment(lib.filepath)
+
+    def _increment(self, filepath: str):
+        """Count one more scope for a single shared pool."""
         self.sync()
         counts = self._counts()
-        counts[key] = counts.get(key, 0) + 1
+        counts[filepath] = counts.get(filepath, 0) + 1
 
-    def decrement(self, key: str | None = None):
-        """Decrement ownership, releasing a non-sticky claim when it hits zero.
+    def decrement(self, controller: ThreadpoolController | None = None):
+        """Decrement pools of ``controller`` that this thread currently counts.
 
-        With no ``key``, every pool this thread currently counts is
-        decremented once. That closes a matching ``increment()`` and also any
-        pool incremented on its own.
+        ``controller`` defaults to ``get_cached_controller()``. A pool whose
+        count hits zero releases its non-sticky claim. This closes a matching
+        ``increment()`` for that controller.
         """
-        if key is None:
-            self.sync()
-            for pool_key in list(self._counts()):
-                self.decrement(pool_key)
-            return
+        if controller is None:
+            controller = get_cached_controller()
         self.sync()
         counts = self._counts()
-        current = counts.get(key, 0)
+        seen = set()
+        for lib in controller.lib_controllers:
+            if not lib._has_shared_pool():
+                continue
+            if lib.filepath in seen or lib.filepath not in counts:
+                continue
+            seen.add(lib.filepath)
+            self._decrement(lib.filepath)
+
+    def _decrement(self, filepath: str):
+        """Count one fewer scope for a single shared pool.
+
+        Reaching zero releases that pool's non-sticky claim.
+        """
+        self.sync()
+        counts = self._counts()
+        current = counts.get(filepath, 0)
         if current <= 0:
             return
         current -= 1
         if current == 0:
-            counts.pop(key, None)
-            _release_shared_pool_claim(key)
+            counts.pop(filepath, None)
+            _release_shared_pool_claim(filepath)
         else:
-            counts[key] = current
+            counts[filepath] = current
 
 
 SHARED_POOL_CONTROL_OWNERSHIP = _SharedPoolControlOwnership()
@@ -1308,7 +1312,7 @@ class _ThreadpoolLimiter:
         self._controller = controller
         self._limits, self._user_api = self._check_params(limits, user_api)
         self._original_info = self._controller.info()
-        self._shared_pool_claim_keys: list[str] = []
+        self._shared_pool_filepaths: list[str] = []
         # A plain call never reaches __exit__, so this increment is what makes the claim
         # stick until clear_controlling_thread(). A `with` block decrements the same
         # increment on the way out.
@@ -1459,38 +1463,38 @@ class _ThreadpoolLimiter:
         one copy does not pin another. A finished holder does not block this
         scope: counting first keeps the replacement claim non-sticky.
         """
-        self._shared_pool_claim_keys = []
+        self._shared_pool_filepaths = []
         targets = [
             lib
             for lib in self._controller.lib_controllers
             if self._num_threads_for(lib) is not None
         ]
-        for key, _lib in _iter_claimable_shared_pools(targets):
-            SHARED_POOL_CONTROL_OWNERSHIP.increment(key)
-            self._shared_pool_claim_keys.append(key)
+        for lib in _iter_claimable_shared_pools(targets):
+            SHARED_POOL_CONTROL_OWNERSHIP._increment(lib.filepath)
+            self._shared_pool_filepaths.append(lib.filepath)
 
     def _release_shared_pool_claims(self):
-        keys = self._shared_pool_claim_keys
-        self._shared_pool_claim_keys = []
-        for key in keys:
-            SHARED_POOL_CONTROL_OWNERSHIP.decrement(key)
+        filepaths = self._shared_pool_filepaths
+        self._shared_pool_filepaths = []
+        for filepath in filepaths:
+            SHARED_POOL_CONTROL_OWNERSHIP._decrement(filepath)
 
     def _drop_unheld_shared_pool_claims(self):
         """Drop counts for libraries another thread won the race for."""
         this = current_thread()
         kept = []
-        for key in self._shared_pool_claim_keys:
+        for filepath in self._shared_pool_filepaths:
             with _SHARED_POOL_STATES_LOCK:
-                state = _SHARED_POOL_STATES.get(key)
+                state = _SHARED_POOL_STATES.get(filepath)
             held = False
             if state is not None:
                 with state.lock:
                     held = state.controlling_thread is this
             if held:
-                kept.append(key)
+                kept.append(filepath)
             else:
-                SHARED_POOL_CONTROL_OWNERSHIP.decrement(key)
-        self._shared_pool_claim_keys = kept
+                SHARED_POOL_CONTROL_OWNERSHIP._decrement(filepath)
+        self._shared_pool_filepaths = kept
 
     def _apply_limits_with_shared_pool_claims(self):
         self._acquire_shared_pool_claims()
@@ -1518,7 +1522,7 @@ class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
     def __init__(self, controller, *, limits=None, user_api=None):
         self._limits, self._user_api = self._check_params(limits, user_api)
         self._controller = controller
-        self._shared_pool_claim_keys = []
+        self._shared_pool_filepaths = []
 
     def __enter__(self):
         # Set the limits here and not in __init__ so they apply when the decorated

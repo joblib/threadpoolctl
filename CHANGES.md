@@ -16,9 +16,9 @@
   later scope does not drop a claim it did not take, for example an OpenMP-only
   limit or ``limits=None``. A thread that has finished no longer holds the
   claim; the next ``set_num_threads()`` can take it.
-  ``SHARED_POOL_CONTROL_OWNERSHIP.increment()`` and ``decrement()`` with no key
-  open and close that scope for every shared pool the current thread can
-  control.
+  ``SHARED_POOL_CONTROL_OWNERSHIP.increment(controller)`` and
+  ``decrement(controller)`` open and close that scope for the shared pools of
+  ``controller``, which defaults to ``get_cached_controller()``.
   https://github.com/joblib/threadpoolctl/pull/275
   https://github.com/joblib/threadpoolctl/pull/289
   https://github.com/joblib/threadpoolctl/pull/XXX

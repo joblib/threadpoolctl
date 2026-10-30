@@ -1216,9 +1216,11 @@ class threadpool_limits(_ThreadpoolLimiter):
     the supported libraries to `limit`. This function works for libraries that
     are already loaded in the interpreter and can be changed dynamically.
 
-    This effect is global and impacts the whole Python process. There is no thread level
-    isolation as these libraries do not offer thread-local APIs to configure the number
-    of threads to use in nested parallel calls.
+    This effect is thread-local whenever possible but this is not guaranteed
+    and actual behavior can depend on the controlled libraries. Notably,
+    OpenBLAS built with the "windows" or "pthreads" threading layers uses a
+    process-wide thread pool instead of independently controlled thread pools
+    per calling threads.
 
     Parameters
     ----------
@@ -1379,9 +1381,11 @@ class ThreadpoolController:
         the supported libraries to `limits`. This function works for libraries that
         are already loaded in the interpreter and can be changed dynamically.
 
-        This effect is global and impacts the whole Python process. There is no thread
-        level isolation as these libraries do not offer thread-local APIs to configure
-        the number of threads to use in nested parallel calls.
+        This effect is thread-local whenever possible but this is not guaranteed
+        and actual behavior can depend on the controlled libraries. Notably,
+        OpenBLAS built with the "windows" or "pthreads" threading layers uses a
+        process-wide thread pool instead of independently controlled thread pools
+        per calling threads.
 
         Parameters
         ----------

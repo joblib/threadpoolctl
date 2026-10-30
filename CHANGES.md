@@ -46,6 +46,8 @@
   skipped when OpenBLAS uses the OpenMP threading layer, as documented.
   https://github.com/joblib/threadpoolctl/pull/283
 
+- Dropped official support for Python 3.9.
+  https://github.com/joblib/threadpoolctl/pull/255
 
 3.7.0 (2026-09-15)
 ==================
@@ -104,9 +106,6 @@
   ``ctypes.CDLL(None)``) so ``threadpool_info()`` does not create libffi
   closures that can abort after ``os.fork()`` on some libffi builds.
   https://github.com/joblib/threadpoolctl/pull/242
-
-- Dropped official support for Python 3.9.
-  https://github.com/joblib/threadpoolctl/pull/255
 
 3.6.0 (2025-03-13)
 ==================

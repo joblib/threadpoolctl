@@ -39,17 +39,6 @@ from .utils import (
 )
 
 
-def stdlib_dllist():
-    """Return ctypes.util.dllist when _load_libraries would use it, else None."""
-    if sys.platform in ("linux", "emscripten"):
-        return None
-    try:
-        from ctypes.util import dllist
-    except ImportError:
-        return None
-    return dllist
-
-
 def is_old_openblas(lib_controller):
     # Possible bug in getting maximum number of threads with OpenBLAS < 0.2.16
     # and OpenBLAS does not expose its version before 0.3.4.
@@ -1016,6 +1005,20 @@ def test_threadpool_controller_repeated_init():
         ThreadpoolController()
 
 
+@pytest.mark.skipif(
+    sys.platform not in ("win32", "darwin") or sys.version_info[:2] < (3, 14),
+    reason="ctypes.util.dllist is only available on Python 3.14+",
+)
+def test_dllist_used_on_windows_and_macos():
+    """Python 3.14+ lists libraries with ctypes.util.dllist on Windows and macOS."""
+    calls = []
+    controller = ThreadpoolController._from_controllers([])
+    controller._find_libraries_with_python = calls.append
+    controller._load_libraries()
+    assert calls == [threadpoolctl.dllist]
+    assert threadpoolctl.dllist is not None
+
+
 def test_dllist_oserror_emits_warning():
     """dllist listing failures warn instead of raising, so they can be reported."""
 
@@ -1089,7 +1092,7 @@ def test_windows_library_path_longer_than_max_path(tmp_path):
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-only test")
 @pytest.mark.skipif(
-    stdlib_dllist() is not None,
+    threadpoolctl.dllist is not None,
     reason="Python 3.14+ dllist does not apply the internal path length limit",
 )
 def test_windows_library_path_exceeds_internal_limit(tmp_path, monkeypatch):

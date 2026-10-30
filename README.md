@@ -274,13 +274,17 @@ OpenBLAS+pthreads) and in each worker thread.
 
 > **Why you need both:** When setting a limit on OpenBLAS with pthreads or the
 > Windows threading layer, setting the limit affects the whole process, because
-> it uses a process-wide shared thread pool. (This in contrast to some other
-> BLAS/OpenMP libraries, or OpenBLAS backed by OpenMP, that allow setting the
-> limit per-thread.) Having multiple Python threads set limits in this case
-> makes no sense, since they would effectively be arguing over a globally shared
-> resource. ``threadpoolctl`` therefore constrains the limiting API in the
-> OpenBLAS pthreads/Windows case to only work from the first thread that uses
-> it, the so-called controlling thread.
+> each loaded OpenBLAS library uses one process-wide shared thread pool. (This in
+> contrast to some other BLAS/OpenMP libraries, or OpenBLAS backed by OpenMP,
+> that allow setting the limit per-thread.) A process can load more than one
+> OpenBLAS library, for example one bundled with NumPy and another bundled with
+> SciPy, and each has its own pool. Having multiple Python threads set limits on
+> the same library makes no sense, since they would be arguing over its pool.
+> So each loaded OpenBLAS library has its own controlling thread: the first
+> thread to set thread limits on it. Other threads do nothing. The controlling
+> thread is released automatically when the ``with`` block or decorated function
+> that took it exits, and once that thread has finished. See the docstring of
+> ``OpenBLASController`` for more details.
 >
 > For many other libraries, for example OpenMP, the limit is set per thread. As
 > a result, you want to set limits both ways in generic code that doesn't know

@@ -1,3 +1,5 @@
+import warnings
+
 import pytest
 
 collect_ignore = [
@@ -19,7 +21,16 @@ def _ensure_openblas_thread_count_is_restorable():
     """
     from threadpoolctl import OpenBLASController, ThreadpoolController
 
-    controller = ThreadpoolController().select(internal_api="openblas")
+    # Building a controller warns when libomp and libiomp are both loaded.
+    # That warning is the subject of test_libomp_libiomp_warning, and pytest
+    # runs with -W error, so the fixture must not emit it.
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r"\s*Found Intel OpenMP",
+            category=RuntimeWarning,
+        )
+        controller = ThreadpoolController().select(internal_api="openblas")
     if controller:
         for lib in controller.lib_controllers:
             if lib.threading_layer == "openmp" or lib.get_num_threads() != 0:

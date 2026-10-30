@@ -12,7 +12,7 @@
   controlling thread. A plain ``threadpool_limits(...)`` call or a direct
   ``set_num_threads()`` keeps that role until ``clear_controlling_thread()`` on
   that library. ``OpenBLASController.clear_all_controlling_threads()`` drops
-  every loaded copy. Context managers and decorators release it when the
+  every loaded OpenBLAS library. Context managers and decorators release it when the
   outermost scope that took the claim exits. A thread that has finished no
   longer holds the claim; the next ``set_num_threads()`` can take it. The
   ``CONTROLLING_THREAD_OWNERSHIP`` singleton can be used to manually manage the

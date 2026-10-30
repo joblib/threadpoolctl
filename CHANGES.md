@@ -17,7 +17,8 @@
 - Add a new API to get a cached `ThreadpoolController` instance
   (`get_cached_controller()`), as an optimization for cases where limits are set
   frequently. See the docstring for caveats.
-  https://github.com/joblib/threadpoolctl/issues/257
+  https://github.com/joblib/threadpoolctl/pull/257
+  https://github.com/joblib/threadpoolctl/pull/285
 
 - Added official support for Python 3.15, and declared support for Python 3.14
   in package metadata.

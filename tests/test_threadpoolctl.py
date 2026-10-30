@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from threading import Thread, current_thread
 
 import pytest
@@ -21,6 +22,7 @@ from threadpoolctl import (
     ThreadpoolController,
     _determine_thread_limit_scope,
     get_cached_controller,
+    reset_cached_controller,
     threadpool_info,
     threadpool_limits,
 )
@@ -1343,6 +1345,48 @@ def test_get_cached_controller():
 
     # Special code indicating success:
     assert process.returncode == 17
+
+
+def test_get_cached_controller_concurrent_reset_never_returns_none():
+    """Concurrent reset must not make ``get_cached_controller()`` return None.
+
+    One thread reads the cache while another invalidates it. A stale
+    ``ThreadpoolController`` is acceptable; ``None`` is not, because callers
+    do ``get_cached_controller().limit(...)``.
+    """
+    deadline = time.monotonic() + 0.2
+    failures = []
+    observed = 0
+
+    def reader():
+        nonlocal observed
+        while True:
+            controller = get_cached_controller()
+            observed += 1
+            if controller is None or not isinstance(controller, ThreadpoolController):
+                failures.append(controller)
+                return
+            if time.monotonic() >= deadline:
+                return
+
+    def resetter():
+        while time.monotonic() < deadline:
+            reset_cached_controller()
+
+    reader_thread = Thread(target=reader)
+    reset_thread = Thread(target=resetter)
+    try:
+        reader_thread.start()
+        reset_thread.start()
+        reader_thread.join(timeout=2)
+        reset_thread.join(timeout=2)
+        assert not reader_thread.is_alive()
+        assert not reset_thread.is_alive()
+    finally:
+        reset_cached_controller()
+
+    assert observed > 0
+    assert failures == []
 
 
 @pytest.mark.skipif(

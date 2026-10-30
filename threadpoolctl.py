@@ -2029,9 +2029,13 @@ def get_cached_controller() -> ThreadpoolController:
     `reset_cached_controller()` module level function.
     """
     global _CACHED_CONTROLLER, _CACHED_SYS_MODULES_LEN
-    # Fast path, with no lock:
-    if _CACHED_SYS_MODULES_LEN == len(sys.modules) and _CACHED_CONTROLLER is not None:
-        return _CACHED_CONTROLLER
+    # Fast path with no lock: snapshot before the `None` check as
+    # `reset_cached_controller()` and `FlexiBLASController.switch_backend()`
+    # can concurrently set the global to `None`. A stale controller instance is
+    # acceptable but returning `None` would break the caller.
+    controller = _CACHED_CONTROLLER
+    if _CACHED_SYS_MODULES_LEN == len(sys.modules) and controller is not None:
+        return controller
     with _CACHE_LOCK:
         # Do this once, so there's no race condition with imports in other
         # threads:
@@ -2039,7 +2043,7 @@ def get_cached_controller() -> ThreadpoolController:
         if _CACHED_CONTROLLER is None or num_modules != _CACHED_SYS_MODULES_LEN:
             _CACHED_CONTROLLER = ThreadpoolController()
             _CACHED_SYS_MODULES_LEN = num_modules
-    return _CACHED_CONTROLLER
+        return _CACHED_CONTROLLER
 
 
 def reset_cached_controller() -> None:

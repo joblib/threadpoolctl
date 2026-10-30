@@ -16,7 +16,7 @@ import threadpoolctl
 from threadpoolctl import (
     _ALL_PREFIXES,
     _ALL_USER_APIS,
-    CONTROLLING_THREAD_OWNERSHIP,
+    SHARED_POOL_CONTROL_OWNERSHIP,
     LibController,
     OpenBLASController,
     ThreadpoolController,
@@ -846,7 +846,7 @@ def _non_openmp_openblas():
 
 def _openblas_controlling_thread():
     libs = _non_openmp_openblas()
-    holders = {lib._runtime_state().controlling_thread for lib in libs}
+    holders = {lib._shared_pool_state().controlling_thread for lib in libs}
     if len(holders) != 1:
         return holders
     return next(iter(holders))
@@ -900,16 +900,16 @@ def test_openblas_controlling_thread_manual_increment_decrement_api(request):
         pytest.skip("Test requires a non-OpenMP OpenBLAS with at least 2 threads")
     request.addfinalizer(_restore_openblas_thread_counts(libs))
 
-    key = lib._state_key()
-    CONTROLLING_THREAD_OWNERSHIP.increment(key)
-    CONTROLLING_THREAD_OWNERSHIP.increment(key)
+    key = lib._shared_pool_key()
+    SHARED_POOL_CONTROL_OWNERSHIP.increment(key)
+    SHARED_POOL_CONTROL_OWNERSHIP.increment(key)
     lib.set_num_threads(1)
-    assert lib._runtime_state().controlling_thread is current_thread()
-    assert not lib._runtime_state().sticky
-    CONTROLLING_THREAD_OWNERSHIP.decrement(key)
-    assert lib._runtime_state().controlling_thread is current_thread()
-    CONTROLLING_THREAD_OWNERSHIP.decrement(key)
-    assert lib._runtime_state().controlling_thread is None
+    assert lib._shared_pool_state().controlling_thread is current_thread()
+    assert not lib._shared_pool_state().sticky
+    SHARED_POOL_CONTROL_OWNERSHIP.decrement(key)
+    assert lib._shared_pool_state().controlling_thread is current_thread()
+    SHARED_POOL_CONTROL_OWNERSHIP.decrement(key)
+    assert lib._shared_pool_state().controlling_thread is None
 
 
 def _require_resizable_openblas():
@@ -928,7 +928,7 @@ def test_plain_threadpool_limits_claim_survives_later_scopes(request):
     request.addfinalizer(_restore_openblas_thread_counts(libs))
 
     threadpool_limits(limits=1)
-    assert lib._runtime_state().controlling_thread is current_thread()
+    assert lib._shared_pool_state().controlling_thread is current_thread()
     assert lib.get_num_threads() == 1
 
     with threadpool_limits(limits=1, user_api="openmp"):
@@ -936,17 +936,17 @@ def test_plain_threadpool_limits_claim_survives_later_scopes(request):
     with threadpool_limits(limits=None):
         assert lib.get_num_threads() == 1
     with threadpool_limits(limits=orig):
-        assert lib._runtime_state().controlling_thread is current_thread()
+        assert lib._shared_pool_state().controlling_thread is current_thread()
 
     assert lib.get_num_threads() == 1
-    assert lib._runtime_state().controlling_thread is current_thread()
+    assert lib._shared_pool_state().controlling_thread is current_thread()
 
     observed = {}
 
     def other_thread():
         lib.set_num_threads(orig)
         observed["threads"] = lib.get_num_threads()
-        observed["holder"] = lib._runtime_state().controlling_thread
+        observed["holder"] = lib._shared_pool_state().controlling_thread
 
     run_in_thread(other_thread)
     assert observed["threads"] == 1
@@ -955,10 +955,10 @@ def test_plain_threadpool_limits_claim_survives_later_scopes(request):
     # An explicit clear drops the plain call. The next with-block is then the
     # sole scope and releases the claim on the way out.
     OpenBLASController.clear_controlling_thread()
-    assert lib._runtime_state().controlling_thread is None
+    assert lib._shared_pool_state().controlling_thread is None
     with threadpool_limits(limits=1):
-        assert lib._runtime_state().controlling_thread is current_thread()
-    assert lib._runtime_state().controlling_thread is None
+        assert lib._shared_pool_state().controlling_thread is current_thread()
+    assert lib._shared_pool_state().controlling_thread is None
 
 
 def test_direct_set_num_threads_is_not_released_by_limiter_scopes(request):
@@ -966,7 +966,7 @@ def test_direct_set_num_threads_is_not_released_by_limiter_scopes(request):
     request.addfinalizer(_restore_openblas_thread_counts(libs))
 
     lib.set_num_threads(1)
-    state = lib._runtime_state()
+    state = lib._shared_pool_state()
     assert state.controlling_thread is current_thread()
     assert state.sticky
 
@@ -997,14 +997,14 @@ def test_restore_original_limits_keeps_openblas_controlling_thread(request):
 
     limiter = threadpool_limits(limits=1)
     assert lib.get_num_threads() == 1
-    assert lib._runtime_state().controlling_thread is current_thread()
+    assert lib._shared_pool_state().controlling_thread is current_thread()
 
     limiter.restore_original_limits()
     assert lib.get_num_threads() == orig
-    assert lib._runtime_state().controlling_thread is current_thread()
+    assert lib._shared_pool_state().controlling_thread is current_thread()
 
     OpenBLASController.clear_controlling_thread()
-    assert lib._runtime_state().controlling_thread is None
+    assert lib._shared_pool_state().controlling_thread is None
 
 
 def test_openblas_controlling_thread_is_per_library(request):
@@ -1023,12 +1023,12 @@ def test_openblas_controlling_thread_is_per_library(request):
 
     def other_thread():
         second.set_num_threads(1)
-        observed["holder"] = second._runtime_state().controlling_thread
+        observed["holder"] = second._shared_pool_state().controlling_thread
         observed["threads"] = second.get_num_threads()
 
     run_in_thread(other_thread)
     assert first.get_num_threads() == 1
-    assert first._runtime_state().controlling_thread is current_thread()
+    assert first._shared_pool_state().controlling_thread is current_thread()
     assert observed["threads"] == 1
     assert observed["holder"] is not None
     assert observed["holder"] is not current_thread()
@@ -1040,20 +1040,20 @@ def test_openblas_scoped_exit_releases_only_that_library():
     # or a still-held claim on another library.
     key_a = "\0threadpoolctl-test-openblas-a"
     key_b = "\0threadpoolctl-test-openblas-b"
-    state_a = threadpoolctl._OpenBLASLimitState()
-    state_b = threadpoolctl._OpenBLASLimitState()
-    OpenBLASController._states[key_a] = state_a
-    OpenBLASController._states[key_b] = state_b
+    state_a = threadpoolctl._SharedPoolState()
+    state_b = threadpoolctl._SharedPoolState()
+    threadpoolctl._SHARED_POOL_STATES[key_a] = state_a
+    threadpoolctl._SHARED_POOL_STATES[key_b] = state_b
     try:
         state_a.controlling_thread = current_thread()
         state_a.sticky = True
 
-        CONTROLLING_THREAD_OWNERSHIP.increment(key_b)
+        SHARED_POOL_CONTROL_OWNERSHIP.increment(key_b)
         state_b.controlling_thread = current_thread()
-        state_b.sticky = CONTROLLING_THREAD_OWNERSHIP.count_for(key_b) == 0
+        state_b.sticky = SHARED_POOL_CONTROL_OWNERSHIP.count_for(key_b) == 0
         assert state_b.sticky is False
 
-        CONTROLLING_THREAD_OWNERSHIP.decrement(key_b)
+        SHARED_POOL_CONTROL_OWNERSHIP.decrement(key_b)
         assert state_b.controlling_thread is None
         assert state_a.controlling_thread is current_thread()
         assert state_a.sticky is True
@@ -1061,19 +1061,68 @@ def test_openblas_scoped_exit_releases_only_that_library():
         # A plain call is non-sticky and is held by a leftover count. Ending a
         # scope on B must not release A.
         state_a.sticky = False
-        CONTROLLING_THREAD_OWNERSHIP.increment(key_a)
-        CONTROLLING_THREAD_OWNERSHIP.increment(key_b)
+        SHARED_POOL_CONTROL_OWNERSHIP.increment(key_a)
+        SHARED_POOL_CONTROL_OWNERSHIP.increment(key_b)
         state_b.controlling_thread = current_thread()
         state_b.sticky = False
-        CONTROLLING_THREAD_OWNERSHIP.decrement(key_b)
+        SHARED_POOL_CONTROL_OWNERSHIP.decrement(key_b)
         assert state_b.controlling_thread is None
         assert state_a.controlling_thread is current_thread()
         assert state_a.sticky is False
-        assert CONTROLLING_THREAD_OWNERSHIP.count_for(key_a) == 1
+        assert SHARED_POOL_CONTROL_OWNERSHIP.count_for(key_a) == 1
     finally:
-        OpenBLASController._states.pop(key_a, None)
-        OpenBLASController._states.pop(key_b, None)
-        CONTROLLING_THREAD_OWNERSHIP.reset()
+        threadpoolctl._SHARED_POOL_STATES.pop(key_a, None)
+        threadpoolctl._SHARED_POOL_STATES.pop(key_b, None)
+        SHARED_POOL_CONTROL_OWNERSHIP.reset()
+
+
+class _OtherSharedPool:
+    """Stand-in for a future library with its own shared pool."""
+
+
+def test_clear_controlling_thread_leaves_other_libraries():
+    # OpenBLASController.clear_controlling_thread, including force=True, must
+    # not drop a claim or a count owned by another controller class.
+    key_openblas = "\0threadpoolctl-test-openblas-clear"
+    key_other = "\0threadpoolctl-test-other-clear"
+    state_openblas = threadpoolctl._SharedPoolState(owner=OpenBLASController)
+    state_other = threadpoolctl._SharedPoolState(owner=_OtherSharedPool)
+    threadpoolctl._SHARED_POOL_STATES[key_openblas] = state_openblas
+    threadpoolctl._SHARED_POOL_STATES[key_other] = state_other
+    try:
+        state_openblas.controlling_thread = current_thread()
+        state_openblas.sticky = True
+        state_other.controlling_thread = current_thread()
+        state_other.sticky = True
+        SHARED_POOL_CONTROL_OWNERSHIP.increment(key_openblas)
+        SHARED_POOL_CONTROL_OWNERSHIP.increment(key_other)
+
+        OpenBLASController.clear_controlling_thread()
+        assert state_openblas.controlling_thread is None
+        assert state_openblas.sticky is False
+        assert SHARED_POOL_CONTROL_OWNERSHIP.count_for(key_openblas) == 0
+        assert state_other.controlling_thread is current_thread()
+        assert state_other.sticky is True
+        assert SHARED_POOL_CONTROL_OWNERSHIP.count_for(key_other) == 1
+
+        state_openblas.controlling_thread = current_thread()
+        state_openblas.sticky = True
+        SHARED_POOL_CONTROL_OWNERSHIP.increment(key_openblas)
+
+        def force_clear():
+            OpenBLASController.clear_controlling_thread(force=True)
+
+        run_in_thread(force_clear)
+        assert state_openblas.controlling_thread is None
+        assert state_openblas.sticky is False
+        assert state_other.controlling_thread is current_thread()
+        assert state_other.sticky is True
+        assert SHARED_POOL_CONTROL_OWNERSHIP.count_for(key_openblas) == 0
+        assert SHARED_POOL_CONTROL_OWNERSHIP.count_for(key_other) == 1
+    finally:
+        threadpoolctl._SHARED_POOL_STATES.pop(key_openblas, None)
+        threadpoolctl._SHARED_POOL_STATES.pop(key_other, None)
+        SHARED_POOL_CONTROL_OWNERSHIP.reset()
 
 
 # skip test if not run in a azure pipelines job since it relies on a specific flexiblas

@@ -557,24 +557,26 @@ class OpenBLASController(LibController):
         # A shared process-wide thread pool, so don't want different Python
         # threads fighting over limits:
         this_thread = current_thread()
-
-        match self._SHARED_STATE.controlling_thread:
-            case None:
-                # No thread controls OpenBLAS, so try to take control:
-                with self._SHARED_STATE.lock:
-                    # Another thread might have changed it, so ensure that's
-                    # not the case:
-                    if self._SHARED_STATE.controlling_thread is None:
-                        self._SHARED_STATE.controlling_thread = this_thread
-                # Controlling thread should now be set, to either this thread
-                # or another, so try again:
-                return self.set_num_threads(num_threads)
-            case controlling_thread if controlling_thread is this_thread:
-                # This thread controls OpenBLAS:
-                return self._real_set_num_threads(num_threads)
-            case _:
-                # Some other thread controlls OpenBLAS:
-                return
+        controlling_thread = self._SHARED_STATE.controlling_thread
+        if controlling_thread is None or not controlling_thread.is_alive():
+            # No thread controls OpenBLAS, so try to take control:
+            with self._SHARED_STATE.lock:
+                # Another thread might have changed it, so ensure that's not
+                # the case:
+                if (
+                    self._SHARED_STATE.controlling_thread is None
+                    or not self._SHARED_STATE.controlling_thread.is_alive()
+                ):
+                    self._SHARED_STATE.controlling_thread = this_thread
+            # Controlling thread should now be set, to either this thread or
+            # another, so try again:
+            return self.set_num_threads(num_threads)
+        elif controlling_thread is this_thread:
+            # This thread controls OpenBLAS:
+            return self._real_set_num_threads(num_threads)
+        else:
+            # Some other thread controlls OpenBLAS: do nothing.
+            return
 
     def _real_set_num_threads(self, num_threads):
         # The OpenBLAS limiting API is process-wide, and we want current thread

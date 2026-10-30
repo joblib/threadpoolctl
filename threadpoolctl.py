@@ -312,18 +312,11 @@ class LibController(ABC):
         """Whether this library's thread pool is shared by all Python threads.
 
         When True, only one thread at a time can change the pool size, and
-        ``threadpool_limits`` scopes claim control of it on that library. Override
-        in subclasses whose pool is shared process-wide.
+        ``threadpool_limits`` scopes claim control of it on that library.
+        Controllers with a process-wide pool inherit ``_SharedPoolControllerMixin``,
+        which reports True. Override when only some builds share a pool.
         """
         return False
-
-    def _shared_pool_key(self) -> str:
-        """Identify this library's shared pool, one per loaded copy."""
-        return self.filepath
-
-    def _shared_pool_state(self):
-        """Return the process-wide claim record for this library's shared pool."""
-        return _get_shared_pool_state(self._shared_pool_key(), type(self))
 
 
 # Internal marker for missing cache lookups:
@@ -479,15 +472,14 @@ class _CDLLCache:
 _CDLL_CACHE = _CDLLCache()
 
 
-# Process-wide claims on shared thread pools, keyed by library. A library whose
-# pool is shared between Python threads reports it through
-# LibController._has_shared_pool(). Separate copies of a library, for example
-# NumPy's and SciPy's OpenBLAS, have separate pools, so each copy has its own
-# record and its own controlling thread.
+# Process-wide claims on shared thread pools, keyed by library. A controller opts in by
+# inheriting _SharedPoolControllerMixin. Separate copies of a library, for example
+# NumPy's and SciPy's OpenBLAS, have separate pools, so each copy has its own record and
+# its own controlling thread.
 _SHARED_POOL_STATES: dict[str, _SharedPoolState] = {}
 _SHARED_POOL_STATES_LOCK = Lock()
-# Bumped per controller class by a forced clear. Other threads then drop that
-# class's counts and keep every other library.
+# Bumped per controller class by a forced clear. Other threads then drop that class's
+# counts and keep every other library.
 _shared_pool_generations: dict[type, int] = {}
 
 
@@ -526,10 +518,9 @@ def _release_shared_pool_claim(key: str):
 def _clear_shared_pool_claims(owner: type, force: bool = False):
     """Drop claims on shared pools owned by one controller class.
 
-    ``owner`` is that class, for example ``OpenBLASController``. Pools of
-    other classes are left untouched, including when ``force`` is true. A
-    forced clear also drops that class's counts on other threads the next
-    time they sync.
+    Pools of other classes are left untouched, including when ``force`` is
+    true. A forced clear also drops that class's counts on other threads the
+    next time they sync.
     """
     this = current_thread()
     cleared_this_thread = False
@@ -549,6 +540,74 @@ def _clear_shared_pool_claims(owner: type, force: bool = False):
         SHARED_POOL_CONTROL_OWNERSHIP.reset(owner)
 
 
+class _SharedPoolControllerMixin:
+    """Controlling-thread claims for a library with a process-wide thread pool.
+
+    Inherit this next to ``LibController`` and implement ``_real_set_num_threads``.
+    ``set_num_threads`` should call ``_set_shared_pool_num_threads`` when the
+    loaded library shares one pool across Python threads. Override
+    ``_has_shared_pool`` when that depends on how the library was built.
+    ``clear_controlling_thread`` drops claims of this controller class only.
+    """
+
+    def _has_shared_pool(self):
+        """Whether this loaded library currently uses a process-wide pool."""
+        return True
+
+    def _shared_pool_key(self) -> str:
+        """Identify this library's shared pool, one per loaded copy."""
+        return self.filepath
+
+    def _shared_pool_state(self) -> _SharedPoolState:
+        """Return the process-wide claim record for this library's shared pool."""
+        return _get_shared_pool_state(self._shared_pool_key(), type(self))
+
+    @classmethod
+    def clear_controlling_thread(cls, force: bool = False):
+        """Reset which thread can limit this controller's shared pools.
+
+        Drops the claim on every library of this controller class that the
+        current thread controls, and resets this thread's ownership counts for
+        that class so a later context manager can release a claim of its own.
+        Shared pools of other controller classes are left in place. It's up to
+        the caller to ensure the current controlling thread is done.
+
+        By default, only the controlling thread has an effect. Any thread can
+        clear every library of this class by setting ``force=True``.
+        """
+        _clear_shared_pool_claims(cls, force)
+
+    def _set_shared_pool_num_threads(self, num_threads):
+        """Set the pool size if this thread holds or can take the claim.
+
+        Another live thread's call does nothing. A finished controlling thread
+        no longer holds the claim. A direct call, while this thread's ownership
+        count is still 0, is sticky: a later context manager must not drop it.
+        A call made while a limiter scope is active is released with that scope.
+        """
+        SHARED_POOL_CONTROL_OWNERSHIP.sync()
+        this_thread = current_thread()
+        state = self._shared_pool_state()
+        controlling_thread = state.controlling_thread
+        if controlling_thread is None or not controlling_thread.is_alive():
+            # Read the count before taking the pool lock. Syncing ownership takes the
+            # states lock, and releasing a claim takes that lock before the pool lock.
+            count = SHARED_POOL_CONTROL_OWNERSHIP.count_for(self._shared_pool_key())
+            with state.lock:
+                holder = state.controlling_thread
+                if holder is None or not holder.is_alive():
+                    state.controlling_thread = this_thread
+                    state.sticky = count == 0
+            # Retry now that the claim attempt is done. If this thread won, the
+            # next call reaches _real_set_num_threads. If another live thread won,
+            # the next call does nothing.
+            return self._set_shared_pool_num_threads(num_threads)
+        elif controlling_thread is this_thread:
+            return self._real_set_num_threads(num_threads)
+        else:
+            return
+
+
 @dataclass
 class _SharedPoolState:
     """Who may change one shared thread pool."""
@@ -557,12 +616,12 @@ class _SharedPoolState:
     # Set when control is taken outside a limiter scope (direct set_num_threads).
     sticky: bool = False
     lock: Lock = field(default_factory=Lock)
-    # Controller class that owns this pool, so one class can clear its claims
-    # without releasing another library.
+    # Controller class that owns this pool, so one class can clear its claims without
+    # releasing another library.
     owner: type | None = None
 
 
-class OpenBLASController(LibController):
+class OpenBLASController(_SharedPoolControllerMixin, LibController):
     """Controller class for OpenBLAS.
 
     When OpenBLAS uses the OpenMP threading layer, each thread that calls into
@@ -639,56 +698,11 @@ class OpenBLASController(LibController):
     def _has_shared_pool(self):
         return self.threading_layer != "openmp"
 
-    @classmethod
-    def clear_controlling_thread(cls, force: bool = False):
-        """Reset which thread can set limits (on non-OpenMP threading layer).
-
-        Drops the claim on every OpenBLAS library this thread controls, and
-        resets this thread's OpenBLAS ownership counts so a later context
-        manager can release a claim of its own. Shared pools of other libraries
-        are left in place. It's up to the caller to ensure the current
-        controlling thread is done.
-
-        By default, only the controlling thread has an effect. Any thread can
-        clear every OpenBLAS library by setting ``force=True``.
-        """
-        _clear_shared_pool_claims(cls, force)
-
     def set_num_threads(self, num_threads):
         if self.threading_layer == "openmp":
             # Per-thread limits, so no need to be constraining:
             return self._real_set_num_threads(num_threads)
-
-        # A shared process-wide thread pool, so don't want different Python
-        # threads fighting over limits:
-        SHARED_POOL_CONTROL_OWNERSHIP.sync()
-        this_thread = current_thread()
-        state = self._shared_pool_state()
-        controlling_thread = state.controlling_thread
-        if controlling_thread is None or not controlling_thread.is_alive():
-            # No live thread controls this OpenBLAS, so try to take control.
-            # A direct call (ownership count still 0) is sticky: a later
-            # context manager must not drop it. A call made while a limiter
-            # scope is active is released with that scope. A finished thread
-            # no longer holds the claim.
-            # Read the count before taking the pool lock. Syncing ownership
-            # takes the states lock, and releasing a claim takes that lock
-            # before the pool lock.
-            count = SHARED_POOL_CONTROL_OWNERSHIP.count_for(self._shared_pool_key())
-            with state.lock:
-                holder = state.controlling_thread
-                if holder is None or not holder.is_alive():
-                    state.controlling_thread = this_thread
-                    state.sticky = count == 0
-            # Controlling thread should now be set, to either this thread
-            # or another, so try again:
-            return self.set_num_threads(num_threads)
-        elif controlling_thread is this_thread:
-            # This thread controls this OpenBLAS:
-            return self._real_set_num_threads(num_threads)
-        else:
-            # Some other thread controls this OpenBLAS:
-            return
+        return self._set_shared_pool_num_threads(num_threads)
 
     def _real_set_num_threads(self, num_threads):
         # The OpenBLAS limiting API is process-wide, and we want current thread
@@ -1238,9 +1252,9 @@ class _ThreadpoolLimiter:
         self._limits, self._user_api = self._check_params(limits, user_api)
         self._original_info = self._controller.info()
         self._shared_pool_claim_keys: list[str] = []
-        # A plain call never reaches __exit__, so this increment is what makes
-        # the claim stick until clear_controlling_thread(). A `with` block
-        # decrements the same increment on the way out.
+        # A plain call never reaches __exit__, so this increment is what makes the claim
+        # stick until clear_controlling_thread(). A `with` block decrements the same
+        # increment on the way out.
         self._apply_limits_with_shared_pool_claims()
 
     def __enter__(self):
@@ -1458,9 +1472,9 @@ class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
         self._shared_pool_claim_keys = []
 
     def __enter__(self):
-        # Set the limits here and not in __init__ so they apply when the
-        # decorated function is called, not when the decorator is created.
-        # Increment before setting so this scope's claim is not sticky.
+        # Set the limits here and not in __init__ so they apply when the decorated
+        # function is called, not when the decorator is created. Increment before
+        # setting so this scope's claim is not sticky.
         self._original_info = self._controller.info()
         self._apply_limits_with_shared_pool_claims()
         return self

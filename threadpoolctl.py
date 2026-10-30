@@ -34,9 +34,13 @@ from typing import Literal, TypeVar, final
 # builds (#225). dllist also uses dl_iterate_phdr internally (#239), which we
 # already avoid on Linux via /proc/self/maps on older versions of Python.
 dllist = None
-if sys.platform != "emscripten" and (
-    # Python 3.15 doesn't have the CFUNCTYPE anymore:
-    sys.platform == "linux" and sys.version_info[:2] >= (3, 15)
+if (
+    sys.platform != "emscripten"
+    and (
+        sys.platform != "linux"
+        # Python 3.15 doesn't have the CFUNCTYPE anymore:
+        or sys.version_info[:2] >= (3, 15)
+    )
 ):
     try:
         from ctypes.util import dllist
@@ -980,6 +984,9 @@ def register(controller):
     _ALL_USER_APIS.append(controller.user_api)
     _ALL_INTERNAL_APIS.append(controller.internal_api)
     _ALL_PREFIXES.extend(controller.filename_prefixes)
+    # Libraries listed before this call may match the new controller:
+    _CDLL_CACHE._controller_cache.clear()
+    reset_cached_controller()
 
 
 def _format_docstring(*args, **kwargs):
@@ -1218,9 +1225,11 @@ class threadpool_limits(_ThreadpoolLimiter):
     the supported libraries to `limit`. This function works for libraries that
     are already loaded in the interpreter and can be changed dynamically.
 
-    This effect is global and impacts the whole Python process. There is no thread level
-    isolation as these libraries do not offer thread-local APIs to configure the number
-    of threads to use in nested parallel calls.
+    This effect is thread-local whenever possible but this is not guaranteed
+    and actual behavior can depend on the controlled libraries. Notably,
+    OpenBLAS built with the "windows" or "pthreads" threading layers uses a
+    process-wide thread pool instead of independently controlled thread pools
+    per calling threads.
 
     Parameters
     ----------
@@ -1381,9 +1390,11 @@ class ThreadpoolController:
         the supported libraries to `limits`. This function works for libraries that
         are already loaded in the interpreter and can be changed dynamically.
 
-        This effect is global and impacts the whole Python process. There is no thread
-        level isolation as these libraries do not offer thread-local APIs to configure
-        the number of threads to use in nested parallel calls.
+        This effect is thread-local whenever possible but this is not guaranteed
+        and actual behavior can depend on the controlled libraries. Notably,
+        OpenBLAS built with the "windows" or "pthreads" threading layers uses a
+        process-wide thread pool instead of independently controlled thread pools
+        per calling threads.
 
         Parameters
         ----------
@@ -2031,9 +2042,13 @@ def get_cached_controller() -> ThreadpoolController:
     `reset_cached_controller()` module level function.
     """
     global _CACHED_CONTROLLER, _CACHED_SYS_MODULES_LEN
-    # Fast path, with no lock:
-    if _CACHED_SYS_MODULES_LEN == len(sys.modules) and _CACHED_CONTROLLER is not None:
-        return _CACHED_CONTROLLER
+    # Fast path with no lock: snapshot before the `None` check as
+    # `reset_cached_controller()` and `FlexiBLASController.switch_backend()`
+    # can concurrently set the global to `None`. A stale controller instance is
+    # acceptable but returning `None` would break the caller.
+    controller = _CACHED_CONTROLLER
+    if _CACHED_SYS_MODULES_LEN == len(sys.modules) and controller is not None:
+        return controller
     with _CACHE_LOCK:
         # Do this once, so there's no race condition with imports in other
         # threads:
@@ -2041,7 +2056,7 @@ def get_cached_controller() -> ThreadpoolController:
         if _CACHED_CONTROLLER is None or num_modules != _CACHED_SYS_MODULES_LEN:
             _CACHED_CONTROLLER = ThreadpoolController()
             _CACHED_SYS_MODULES_LEN = num_modules
-    return _CACHED_CONTROLLER
+        return _CACHED_CONTROLLER
 
 
 def reset_cached_controller() -> None:

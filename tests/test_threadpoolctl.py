@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from threading import Lock, Thread, current_thread
 
 import pytest
@@ -21,6 +22,7 @@ from threadpoolctl import (
     ThreadpoolController,
     _determine_thread_limit_scope,
     get_cached_controller,
+    reset_cached_controller,
     threadpool_info,
     threadpool_limits,
 )
@@ -35,17 +37,6 @@ from .utils import (
     select,
     threadpool_info_from_subprocess,
 )
-
-
-def stdlib_dllist():
-    """Return ctypes.util.dllist when _load_libraries would use it, else None."""
-    if sys.platform in ("linux", "emscripten"):
-        return None
-    try:
-        from ctypes.util import dllist
-    except ImportError:
-        return None
-    return dllist
 
 
 def is_old_openblas(lib_controller):
@@ -1044,6 +1035,20 @@ def test_threadpool_controller_repeated_init():
         ThreadpoolController()
 
 
+@pytest.mark.skipif(
+    sys.platform not in ("win32", "darwin") or sys.version_info[:2] < (3, 14),
+    reason="ctypes.util.dllist is only available on Python 3.14+",
+)
+def test_dllist_used_on_windows_and_macos():
+    """Python 3.14+ lists libraries with ctypes.util.dllist on Windows and macOS."""
+    calls = []
+    controller = ThreadpoolController._from_controllers([])
+    controller._find_libraries_with_python = calls.append
+    controller._load_libraries()
+    assert calls == [threadpoolctl.dllist]
+    assert threadpoolctl.dllist is not None
+
+
 def test_dllist_oserror_emits_warning():
     """dllist listing failures warn instead of raising, so they can be reported."""
 
@@ -1117,7 +1122,7 @@ def test_windows_library_path_longer_than_max_path(tmp_path):
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-only test")
 @pytest.mark.skipif(
-    stdlib_dllist() is not None,
+    threadpoolctl.dllist is not None,
     reason="Python 3.14+ dllist does not apply the internal path length limit",
 )
 def test_windows_library_path_exceeds_internal_limit(tmp_path, monkeypatch):
@@ -1373,6 +1378,48 @@ def test_get_cached_controller():
 
     # Special code indicating success:
     assert process.returncode == 17
+
+
+def test_get_cached_controller_concurrent_reset_never_returns_none():
+    """Concurrent reset must not make ``get_cached_controller()`` return None.
+
+    One thread reads the cache while another invalidates it. A stale
+    ``ThreadpoolController`` is acceptable; ``None`` is not, because callers
+    do ``get_cached_controller().limit(...)``.
+    """
+    deadline = time.monotonic() + 0.2
+    failures = []
+    observed = 0
+
+    def reader():
+        nonlocal observed
+        while True:
+            controller = get_cached_controller()
+            observed += 1
+            if controller is None or not isinstance(controller, ThreadpoolController):
+                failures.append(controller)
+                return
+            if time.monotonic() >= deadline:
+                return
+
+    def resetter():
+        while time.monotonic() < deadline:
+            reset_cached_controller()
+
+    reader_thread = Thread(target=reader)
+    reset_thread = Thread(target=resetter)
+    try:
+        reader_thread.start()
+        reset_thread.start()
+        reader_thread.join(timeout=2)
+        reset_thread.join(timeout=2)
+        assert not reader_thread.is_alive()
+        assert not reset_thread.is_alive()
+    finally:
+        reset_cached_controller()
+
+    assert observed > 0
+    assert failures == []
 
 
 @pytest.mark.skipif(

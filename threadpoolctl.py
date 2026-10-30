@@ -14,6 +14,7 @@ maximal number of threads they can use.
 
 from __future__ import annotations
 
+import copy
 import ctypes
 import itertools
 import os
@@ -22,7 +23,6 @@ import sys
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from contextlib import ContextDecorator
 from dataclasses import dataclass, field
 from functools import lru_cache, wraps
 from threading import Lock, Thread, current_thread
@@ -497,8 +497,10 @@ _SHARED_POOL_STATES: dict[str, _SharedPoolState] = {}
 _SHARED_POOL_STATES_LOCK = Lock()
 # Bumped per filepath by a forced clear. A thread drops a count when its stored
 # generation for that filepath does not match. clear_all_controlling_threads() bumps
-# every filepath of that controller class.
+# every filepath of that controller class. The epoch lets a thread skip that work
+# when no forced clear has happened since its last sync.
 _SHARED_POOL_GENERATIONS: dict[str, int] = {}
+_SHARED_POOL_GENERATION_EPOCH = 0
 
 
 def _get_shared_pool_state(filepath: str, controller_class: type) -> _SharedPoolState:
@@ -534,7 +536,7 @@ def _iter_claimable_shared_pools(controllers):
         yield lib
 
 
-def _release_shared_pool_claim(filepath: str):
+def _release_scoped_claim(filepath: str):
     """Drop this thread's non-sticky claim on one shared pool.
 
     A sticky claim was taken by a direct ``set_num_threads()`` while no limiter
@@ -552,7 +554,9 @@ def _release_shared_pool_claim(filepath: str):
 
 def _bump_shared_pool_generations(filepaths) -> None:
     """Invalidate other threads' counts for these shared pools."""
+    global _SHARED_POOL_GENERATION_EPOCH
     with _SHARED_POOL_STATES_LOCK:
+        _SHARED_POOL_GENERATION_EPOCH += 1
         for filepath in filepaths:
             current = _SHARED_POOL_GENERATIONS.get(filepath, 0)
             _SHARED_POOL_GENERATIONS[filepath] = current + 1
@@ -651,7 +655,6 @@ class _SharedPoolControllerMixin:
         count is still 0, is sticky: a later context manager must not drop it.
         A call made while a limiter scope is active is released with that scope.
         """
-        CONTROLLING_THREAD_OWNERSHIP._sync()
         this_thread = current_thread()
         state = self._shared_pool_state()
         controlling_thread = state.controlling_thread
@@ -836,25 +839,24 @@ class _ControllingThreadOwnership(thread_local):
 
     def __init__(self):
         # threading.local runs __init__ once per thread.
-        self.counts: dict[str, int] = {}
-        self.generations: dict[str, int] = {}
+        self._counts: dict[str, int] = {}
+        self._generations: dict[str, int] = {}
+        self._generation_epoch = 0
 
     def _sync(self):
         """Drop counts for libraries another thread has force-cleared."""
         with _SHARED_POOL_STATES_LOCK:
+            epoch = _SHARED_POOL_GENERATION_EPOCH
+            if epoch == self._generation_epoch:
+                return
             generations = dict(_SHARED_POOL_GENERATIONS)
-        local = self.generations
-        stale = {
-            filepath
-            for filepath, generation in generations.items()
-            if local.get(filepath, 0) != generation
-        }
-        if not stale:
-            return
-        counts = self.counts
-        for filepath in stale:
-            counts.pop(filepath, None)
-            local[filepath] = generations[filepath]
+        self._generation_epoch = epoch
+        local = self._generations
+        counts = self._counts
+        for filepath, generation in generations.items():
+            if local.get(filepath, 0) != generation:
+                counts.pop(filepath, None)
+                local[filepath] = generation
 
     def _forget_pool(self, filepath: str):
         """Drop this thread's count for one pool and adopt its generation.
@@ -862,22 +864,13 @@ class _ControllingThreadOwnership(thread_local):
         The caller has already bumped the generation when this clear is forced.
         Other pools stay stale until the next ``_sync``.
         """
-        self.counts.pop(filepath, None)
+        self._counts.pop(filepath, None)
         with _SHARED_POOL_STATES_LOCK:
             generation = _SHARED_POOL_GENERATIONS.get(filepath, 0)
-        self.generations[filepath] = generation
+        self._generations[filepath] = generation
 
-    def _reset(self, controller_class: type | None = None):
-        """Forget scopes on this thread.
-
-        With ``controller_class``, only that class. Without, every library.
-        """
-        if controller_class is None:
-            with _SHARED_POOL_STATES_LOCK:
-                generations = dict(_SHARED_POOL_GENERATIONS)
-            self.counts = {}
-            self.generations = generations
-            return
+    def _reset(self, controller_class: type):
+        """Forget this thread's scopes for one controller class."""
         with _SHARED_POOL_STATES_LOCK:
             filepaths = [
                 filepath
@@ -888,8 +881,8 @@ class _ControllingThreadOwnership(thread_local):
                 filepath: _SHARED_POOL_GENERATIONS.get(filepath, 0)
                 for filepath in filepaths
             }
-        counts = self.counts
-        local = self.generations
+        counts = self._counts
+        local = self._generations
         for filepath in filepaths:
             counts.pop(filepath, None)
             local[filepath] = generations[filepath]
@@ -897,7 +890,7 @@ class _ControllingThreadOwnership(thread_local):
     def _count_for(self, filepath: str) -> int:
         """Active scopes for one shared pool on this thread."""
         self._sync()
-        return self.counts.get(filepath, 0)
+        return self._counts.get(filepath, 0)
 
     def increment(self, controller: ThreadpoolController | None = None):
         """Increment every shared pool of ``controller`` this thread can control.
@@ -913,7 +906,7 @@ class _ControllingThreadOwnership(thread_local):
     def _increment(self, filepath: str):
         """Count one more scope for a single shared pool."""
         self._sync()
-        counts = self.counts
+        counts = self._counts
         counts[filepath] = counts.get(filepath, 0) + 1
 
     def decrement(self, controller: ThreadpoolController | None = None):
@@ -925,27 +918,29 @@ class _ControllingThreadOwnership(thread_local):
         """
         if controller is None:
             controller = get_cached_controller()
+        self._sync()
         seen = set()
         for lib in controller.lib_controllers:
-            if lib.filepath in seen:
+            if lib.filepath in seen or lib.filepath not in self._counts:
                 continue
             seen.add(lib.filepath)
-            self._decrement(lib.filepath)
+            self._decrement(lib.filepath, synced=True)
 
-    def _decrement(self, filepath: str):
+    def _decrement(self, filepath: str, *, synced: bool = False):
         """Count one fewer scope for a single shared pool.
 
         Reaching zero releases that pool's non-sticky claim.
         """
-        self._sync()
-        counts = self.counts
+        if not synced:
+            self._sync()
+        counts = self._counts
         current = counts.get(filepath, 0)
         if current <= 0:
             return
         current -= 1
         if current == 0:
             counts.pop(filepath, None)
-            _release_shared_pool_claim(filepath)
+            _release_scoped_claim(filepath)
         else:
             counts[filepath] = current
 
@@ -1338,11 +1333,11 @@ class _ThreadpoolLimiter:
         self._controller = controller
         self._limits, self._user_api = self._check_params(limits, user_api)
         self._original_info = self._controller.info()
-        self._shared_pool_filepaths: list[str] = []
+        self._shared_pool_scopes: list[tuple[str, _SharedPoolState]] = []
         # A plain call never reaches __exit__, so this increment is what makes the claim
         # stick until clear_controlling_thread(). A `with` block decrements the same
         # increment on the way out.
-        self._apply_limits_with_shared_pool_claims()
+        self._apply_limits_in_shared_pool_scopes()
 
     def __enter__(self):
         return self
@@ -1487,7 +1482,7 @@ class _ThreadpoolLimiter:
         one copy does not pin another. A finished holder does not block this
         scope: counting first keeps the replacement claim non-sticky.
         """
-        self._shared_pool_filepaths = []
+        self._shared_pool_scopes = []
         targets = [
             lib
             for lib in self._controller.lib_controllers
@@ -1495,32 +1490,26 @@ class _ThreadpoolLimiter:
         ]
         for lib in _iter_claimable_shared_pools(targets):
             CONTROLLING_THREAD_OWNERSHIP._increment(lib.filepath)
-            self._shared_pool_filepaths.append(lib.filepath)
+            self._shared_pool_scopes.append((lib.filepath, lib._shared_pool_state()))
 
     def _exit_shared_pool_scopes(self):
-        filepaths = self._shared_pool_filepaths
-        self._shared_pool_filepaths = []
-        for filepath in filepaths:
+        scopes = self._shared_pool_scopes
+        self._shared_pool_scopes = []
+        for filepath, _state in scopes:
             CONTROLLING_THREAD_OWNERSHIP._decrement(filepath)
 
     def _drop_unheld_shared_pool_scopes(self):
         """Drop counts for libraries another thread won the race for."""
         this = current_thread()
         kept = []
-        for filepath in self._shared_pool_filepaths:
-            with _SHARED_POOL_STATES_LOCK:
-                state = _SHARED_POOL_STATES.get(filepath)
-            held = False
-            if state is not None:
-                with state.lock:
-                    held = state.controlling_thread is this
-            if held:
-                kept.append(filepath)
+        for filepath, state in self._shared_pool_scopes:
+            if state.controlling_thread is this:
+                kept.append((filepath, state))
             else:
                 CONTROLLING_THREAD_OWNERSHIP._decrement(filepath)
-        self._shared_pool_filepaths = kept
+        self._shared_pool_scopes = kept
 
-    def _apply_limits_with_shared_pool_claims(self):
+    def _apply_limits_in_shared_pool_scopes(self):
         self._enter_shared_pool_scopes()
         try:
             self._set_threadpool_limits()
@@ -1540,34 +1529,37 @@ class _ThreadpoolLimiter:
                 lib_controller.set_num_threads(num_threads)
 
 
-class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
+class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter):
     """Same as _ThreadpoolLimiter but to be used as a decorator"""
 
     def __init__(self, controller, *, limits=None, user_api=None):
         self._limits, self._user_api = self._check_params(limits, user_api)
         self._controller = controller
-        self._shared_pool_filepaths = []
+        self._shared_pool_scopes: list[tuple[str, _SharedPoolState]] = []
 
     def __enter__(self):
         # Set the limits here and not in __init__ so they apply when the decorated
         # function is called, not when the decorator is created. Increment before
         # setting so this scope's claim is not sticky.
         self._original_info = self._controller.info()
-        self._apply_limits_with_shared_pool_claims()
+        self._apply_limits_in_shared_pool_scopes()
         return self
 
-    def _recreate_cm(self):
-        """Return a fresh limiter for this call.
+    def _fresh_limiter(self):
+        """Return a limiter that does not share this call's scope list."""
+        fresh = copy.copy(self)
+        fresh._shared_pool_scopes = []
+        return fresh
 
-        Recursive and concurrent calls of the same wrapped function must not
-        share ``_shared_pool_filepaths`` or ``_original_info``.
-        """
-        recreated = object.__new__(type(self))
-        recreated._controller = self._controller
-        recreated._limits = self._limits
-        recreated._user_api = self._user_api
-        recreated._shared_pool_filepaths = []
-        return recreated
+    def __call__(self, func):
+        """Decorate ``func`` so each call enters a fresh limiter."""
+
+        @wraps(func)
+        def inner(*args, **kwargs):
+            with self._fresh_limiter():
+                return func(*args, **kwargs)
+
+        return inner
 
 
 @_format_docstring(

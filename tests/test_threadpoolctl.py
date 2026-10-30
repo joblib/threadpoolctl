@@ -39,6 +39,17 @@ from .utils import (
 )
 
 
+def _reset_ownership():
+    """Drop this thread's scope counts and adopt the current generations."""
+    ownership = CONTROLLING_THREAD_OWNERSHIP
+    with threadpoolctl._SHARED_POOL_STATES_LOCK:
+        generations = dict(threadpoolctl._SHARED_POOL_GENERATIONS)
+        epoch = threadpoolctl._SHARED_POOL_GENERATION_EPOCH
+    ownership._counts = {}
+    ownership._generations = generations
+    ownership._generation_epoch = epoch
+
+
 def is_old_openblas(lib_controller):
     # Possible bug in getting maximum number of threads with OpenBLAS < 0.2.16
     # and OpenBLAS does not expose its version before 0.3.4.
@@ -957,7 +968,7 @@ def test_recursive_wrap_releases_the_shared_pool_claim():
     finally:
         threadpoolctl._SHARED_POOL_STATES.pop(lib.filepath, None)
         threadpoolctl._SHARED_POOL_GENERATIONS.pop(lib.filepath, None)
-        CONTROLLING_THREAD_OWNERSHIP._reset()
+        _reset_ownership()
 
 
 def test_bare_increment_decrement_covers_every_controllable_pool():
@@ -1011,7 +1022,7 @@ def test_bare_increment_decrement_covers_every_controllable_pool():
         for lib in (free_a, free_b, held):
             controller.lib_controllers.remove(lib)
             threadpoolctl._SHARED_POOL_STATES.pop(lib.filepath, None)
-        CONTROLLING_THREAD_OWNERSHIP._reset()
+        _reset_ownership()
 
 
 def test_increment_decrement_uses_the_given_controller():
@@ -1045,7 +1056,7 @@ def test_increment_decrement_uses_the_given_controller():
         cached.lib_controllers.remove(other)
         for lib in (chosen, other):
             threadpoolctl._SHARED_POOL_STATES.pop(lib.filepath, None)
-        CONTROLLING_THREAD_OWNERSHIP._reset()
+        _reset_ownership()
 
 
 def _require_resizable_non_openmp_openblas():
@@ -1207,7 +1218,7 @@ def test_openblas_scoped_exit_releases_only_that_library():
     finally:
         threadpoolctl._SHARED_POOL_STATES.pop(filepath_a, None)
         threadpoolctl._SHARED_POOL_STATES.pop(filepath_b, None)
-        CONTROLLING_THREAD_OWNERSHIP._reset()
+        _reset_ownership()
 
 
 def test_scoped_limit_replacing_dead_holder_is_not_sticky():
@@ -1224,9 +1235,9 @@ def test_scoped_limit_replacing_dead_holder_is_not_sticky():
     limiter = object.__new__(threadpoolctl._ThreadpoolLimiter)
     limiter._controller = type("C", (), {"lib_controllers": [lib]})()
     limiter._limits = {filepath: 1}
-    limiter._shared_pool_filepaths = []
+    limiter._shared_pool_scopes = []
     try:
-        limiter._apply_limits_with_shared_pool_claims()
+        limiter._apply_limits_in_shared_pool_scopes()
         assert lib.applied == 1
         assert state.controlling_thread is current_thread()
         assert state.sticky is False
@@ -1236,7 +1247,7 @@ def test_scoped_limit_replacing_dead_holder_is_not_sticky():
         assert CONTROLLING_THREAD_OWNERSHIP._count_for(filepath) == 0
     finally:
         threadpoolctl._SHARED_POOL_STATES.pop(filepath, None)
-        CONTROLLING_THREAD_OWNERSHIP._reset()
+        _reset_ownership()
 
 
 class _OtherSharedPool:
@@ -1285,7 +1296,7 @@ def test_clear_all_controlling_threads_leaves_other_libraries():
     finally:
         threadpoolctl._SHARED_POOL_STATES.pop(filepath_openblas, None)
         threadpoolctl._SHARED_POOL_STATES.pop(filepath_other, None)
-        CONTROLLING_THREAD_OWNERSHIP._reset()
+        _reset_ownership()
 
 
 def test_clear_controlling_thread_leaves_other_copies():
@@ -1329,7 +1340,7 @@ def test_clear_controlling_thread_leaves_other_copies():
         for filepath in (lib_a.filepath, lib_b.filepath):
             threadpoolctl._SHARED_POOL_STATES.pop(filepath, None)
             threadpoolctl._SHARED_POOL_GENERATIONS.pop(filepath, None)
-        CONTROLLING_THREAD_OWNERSHIP._reset()
+        _reset_ownership()
 
 
 # skip test if not run in a azure pipelines job since it relies on a specific flexiblas

@@ -16,7 +16,7 @@ import threadpoolctl
 from threadpoolctl import (
     _ALL_PREFIXES,
     _ALL_USER_APIS,
-    SHARED_POOL_CONTROL_OWNERSHIP,
+    CONTROLLING_THREAD_OWNERSHIP,
     LibController,
     OpenBLASController,
     ThreadpoolController,
@@ -900,14 +900,14 @@ def test_openblas_controlling_thread_per_pool_counter(request):
     request.addfinalizer(_restore_openblas_thread_counts(libs))
 
     filepath = lib.filepath
-    SHARED_POOL_CONTROL_OWNERSHIP._increment(filepath)
-    SHARED_POOL_CONTROL_OWNERSHIP._increment(filepath)
+    CONTROLLING_THREAD_OWNERSHIP._increment(filepath)
+    CONTROLLING_THREAD_OWNERSHIP._increment(filepath)
     lib.set_num_threads(1)
     assert lib._shared_pool_state().controlling_thread is current_thread()
     assert not lib._shared_pool_state().sticky
-    SHARED_POOL_CONTROL_OWNERSHIP._decrement(filepath)
+    CONTROLLING_THREAD_OWNERSHIP._decrement(filepath)
     assert lib._shared_pool_state().controlling_thread is current_thread()
-    SHARED_POOL_CONTROL_OWNERSHIP._decrement(filepath)
+    CONTROLLING_THREAD_OWNERSHIP._decrement(filepath)
     assert lib._shared_pool_state().controlling_thread is None
 
 
@@ -948,10 +948,10 @@ def test_bare_increment_decrement_covers_every_controllable_pool():
     try:
         holder.start()
         started.acquire()
-        SHARED_POOL_CONTROL_OWNERSHIP.increment()
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(free_a.filepath) == 1
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(free_b.filepath) == 1
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(held.filepath) == 0
+        CONTROLLING_THREAD_OWNERSHIP.increment()
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(free_a.filepath) == 1
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(free_b.filepath) == 1
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(held.filepath) == 0
 
         free_a.set_num_threads(1)
         free_b.set_num_threads(1)
@@ -963,14 +963,14 @@ def test_bare_increment_decrement_covers_every_controllable_pool():
         assert free_a._shared_pool_state().sticky is False
         assert free_b._shared_pool_state().sticky is False
 
-        SHARED_POOL_CONTROL_OWNERSHIP.increment()
-        SHARED_POOL_CONTROL_OWNERSHIP.decrement()
+        CONTROLLING_THREAD_OWNERSHIP.increment()
+        CONTROLLING_THREAD_OWNERSHIP.decrement()
         assert free_a._shared_pool_state().controlling_thread is current_thread()
-        SHARED_POOL_CONTROL_OWNERSHIP.decrement()
+        CONTROLLING_THREAD_OWNERSHIP.decrement()
         assert free_a._shared_pool_state().controlling_thread is None
         assert free_b._shared_pool_state().controlling_thread is None
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(free_a.filepath) == 0
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(free_b.filepath) == 0
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(free_a.filepath) == 0
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(free_b.filepath) == 0
     finally:
         finish.release()
         if holder.ident is not None:
@@ -978,7 +978,7 @@ def test_bare_increment_decrement_covers_every_controllable_pool():
         for lib in (free_a, free_b, held):
             controller.lib_controllers.remove(lib)
             threadpoolctl._SHARED_POOL_STATES.pop(lib.filepath, None)
-        SHARED_POOL_CONTROL_OWNERSHIP._reset()
+        CONTROLLING_THREAD_OWNERSHIP._reset()
 
 
 def test_increment_decrement_uses_the_given_controller():
@@ -990,29 +990,29 @@ def test_increment_decrement_uses_the_given_controller():
     cached = get_cached_controller()
     cached.lib_controllers.append(other)
     try:
-        SHARED_POOL_CONTROL_OWNERSHIP.increment(controller)
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(chosen.filepath) == 1
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(other.filepath) == 0
+        CONTROLLING_THREAD_OWNERSHIP.increment(controller)
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(chosen.filepath) == 1
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(other.filepath) == 0
 
         chosen.set_num_threads(1)
         assert chosen._shared_pool_state().sticky is False
 
-        SHARED_POOL_CONTROL_OWNERSHIP.increment()
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(chosen.filepath) == 1
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(other.filepath) == 1
+        CONTROLLING_THREAD_OWNERSHIP.increment()
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(chosen.filepath) == 1
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(other.filepath) == 1
 
-        SHARED_POOL_CONTROL_OWNERSHIP.decrement(controller)
+        CONTROLLING_THREAD_OWNERSHIP.decrement(controller)
         assert chosen._shared_pool_state().controlling_thread is None
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(chosen.filepath) == 0
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(other.filepath) == 1
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(chosen.filepath) == 0
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(other.filepath) == 1
 
-        SHARED_POOL_CONTROL_OWNERSHIP.decrement()
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(other.filepath) == 0
+        CONTROLLING_THREAD_OWNERSHIP.decrement()
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(other.filepath) == 0
     finally:
         cached.lib_controllers.remove(other)
         for lib in (chosen, other):
             threadpoolctl._SHARED_POOL_STATES.pop(lib.filepath, None)
-        SHARED_POOL_CONTROL_OWNERSHIP._reset()
+        CONTROLLING_THREAD_OWNERSHIP._reset()
 
 
 def _require_resizable_openblas():
@@ -1151,12 +1151,12 @@ def test_openblas_scoped_exit_releases_only_that_library():
         state_a.controlling_thread = current_thread()
         state_a.sticky = True
 
-        SHARED_POOL_CONTROL_OWNERSHIP._increment(filepath_b)
+        CONTROLLING_THREAD_OWNERSHIP._increment(filepath_b)
         state_b.controlling_thread = current_thread()
-        state_b.sticky = SHARED_POOL_CONTROL_OWNERSHIP._count_for(filepath_b) == 0
+        state_b.sticky = CONTROLLING_THREAD_OWNERSHIP._count_for(filepath_b) == 0
         assert state_b.sticky is False
 
-        SHARED_POOL_CONTROL_OWNERSHIP._decrement(filepath_b)
+        CONTROLLING_THREAD_OWNERSHIP._decrement(filepath_b)
         assert state_b.controlling_thread is None
         assert state_a.controlling_thread is current_thread()
         assert state_a.sticky is True
@@ -1164,19 +1164,19 @@ def test_openblas_scoped_exit_releases_only_that_library():
         # A plain call is non-sticky and is held by a leftover count. Ending a
         # scope on B must not release A.
         state_a.sticky = False
-        SHARED_POOL_CONTROL_OWNERSHIP._increment(filepath_a)
-        SHARED_POOL_CONTROL_OWNERSHIP._increment(filepath_b)
+        CONTROLLING_THREAD_OWNERSHIP._increment(filepath_a)
+        CONTROLLING_THREAD_OWNERSHIP._increment(filepath_b)
         state_b.controlling_thread = current_thread()
         state_b.sticky = False
-        SHARED_POOL_CONTROL_OWNERSHIP._decrement(filepath_b)
+        CONTROLLING_THREAD_OWNERSHIP._decrement(filepath_b)
         assert state_b.controlling_thread is None
         assert state_a.controlling_thread is current_thread()
         assert state_a.sticky is False
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(filepath_a) == 1
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(filepath_a) == 1
     finally:
         threadpoolctl._SHARED_POOL_STATES.pop(filepath_a, None)
         threadpoolctl._SHARED_POOL_STATES.pop(filepath_b, None)
-        SHARED_POOL_CONTROL_OWNERSHIP._reset()
+        CONTROLLING_THREAD_OWNERSHIP._reset()
 
 
 def test_scoped_limit_replacing_dead_holder_is_not_sticky():
@@ -1199,13 +1199,13 @@ def test_scoped_limit_replacing_dead_holder_is_not_sticky():
         assert lib.applied == 1
         assert state.controlling_thread is current_thread()
         assert state.sticky is False
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(filepath) == 1
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(filepath) == 1
         limiter._release_shared_pool_claims()
         assert state.controlling_thread is None
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(filepath) == 0
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(filepath) == 0
     finally:
         threadpoolctl._SHARED_POOL_STATES.pop(filepath, None)
-        SHARED_POOL_CONTROL_OWNERSHIP._reset()
+        CONTROLLING_THREAD_OWNERSHIP._reset()
 
 
 class _OtherSharedPool:
@@ -1226,20 +1226,20 @@ def test_clear_controlling_thread_leaves_other_libraries():
         state_openblas.sticky = True
         state_other.controlling_thread = current_thread()
         state_other.sticky = True
-        SHARED_POOL_CONTROL_OWNERSHIP._increment(filepath_openblas)
-        SHARED_POOL_CONTROL_OWNERSHIP._increment(filepath_other)
+        CONTROLLING_THREAD_OWNERSHIP._increment(filepath_openblas)
+        CONTROLLING_THREAD_OWNERSHIP._increment(filepath_other)
 
         OpenBLASController.clear_controlling_thread()
         assert state_openblas.controlling_thread is None
         assert state_openblas.sticky is False
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(filepath_openblas) == 0
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(filepath_openblas) == 0
         assert state_other.controlling_thread is current_thread()
         assert state_other.sticky is True
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(filepath_other) == 1
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(filepath_other) == 1
 
         state_openblas.controlling_thread = current_thread()
         state_openblas.sticky = True
-        SHARED_POOL_CONTROL_OWNERSHIP._increment(filepath_openblas)
+        CONTROLLING_THREAD_OWNERSHIP._increment(filepath_openblas)
 
         def force_clear():
             OpenBLASController.clear_controlling_thread(force=True)
@@ -1249,12 +1249,12 @@ def test_clear_controlling_thread_leaves_other_libraries():
         assert state_openblas.sticky is False
         assert state_other.controlling_thread is current_thread()
         assert state_other.sticky is True
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(filepath_openblas) == 0
-        assert SHARED_POOL_CONTROL_OWNERSHIP._count_for(filepath_other) == 1
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(filepath_openblas) == 0
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(filepath_other) == 1
     finally:
         threadpoolctl._SHARED_POOL_STATES.pop(filepath_openblas, None)
         threadpoolctl._SHARED_POOL_STATES.pop(filepath_other, None)
-        SHARED_POOL_CONTROL_OWNERSHIP._reset()
+        CONTROLLING_THREAD_OWNERSHIP._reset()
 
 
 # skip test if not run in a azure pipelines job since it relies on a specific flexiblas

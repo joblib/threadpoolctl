@@ -59,7 +59,7 @@ if sys.platform == "win32":
 
 __version__ = "3.8.0.dev0"
 __all__ = [
-    "SHARED_POOL_CONTROL_OWNERSHIP",
+    "CONTROLLING_THREAD_OWNERSHIP",
     "LibController",
     "ThreadpoolController",
     "get_cached_controller",
@@ -579,7 +579,7 @@ def _clear_shared_pool_claims(controller_class: type, force: bool = False):
             generation = _shared_pool_generations.get(controller_class, 0) + 1
             _shared_pool_generations[controller_class] = generation
     if force or cleared_this_thread:
-        SHARED_POOL_CONTROL_OWNERSHIP._reset(controller_class)
+        CONTROLLING_THREAD_OWNERSHIP._reset(controller_class)
 
 
 class _SharedPoolControllerMixin:
@@ -623,13 +623,13 @@ class _SharedPoolControllerMixin:
         count is still 0, is sticky: a later context manager must not drop it.
         A call made while a limiter scope is active is released with that scope.
         """
-        SHARED_POOL_CONTROL_OWNERSHIP._sync()
+        CONTROLLING_THREAD_OWNERSHIP._sync()
         this_thread = current_thread()
         state = self._shared_pool_state()
         controlling_thread = state.controlling_thread
         if controlling_thread is None or not controlling_thread.is_alive():
             # Read the count before state.lock. _count_for() takes the states lock.
-            count = SHARED_POOL_CONTROL_OWNERSHIP._count_for(self.filepath)
+            count = CONTROLLING_THREAD_OWNERSHIP._count_for(self.filepath)
             with state.lock:
                 holder = state.controlling_thread
                 if holder is None or not holder.is_alive():
@@ -924,7 +924,7 @@ class _SharedPoolControlOwnership(thread_local):
             counts[filepath] = current
 
 
-SHARED_POOL_CONTROL_OWNERSHIP = _SharedPoolControlOwnership()
+CONTROLLING_THREAD_OWNERSHIP = _SharedPoolControlOwnership()
 
 
 class BLISController(LibController):
@@ -1470,14 +1470,14 @@ class _ThreadpoolLimiter:
             if self._num_threads_for(lib) is not None
         ]
         for lib in _iter_claimable_shared_pools(targets):
-            SHARED_POOL_CONTROL_OWNERSHIP._increment(lib.filepath)
+            CONTROLLING_THREAD_OWNERSHIP._increment(lib.filepath)
             self._shared_pool_filepaths.append(lib.filepath)
 
     def _release_shared_pool_claims(self):
         filepaths = self._shared_pool_filepaths
         self._shared_pool_filepaths = []
         for filepath in filepaths:
-            SHARED_POOL_CONTROL_OWNERSHIP._decrement(filepath)
+            CONTROLLING_THREAD_OWNERSHIP._decrement(filepath)
 
     def _drop_unheld_shared_pool_claims(self):
         """Drop counts for libraries another thread won the race for."""
@@ -1493,7 +1493,7 @@ class _ThreadpoolLimiter:
             if held:
                 kept.append(filepath)
             else:
-                SHARED_POOL_CONTROL_OWNERSHIP._decrement(filepath)
+                CONTROLLING_THREAD_OWNERSHIP._decrement(filepath)
         self._shared_pool_filepaths = kept
 
     def _apply_limits_with_shared_pool_claims(self):

@@ -28,7 +28,7 @@ def _ensure_openblas_thread_count_is_restorable():
             nprocs = get_num_procs() if get_num_procs is not None else 1
             if nprocs >= 1:
                 lib.set_num_threads(nprocs)
-    OpenBLASController.clear_controlling_thread(force=True)
+    OpenBLASController.clear_all_controlling_threads(force=True)
 
 
 @pytest.fixture(autouse=True)

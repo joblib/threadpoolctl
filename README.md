@@ -280,8 +280,8 @@ OpenBLAS+pthreads) and in each worker thread.
 > the same copy makes no sense, since they would be arguing over that copy's
 > pool. Each copy therefore has its own controlling thread, the first thread to
 > call ``set_num_threads()`` on it. Other threads do nothing. Once that thread
-> has finished, or after ``OpenBLASController.clear_controlling_thread()``, the
-> next call can take the claim.
+> has finished, or after ``clear_controlling_thread()`` on that copy, the next
+> call can take the claim.
 >
 > For many other libraries, for example OpenMP, the limit is set per thread. As
 > a result, you want to set limits both ways in generic code that doesn't know

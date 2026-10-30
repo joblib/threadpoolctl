@@ -10,12 +10,11 @@
   process-wide thread pool, having multiple Python threads fight over control
   wouldn't work well. Each loaded OpenBLAS library has its own pool and its own
   controlling thread. A plain ``threadpool_limits(...)`` call or a direct
-  ``set_num_threads()`` keeps that role until
-  ``OpenBLASController.clear_controlling_thread()``. Context managers and
-  decorators release it when the outermost scope that took the claim exits. A
-  later scope does not drop a claim it did not take, for example an OpenMP-only
-  limit or ``limits=None``. A thread that has finished no longer holds the
-  claim; the next ``set_num_threads()`` can take it. The
+  ``set_num_threads()`` keeps that role until ``clear_controlling_thread()`` on
+  that library. ``OpenBLASController.clear_all_controlling_threads()`` drops
+  every loaded copy. Context managers and decorators release it when the
+  outermost scope that took the claim exits. A thread that has finished no
+  longer holds the claim; the next ``set_num_threads()`` can take it. The
   ``CONTROLLING_THREAD_OWNERSHIP`` singleton can be used to manually manage the
   scope of ``set_num_threads`` calls.
   https://github.com/joblib/threadpoolctl/pull/275

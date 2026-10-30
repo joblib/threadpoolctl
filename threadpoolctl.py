@@ -173,7 +173,7 @@ def _determine_thread_limit_scope(
         thread = Thread(target=get_and_set)
         thread.start()
         thread.join()
-        OpenBLASController.clear_controlling_thread(force=True)
+        OpenBLASController.clear_all_controlling_threads(force=True)
 
         # First, getting in the same thread as a set should always give same
         # number, if it's a number in a reasonable range. A possible exception
@@ -199,7 +199,7 @@ def _determine_thread_limit_scope(
             return "unknown"
     finally:
         set_n_threads(previous)
-        OpenBLASController.clear_controlling_thread(force=True)
+        OpenBLASController.clear_all_controlling_threads(force=True)
 
 
 class LibController(ABC):
@@ -495,9 +495,10 @@ class _SharedPoolState:
 # claim takes the states lock before the pool lock.
 _SHARED_POOL_STATES: dict[str, _SharedPoolState] = {}
 _SHARED_POOL_STATES_LOCK = Lock()
-# Bumped per controller class by a forced clear. A thread drops a class's counts when
-# its stored generation for that class does not match.
-_shared_pool_generations: dict[type, int] = {}
+# Bumped per filepath by a forced clear. A thread drops a count when its stored
+# generation for that filepath does not match. clear_all_controlling_threads() bumps
+# every filepath of that controller class.
+_shared_pool_generations: dict[str, int] = {}
 
 
 def _get_shared_pool_state(filepath: str, controller_class: type) -> _SharedPoolState:
@@ -556,6 +557,14 @@ def _release_shared_pool_claim(filepath: str):
             state.controlling_thread = None
 
 
+def _bump_shared_pool_generations(filepaths) -> None:
+    """Invalidate other threads' counts for these shared pools."""
+    with _SHARED_POOL_STATES_LOCK:
+        for filepath in filepaths:
+            current = _shared_pool_generations.get(filepath, 0)
+            _shared_pool_generations[filepath] = current + 1
+
+
 def _clear_shared_pool_claims(controller_class: type, force: bool = False):
     """Drop claims on shared pools of one controller class.
 
@@ -565,9 +574,13 @@ def _clear_shared_pool_claims(controller_class: type, force: bool = False):
     """
     this = current_thread()
     cleared_this_thread = False
-    for state in _snapshot_shared_pool_states():
-        if state.controller_class is not controller_class:
-            continue
+    with _SHARED_POOL_STATES_LOCK:
+        pairs = [
+            (filepath, state)
+            for filepath, state in _SHARED_POOL_STATES.items()
+            if state.controller_class is controller_class
+        ]
+    for _filepath, state in pairs:
         with state.lock:
             if force or state.controlling_thread is this:
                 if state.controlling_thread is this:
@@ -575,9 +588,7 @@ def _clear_shared_pool_claims(controller_class: type, force: bool = False):
                 state.controlling_thread = None
                 state.sticky = False
     if force:
-        with _SHARED_POOL_STATES_LOCK:
-            generation = _shared_pool_generations.get(controller_class, 0) + 1
-            _shared_pool_generations[controller_class] = generation
+        _bump_shared_pool_generations(filepath for filepath, _state in pairs)
     if force or cleared_this_thread:
         CONTROLLING_THREAD_OWNERSHIP._reset(controller_class)
 
@@ -589,7 +600,8 @@ class _SharedPoolControllerMixin:
     ``set_num_threads`` should call ``_set_shared_pool_num_threads`` when the
     loaded library shares one pool across Python threads. Override
     ``_has_shared_pool`` when that depends on how the library was built.
-    ``clear_controlling_thread`` drops claims of this controller class only.
+    ``clear_controlling_thread`` drops this library's claim.
+    ``clear_all_controlling_threads`` drops every library of this controller class.
     """
 
     def _has_shared_pool(self):
@@ -600,8 +612,36 @@ class _SharedPoolControllerMixin:
         """Return the process-wide claim record for this library's shared pool."""
         return _get_shared_pool_state(self.filepath, type(self))
 
+    def clear_controlling_thread(self, force: bool = False):
+        """Drop the claim on this library's shared pool.
+
+        Resets this thread's ownership count for this library so a later context
+        manager can release a claim of its own. Other libraries stay in place,
+        including other copies of this controller class. It's up to the caller
+        to ensure the current controlling thread is done.
+
+        By default, only the controlling thread has an effect. Any thread can
+        clear this library by setting ``force=True``.
+        """
+        this = current_thread()
+        with _SHARED_POOL_STATES_LOCK:
+            state = _SHARED_POOL_STATES.get(self.filepath)
+        cleared_this_thread = False
+        if state is not None:
+            with state.lock:
+                if force or state.controlling_thread is this:
+                    if state.controlling_thread is this:
+                        cleared_this_thread = True
+                    state.controlling_thread = None
+                    state.sticky = False
+        if not (force or cleared_this_thread):
+            return
+        if force:
+            _bump_shared_pool_generations([self.filepath])
+        CONTROLLING_THREAD_OWNERSHIP._forget_filepath(self.filepath)
+
     @classmethod
-    def clear_controlling_thread(cls, force: bool = False):
+    def clear_all_controlling_threads(cls, force: bool = False):
         """Reset which thread can limit this controller's shared pools.
 
         Drops the claim on every library of this controller class that the
@@ -665,12 +705,14 @@ class OpenBLASController(_SharedPoolControllerMixin, LibController):
         2. Other threads silently do nothing. Once the controlling thread has
            finished, the next ``set_num_threads()`` can take the claim.
 
-        3. ``clear_controlling_thread()`` resets the controlling thread. By
-           default only that thread can do so. ``force=True`` lets any thread
-           clear every OpenBLAS library.
+        3. ``clear_controlling_thread()`` resets the controlling thread for that
+           library. By default only that thread can do so. ``force=True`` lets
+           any thread clear that library. ``clear_all_controlling_threads()``
+           does the same for every loaded OpenBLAS library.
 
     A plain ``threadpool_limits(...)`` call, and a direct ``set_num_threads()``,
-    keep control until ``clear_controlling_thread()``. ``with
+    keep control until ``clear_controlling_thread()`` on that library, or
+    ``clear_all_controlling_threads()`` for every loaded copy. ``with
     threadpool_limits()`` and ``threadpool_limits.wrap()`` release control when
     the outermost scope that took the claim exits, including when those scopes
     are nested. A scope that does not touch that OpenBLAS library, and a scope
@@ -793,14 +835,15 @@ class _SharedPoolControlOwnership(thread_local):
     A count is kept separately for each shared pool, keyed by library filepath.
     Hitting zero for a pool releases that pool's non-sticky controlling thread.
     A plain ``threadpool_limits(...)`` call increments and never decrements, so
-    it holds its claim until ``clear_controlling_thread()``.
+    it holds its claim until ``clear_controlling_thread()`` on that library.
 
     ``increment(controller)`` counts every shared pool of ``controller`` that
     this thread can control. ``decrement(controller)`` counts those pools back
     down. ``controller`` defaults to ``get_cached_controller()``. Call
     ``increment()`` before ``set_num_threads`` and ``decrement()`` when that
-    scope ends to manage the claim without a context manager. A forced clear
-    drops counts for that controller class only.
+    scope ends to manage the claim without a context manager. A forced clear of
+    one library drops that library's counts. ``clear_all_controlling_threads()``
+    drops counts for that controller class.
     """
 
     def _counts(self) -> dict[str, int]:
@@ -810,7 +853,7 @@ class _SharedPoolControlOwnership(thread_local):
             self.counts = counts
         return counts
 
-    def _generations(self) -> dict[type, int]:
+    def _generations(self) -> dict[str, int]:
         generations = getattr(self, "generations", None)
         if generations is None:
             generations = {}
@@ -821,25 +864,26 @@ class _SharedPoolControlOwnership(thread_local):
         """Drop counts for libraries another thread has force-cleared."""
         with _SHARED_POOL_STATES_LOCK:
             generations = dict(_shared_pool_generations)
-            owned_filepaths = [
-                (filepath, state.controller_class)
-                for filepath, state in _SHARED_POOL_STATES.items()
-                if state.controller_class is not None
-            ]
         local = self._generations()
         stale = {
-            controller_class
-            for controller_class, generation in generations.items()
-            if local.get(controller_class, 0) != generation
+            filepath
+            for filepath, generation in generations.items()
+            if local.get(filepath, 0) != generation
         }
         if not stale:
             return
         counts = self._counts()
-        for filepath, controller_class in owned_filepaths:
-            if controller_class in stale:
-                counts.pop(filepath, None)
-        for controller_class in stale:
-            local[controller_class] = generations[controller_class]
+        for filepath in stale:
+            counts.pop(filepath, None)
+            local[filepath] = generations[filepath]
+
+    def _forget_filepath(self, filepath: str):
+        """Drop this thread's count for one pool and adopt its generation."""
+        self._sync()
+        self._counts().pop(filepath, None)
+        with _SHARED_POOL_STATES_LOCK:
+            generation = _shared_pool_generations.get(filepath, 0)
+        self._generations()[filepath] = generation
 
     def _reset(self, controller_class: type | None = None):
         """Forget scopes on this thread.
@@ -853,16 +897,20 @@ class _SharedPoolControlOwnership(thread_local):
             self.generations = generations
             return
         with _SHARED_POOL_STATES_LOCK:
-            generation = _shared_pool_generations.get(controller_class, 0)
             filepaths = [
                 filepath
                 for filepath, state in _SHARED_POOL_STATES.items()
                 if state.controller_class is controller_class
             ]
+            generations = {
+                filepath: _shared_pool_generations.get(filepath, 0)
+                for filepath in filepaths
+            }
         counts = self._counts()
+        local = self._generations()
         for filepath in filepaths:
             counts.pop(filepath, None)
-        self._generations()[controller_class] = generation
+            local[filepath] = generations[filepath]
 
     def _count_for(self, filepath: str) -> int:
         """Active scopes for one shared pool on this thread."""

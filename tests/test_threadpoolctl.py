@@ -856,11 +856,11 @@ def _restore_openblas_thread_counts(libs):
     originals = [(lib, lib.get_num_threads()) for lib in libs]
 
     def restore():
-        OpenBLASController.clear_controlling_thread(force=True)
+        OpenBLASController.clear_all_controlling_threads(force=True)
         for lib, orig in originals:
             if orig is not None:
                 lib.set_num_threads(orig)
-        OpenBLASController.clear_controlling_thread(force=True)
+        OpenBLASController.clear_all_controlling_threads(force=True)
 
     return restore
 
@@ -1057,7 +1057,7 @@ def test_plain_threadpool_limits_claim_survives_later_scopes(request):
 
     # An explicit clear drops the plain call. The next with-block is then the
     # sole scope and releases the claim on the way out.
-    OpenBLASController.clear_controlling_thread()
+    OpenBLASController.clear_all_controlling_threads()
     assert lib._shared_pool_state().controlling_thread is None
     with threadpool_limits(limits=1):
         assert lib._shared_pool_state().controlling_thread is current_thread()
@@ -1106,7 +1106,7 @@ def test_restore_original_limits_keeps_openblas_controlling_thread(request):
     assert lib.get_num_threads() == orig
     assert lib._shared_pool_state().controlling_thread is current_thread()
 
-    OpenBLASController.clear_controlling_thread()
+    OpenBLASController.clear_all_controlling_threads()
     assert lib._shared_pool_state().controlling_thread is None
 
 
@@ -1212,9 +1212,9 @@ class _OtherSharedPool:
     """Stand-in for a future library with its own shared pool."""
 
 
-def test_clear_controlling_thread_leaves_other_libraries():
-    # OpenBLASController.clear_controlling_thread, including force=True, must
-    # not drop a claim or a count owned by another controller class.
+def test_clear_all_controlling_threads_leaves_other_libraries():
+    # OpenBLASController.clear_all_controlling_threads, including force=True,
+    # must not drop a claim or a count owned by another controller class.
     filepath_openblas = "threadpoolctl-test-openblas-clear"
     filepath_other = "threadpoolctl-test-other-clear"
     state_openblas = threadpoolctl._SharedPoolState(controller_class=OpenBLASController)
@@ -1229,7 +1229,7 @@ def test_clear_controlling_thread_leaves_other_libraries():
         CONTROLLING_THREAD_OWNERSHIP._increment(filepath_openblas)
         CONTROLLING_THREAD_OWNERSHIP._increment(filepath_other)
 
-        OpenBLASController.clear_controlling_thread()
+        OpenBLASController.clear_all_controlling_threads()
         assert state_openblas.controlling_thread is None
         assert state_openblas.sticky is False
         assert CONTROLLING_THREAD_OWNERSHIP._count_for(filepath_openblas) == 0
@@ -1242,7 +1242,7 @@ def test_clear_controlling_thread_leaves_other_libraries():
         CONTROLLING_THREAD_OWNERSHIP._increment(filepath_openblas)
 
         def force_clear():
-            OpenBLASController.clear_controlling_thread(force=True)
+            OpenBLASController.clear_all_controlling_threads(force=True)
 
         run_in_thread(force_clear)
         assert state_openblas.controlling_thread is None
@@ -1254,6 +1254,50 @@ def test_clear_controlling_thread_leaves_other_libraries():
     finally:
         threadpoolctl._SHARED_POOL_STATES.pop(filepath_openblas, None)
         threadpoolctl._SHARED_POOL_STATES.pop(filepath_other, None)
+        CONTROLLING_THREAD_OWNERSHIP._reset()
+
+
+def test_clear_controlling_thread_leaves_other_copies():
+    # Clearing one library must leave another copy of the same class alone,
+    # including a forced clear from a thread that does not hold the claim.
+    lib_a = _TestSharedPoolController("threadpoolctl-test-clear-copy-a")
+    lib_b = _TestSharedPoolController("threadpoolctl-test-clear-copy-b")
+    state_a = lib_a._shared_pool_state()
+    state_b = lib_b._shared_pool_state()
+    try:
+        state_a.controlling_thread = current_thread()
+        state_a.sticky = True
+        state_b.controlling_thread = current_thread()
+        state_b.sticky = True
+        CONTROLLING_THREAD_OWNERSHIP._increment(lib_a.filepath)
+        CONTROLLING_THREAD_OWNERSHIP._increment(lib_b.filepath)
+
+        lib_a.clear_controlling_thread()
+        assert state_a.controlling_thread is None
+        assert state_a.sticky is False
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(lib_a.filepath) == 0
+        assert state_b.controlling_thread is current_thread()
+        assert state_b.sticky is True
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(lib_b.filepath) == 1
+
+        state_a.controlling_thread = current_thread()
+        state_a.sticky = True
+        CONTROLLING_THREAD_OWNERSHIP._increment(lib_a.filepath)
+
+        def force_clear():
+            lib_a.clear_controlling_thread(force=True)
+
+        run_in_thread(force_clear)
+        assert state_a.controlling_thread is None
+        assert state_a.sticky is False
+        assert state_b.controlling_thread is current_thread()
+        assert state_b.sticky is True
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(lib_a.filepath) == 0
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(lib_b.filepath) == 1
+    finally:
+        for filepath in (lib_a.filepath, lib_b.filepath):
+            threadpoolctl._SHARED_POOL_STATES.pop(filepath, None)
+            threadpoolctl._shared_pool_generations.pop(filepath, None)
         CONTROLLING_THREAD_OWNERSHIP._reset()
 
 

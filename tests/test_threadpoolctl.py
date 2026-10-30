@@ -728,6 +728,7 @@ def run_in_thread(f, *args, **kwargs):
     thread = Thread(target=lambda: f(*args, **kwargs))
     thread.start()
     thread.join()
+    return thread
 
 
 def test_openblas_non_openmp_restricted_to_controlling_thread():
@@ -774,6 +775,7 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
     # This thread can change num threads:
     openblas_lib.set_num_threads(1)
     assert openblas_lib.get_num_threads() == 1
+    assert openblas_lib._shared_pool_state().controlling_thread is current_thread()
 
     # Another thread's attempts are no-op:
     result = []
@@ -785,10 +787,12 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
     run_in_thread(another_thread)
     assert result[-1] == 1
     assert openblas_lib.get_num_threads() == 1
+    assert openblas_lib._shared_pool_state().controlling_thread is current_thread()
 
     # This thread can still make changes:
     openblas_lib.set_num_threads(orig_num_threads)
     assert openblas_lib.get_num_threads() == orig_num_threads
+    assert openblas_lib._shared_pool_state().controlling_thread is current_thread()
 
     # Another thread clearing the controlling thread has no effect:
     def clear_and_set():
@@ -797,15 +801,18 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
 
     run_in_thread(clear_and_set)
     assert openblas_lib.get_num_threads() == orig_num_threads
+    assert openblas_lib._shared_pool_state().controlling_thread is current_thread()
 
     # The controlling thread can clear, and then another thread can set:
     openblas_lib.clear_controlling_thread()
-    run_in_thread(openblas_lib.set_num_threads, 1)
+    worker = run_in_thread(openblas_lib.set_num_threads, 1)
     assert openblas_lib.get_num_threads() == 1
+    assert openblas_lib._shared_pool_state().controlling_thread is worker
 
     # Dead threads lose control:
     openblas_lib.set_num_threads(orig_num_threads)
     assert openblas_lib.get_num_threads() == orig_num_threads
+    assert openblas_lib._shared_pool_state().controlling_thread is current_thread()
 
     # Release control:
     openblas_lib.clear_controlling_thread()
@@ -824,15 +831,18 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
     t.start()
     was_set.acquire()
     assert openblas_lib.get_num_threads() == 1
+    assert openblas_lib._shared_pool_state().controlling_thread is t
 
     # This thread can't set since it's not the controller:
     openblas_lib.set_num_threads(orig_num_threads)
     assert openblas_lib.get_num_threads() == 1
+    assert openblas_lib._shared_pool_state().controlling_thread is t
 
     # But when forced clear happens, we can set:
     openblas_lib.clear_controlling_thread(force=True)
     openblas_lib.set_num_threads(orig_num_threads)
     assert openblas_lib.get_num_threads() == orig_num_threads
+    assert openblas_lib._shared_pool_state().controlling_thread is current_thread()
 
     # Clean up
     finish.release()
@@ -900,6 +910,35 @@ def test_openblas_controlling_thread_cleared_on_decorator_exit():
     assert _openblas_controlling_thread() is None
 
 
+def test_recursive_wrap_releases_the_shared_pool_claim(request):
+    # One wrapped function calling itself must keep the limit between the inner
+    # return and the outer return, then restore the original count and drop the
+    # controlling thread. Another thread can then set the count.
+    libs, lib, orig = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+
+    @threadpool_limits.wrap(limits=1, user_api="blas")
+    def recurse(depth):
+        assert lib.get_num_threads() == 1
+        if depth:
+            recurse(depth - 1)
+            assert lib.get_num_threads() == 1
+
+    recurse(1)
+    assert lib.get_num_threads() == orig
+
+    observed = {}
+
+    def other_thread():
+        lib.set_num_threads(1)
+        observed["threads"] = lib.get_num_threads()
+        observed["holder"] = lib._shared_pool_state().controlling_thread
+
+    worker = run_in_thread(other_thread)
+    assert observed["threads"] == 1
+    assert observed["holder"] is worker
+
+
 def test_openblas_controlling_thread_per_pool_counter(request):
     # The per-pool counter has to be incremented before set_num_threads. That
     # makes the claim scoped, so the last decrement releases it.
@@ -936,39 +975,6 @@ class _TestSharedPoolController(threadpoolctl._SharedPoolControllerMixin):
 
     def _real_set_num_threads(self, num_threads):
         self.applied = num_threads
-
-
-def test_recursive_wrap_releases_the_shared_pool_claim():
-    # Each call of a wrapped function must release only the claim that call took.
-    lib = _TestSharedPoolController("threadpoolctl-test-recursive-wrap")
-    state = lib._shared_pool_state()
-
-    class _Controller:
-        def __init__(self):
-            self.lib_controllers = [lib]
-
-        def info(self):
-            return [{"num_threads": 4}]
-
-    wrapped = threadpoolctl._ThreadpoolLimiterDecorator(
-        _Controller(), limits=1, user_api="blas"
-    )
-
-    @wrapped
-    def recurse(depth):
-        assert state.controlling_thread is current_thread()
-        if depth:
-            recurse(depth - 1)
-            assert state.controlling_thread is current_thread()
-
-    try:
-        recurse(1)
-        assert state.controlling_thread is None
-        assert CONTROLLING_THREAD_OWNERSHIP._count_for(lib.filepath) == 0
-    finally:
-        threadpoolctl._SHARED_POOL_STATES.pop(lib.filepath, None)
-        threadpoolctl._SHARED_POOL_GENERATIONS.pop(lib.filepath, None)
-        _reset_ownership()
 
 
 def test_bare_increment_decrement_covers_every_controllable_pool():
@@ -1136,6 +1142,7 @@ def test_direct_set_num_threads_is_not_released_by_limiter_scopes(request):
 
     run_in_thread(other_thread)
     assert observed["threads"] == 1
+    assert state.controlling_thread is current_thread()
 
 
 def test_restore_original_limits_keeps_openblas_controlling_thread(request):
@@ -1173,12 +1180,11 @@ def test_openblas_controlling_thread_is_per_library(request):
         observed["holder"] = second._shared_pool_state().controlling_thread
         observed["threads"] = second.get_num_threads()
 
-    run_in_thread(other_thread)
+    worker = run_in_thread(other_thread)
     assert first.get_num_threads() == 1
     assert first._shared_pool_state().controlling_thread is current_thread()
     assert observed["threads"] == 1
-    assert observed["holder"] is not None
-    assert observed["holder"] is not current_thread()
+    assert observed["holder"] is worker
 
 
 def test_openblas_scoped_exit_releases_only_that_library():

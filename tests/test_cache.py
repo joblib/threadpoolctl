@@ -1,5 +1,7 @@
 """Tests for ``threadpoolctl``'s internal caching layer."""
 
+import subprocess
+import sys
 from ctypes import CDLL
 
 import pytest
@@ -57,3 +59,49 @@ def test_cache_methods_on_dynlib(request):
     # Only one call should ever happen when using the cached method, however:
     assert libs[0].my_extra_method() is initial
     assert libs[0].my_extra_method() is initial
+
+
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"), reason="Relies on glibc being loaded"
+)
+def test_register_after_libraries_were_listed():
+    """
+    A controller registered after a library was already listed (and cached as
+    unsupported) still finds it.
+    """
+    # Run in a subprocess to keep the registered controller out of the other
+    # tests:
+    script = """
+from threadpoolctl import (
+    LibController,
+    ThreadpoolController,
+    get_cached_controller,
+    register,
+)
+
+
+class FakeController(LibController):
+    user_api = "fake"
+    internal_api = "fake"
+    filename_prefixes = ("libc.",)
+    check_symbols = ("printf",)
+
+    def get_num_threads(self):
+        return 1
+
+    def set_num_threads(self, num_threads):
+        pass
+
+    def get_version(self):
+        return None
+
+
+# Lists glibc, which no controller matches yet:
+assert not ThreadpoolController().select(user_api="fake").lib_controllers
+assert not get_cached_controller().select(user_api="fake").lib_controllers
+
+register(FakeController)
+assert ThreadpoolController().select(user_api="fake").lib_controllers
+assert get_cached_controller().select(user_api="fake").lib_controllers
+"""
+    subprocess.check_call([sys.executable, "-c", script])

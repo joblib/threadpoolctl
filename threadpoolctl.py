@@ -975,6 +975,9 @@ def register(controller):
     _ALL_USER_APIS.append(controller.user_api)
     _ALL_INTERNAL_APIS.append(controller.internal_api)
     _ALL_PREFIXES.extend(controller.filename_prefixes)
+    # Libraries listed before this call may match the new controller:
+    _CDLL_CACHE._controller_cache.clear()
+    reset_cached_controller()
 
 
 def _format_docstring(*args, **kwargs):

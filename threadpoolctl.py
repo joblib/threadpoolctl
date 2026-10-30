@@ -512,11 +512,6 @@ def _get_shared_pool_state(filepath: str, controller_class: type) -> _SharedPool
         return state
 
 
-def _snapshot_shared_pool_states() -> list[_SharedPoolState]:
-    with _SHARED_POOL_STATES_LOCK:
-        return list(_SHARED_POOL_STATES.values())
-
-
 def _other_live_thread_holds(holder, this) -> bool:
     """Whether ``holder`` is a different thread that still owns the pool."""
     return holder is not None and holder is not this and holder.is_alive()
@@ -565,6 +560,21 @@ def _bump_shared_pool_generations(filepaths) -> None:
             _shared_pool_generations[filepath] = current + 1
 
 
+def _clear_shared_pool_holder(state: _SharedPoolState, force: bool) -> bool:
+    """Drop the holder and sticky flag when ``force`` is set or this thread holds it.
+
+    Returns whether this thread held the claim.
+    """
+    this = current_thread()
+    with state.lock:
+        held = state.controlling_thread is this
+        if not (force or held):
+            return False
+        state.controlling_thread = None
+        state.sticky = False
+        return held
+
+
 def _clear_shared_pool_claims(controller_class: type, force: bool = False):
     """Drop claims on shared pools of one controller class.
 
@@ -572,21 +582,16 @@ def _clear_shared_pool_claims(controller_class: type, force: bool = False):
     true. A forced clear also drops that class's counts on other threads the
     next time they sync.
     """
-    this = current_thread()
-    cleared_this_thread = False
     with _SHARED_POOL_STATES_LOCK:
         pairs = [
             (filepath, state)
             for filepath, state in _SHARED_POOL_STATES.items()
             if state.controller_class is controller_class
         ]
+    cleared_this_thread = False
     for _filepath, state in pairs:
-        with state.lock:
-            if force or state.controlling_thread is this:
-                if state.controlling_thread is this:
-                    cleared_this_thread = True
-                state.controlling_thread = None
-                state.sticky = False
+        if _clear_shared_pool_holder(state, force):
+            cleared_this_thread = True
     if force:
         _bump_shared_pool_generations(filepath for filepath, _state in pairs)
     if force or cleared_this_thread:
@@ -623,18 +628,10 @@ class _SharedPoolControllerMixin:
         By default, only the controlling thread has an effect. Any thread can
         clear this library by setting ``force=True``.
         """
-        this = current_thread()
         with _SHARED_POOL_STATES_LOCK:
             state = _SHARED_POOL_STATES.get(self.filepath)
-        cleared_this_thread = False
-        if state is not None:
-            with state.lock:
-                if force or state.controlling_thread is this:
-                    if state.controlling_thread is this:
-                        cleared_this_thread = True
-                    state.controlling_thread = None
-                    state.sticky = False
-        if not (force or cleared_this_thread):
+        held = _clear_shared_pool_holder(state, force) if state is not None else False
+        if not (force or held):
             return
         if force:
             _bump_shared_pool_generations([self.filepath])
@@ -878,8 +875,11 @@ class _SharedPoolControlOwnership(thread_local):
             local[filepath] = generations[filepath]
 
     def _forget_filepath(self, filepath: str):
-        """Drop this thread's count for one pool and adopt its generation."""
-        self._sync()
+        """Drop this thread's count for one pool and adopt its generation.
+
+        The caller has already bumped the generation when this clear is forced.
+        Other pools stay stale until the next ``_sync``.
+        """
         self._counts().pop(filepath, None)
         with _SHARED_POOL_STATES_LOCK:
             generation = _shared_pool_generations.get(filepath, 0)

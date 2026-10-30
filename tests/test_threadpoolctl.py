@@ -927,6 +927,39 @@ class _TestSharedPoolController(threadpoolctl._SharedPoolControllerMixin):
         self.applied = num_threads
 
 
+def test_recursive_wrap_releases_the_shared_pool_claim():
+    # Each call of a wrapped function must release only the claim that call took.
+    lib = _TestSharedPoolController("threadpoolctl-test-recursive-wrap")
+    state = lib._shared_pool_state()
+
+    class _Controller:
+        def __init__(self):
+            self.lib_controllers = [lib]
+
+        def info(self):
+            return [{"num_threads": 4}]
+
+    wrapped = threadpoolctl._ThreadpoolLimiterDecorator(
+        _Controller(), limits=1, user_api="blas"
+    )
+
+    @wrapped
+    def recurse(depth):
+        assert state.controlling_thread is current_thread()
+        if depth:
+            recurse(depth - 1)
+            assert state.controlling_thread is current_thread()
+
+    try:
+        recurse(1)
+        assert state.controlling_thread is None
+        assert CONTROLLING_THREAD_OWNERSHIP._count_for(lib.filepath) == 0
+    finally:
+        threadpoolctl._SHARED_POOL_STATES.pop(lib.filepath, None)
+        threadpoolctl._SHARED_POOL_GENERATIONS.pop(lib.filepath, None)
+        CONTROLLING_THREAD_OWNERSHIP._reset()
+
+
 def test_bare_increment_decrement_covers_every_controllable_pool():
     # Every loaded shared pool this thread can control, and not a pool another
     # live thread already holds.
@@ -1143,10 +1176,8 @@ def test_openblas_scoped_exit_releases_only_that_library():
     # or a still-held claim on another library.
     filepath_a = "threadpoolctl-test-openblas-a"
     filepath_b = "threadpoolctl-test-openblas-b"
-    state_a = threadpoolctl._SharedPoolState()
-    state_b = threadpoolctl._SharedPoolState()
-    threadpoolctl._SHARED_POOL_STATES[filepath_a] = state_a
-    threadpoolctl._SHARED_POOL_STATES[filepath_b] = state_b
+    state_a = threadpoolctl._get_shared_pool_state(filepath_a, OpenBLASController)
+    state_b = threadpoolctl._get_shared_pool_state(filepath_b, OpenBLASController)
     try:
         state_a.controlling_thread = current_thread()
         state_a.sticky = True
@@ -1200,7 +1231,7 @@ def test_scoped_limit_replacing_dead_holder_is_not_sticky():
         assert state.controlling_thread is current_thread()
         assert state.sticky is False
         assert CONTROLLING_THREAD_OWNERSHIP._count_for(filepath) == 1
-        limiter._release_shared_pool_claims()
+        limiter._exit_shared_pool_scopes()
         assert state.controlling_thread is None
         assert CONTROLLING_THREAD_OWNERSHIP._count_for(filepath) == 0
     finally:
@@ -1217,10 +1248,10 @@ def test_clear_all_controlling_threads_leaves_other_libraries():
     # must not drop a claim or a count owned by another controller class.
     filepath_openblas = "threadpoolctl-test-openblas-clear"
     filepath_other = "threadpoolctl-test-other-clear"
-    state_openblas = threadpoolctl._SharedPoolState(controller_class=OpenBLASController)
-    state_other = threadpoolctl._SharedPoolState(controller_class=_OtherSharedPool)
-    threadpoolctl._SHARED_POOL_STATES[filepath_openblas] = state_openblas
-    threadpoolctl._SHARED_POOL_STATES[filepath_other] = state_other
+    state_openblas = threadpoolctl._get_shared_pool_state(
+        filepath_openblas, OpenBLASController
+    )
+    state_other = threadpoolctl._get_shared_pool_state(filepath_other, _OtherSharedPool)
     try:
         state_openblas.controlling_thread = current_thread()
         state_openblas.sticky = True
@@ -1297,7 +1328,7 @@ def test_clear_controlling_thread_leaves_other_copies():
     finally:
         for filepath in (lib_a.filepath, lib_b.filepath):
             threadpoolctl._SHARED_POOL_STATES.pop(filepath, None)
-            threadpoolctl._shared_pool_generations.pop(filepath, None)
+            threadpoolctl._SHARED_POOL_GENERATIONS.pop(filepath, None)
         CONTROLLING_THREAD_OWNERSHIP._reset()
 
 

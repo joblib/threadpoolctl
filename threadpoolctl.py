@@ -518,9 +518,11 @@ def _other_live_thread_holds(holder, this) -> bool:
 
 
 def _iter_claimable_shared_pools(controllers):
-    """Yield shared-pool libraries in ``controllers`` this thread can claim.
+    """Yield ``(library, state)`` for shared pools this thread can claim.
 
     One library per filepath. A pool another live thread already holds is skipped.
+    The state is the one ``library._shared_pool_state()`` just returned, so the
+    caller does not look it up again.
     """
     this = current_thread()
     seen = set()
@@ -530,10 +532,10 @@ def _iter_claimable_shared_pools(controllers):
         if lib.filepath in seen:
             continue
         seen.add(lib.filepath)
-        holder = lib._shared_pool_state().controlling_thread
-        if _other_live_thread_holds(holder, this):
+        state = lib._shared_pool_state()
+        if _other_live_thread_holds(state.controlling_thread, this):
             continue
-        yield lib
+        yield lib, state
 
 
 def _release_scoped_claim(filepath: str):
@@ -900,7 +902,7 @@ class _ControllingThreadOwnership(thread_local):
         """
         if controller is None:
             controller = get_cached_controller()
-        for lib in _iter_claimable_shared_pools(controller.lib_controllers):
+        for lib, _state in _iter_claimable_shared_pools(controller.lib_controllers):
             self._increment(lib.filepath)
 
     def _increment(self, filepath: str):
@@ -924,15 +926,14 @@ class _ControllingThreadOwnership(thread_local):
             if lib.filepath in seen or lib.filepath not in self._counts:
                 continue
             seen.add(lib.filepath)
-            self._decrement(lib.filepath, synced=True)
+            self._decrement(lib.filepath)
 
-    def _decrement(self, filepath: str, *, synced: bool = False):
+    def _decrement(self, filepath: str):
         """Count one fewer scope for a single shared pool.
 
         Reaching zero releases that pool's non-sticky claim.
         """
-        if not synced:
-            self._sync()
+        self._sync()
         counts = self._counts
         current = counts.get(filepath, 0)
         if current <= 0:
@@ -1488,9 +1489,9 @@ class _ThreadpoolLimiter:
             for lib in self._controller.lib_controllers
             if self._num_threads_for(lib) is not None
         ]
-        for lib in _iter_claimable_shared_pools(targets):
+        for lib, state in _iter_claimable_shared_pools(targets):
             CONTROLLING_THREAD_OWNERSHIP._increment(lib.filepath)
-            self._shared_pool_scopes.append((lib.filepath, lib._shared_pool_state()))
+            self._shared_pool_scopes.append((lib.filepath, state))
 
     def _exit_shared_pool_scopes(self):
         scopes = self._shared_pool_scopes
@@ -1499,11 +1500,18 @@ class _ThreadpoolLimiter:
             CONTROLLING_THREAD_OWNERSHIP._decrement(filepath)
 
     def _drop_unheld_shared_pool_scopes(self):
-        """Drop counts for libraries another thread won the race for."""
+        """Drop counts for libraries another thread won the race for.
+
+        Read ``controlling_thread`` under the pool lock. This thread's own write
+        is visible without it, but the winning write from another thread is not.
+        A stale empty holder would keep a count and make the next claim non-sticky.
+        """
         this = current_thread()
         kept = []
         for filepath, state in self._shared_pool_scopes:
-            if state.controlling_thread is this:
+            with state.lock:
+                held = state.controlling_thread is this
+            if held:
                 kept.append((filepath, state))
             else:
                 CONTROLLING_THREAD_OWNERSHIP._decrement(filepath)

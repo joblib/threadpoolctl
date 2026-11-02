@@ -575,7 +575,7 @@ class OpenBLASController(LibController):
             # another, so try again:
             return self.set_num_threads(num_threads)
         else:
-            # Some other thread controlls OpenBLAS: do nothing.
+            # Some other thread controls OpenBLAS: do nothing.
             return
 
     def _real_set_num_threads(self, num_threads):

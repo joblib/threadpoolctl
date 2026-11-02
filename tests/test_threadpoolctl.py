@@ -872,16 +872,24 @@ def _restore_openblas_thread_counts(libs):
     return restore
 
 
-def test_openblas_controlling_thread_cleared_on_limiter_context_manager_exit():
+def test_openblas_controlling_thread_cleared_on_limiter_context_manager_exit(request):
+    libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+
     with threadpool_limits(limits=1):
         assert _openblas_controlling_thread() is current_thread()
         with threadpool_limits(limits=1):
             assert _openblas_controlling_thread() is current_thread()
         assert _openblas_controlling_thread() is current_thread()
+
     assert _openblas_controlling_thread() is None
+    assert lib.get_num_threads() == orig_limit
 
 
-def test_openblas_controlling_thread_cleared_on_decorator_exit():
+def test_openblas_controlling_thread_cleared_on_decorator_exit_non_recursive(request):
+    libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+
     @threadpool_limits.wrap(limits=1)
     def inner():
         assert _openblas_controlling_thread() is current_thread()
@@ -894,6 +902,7 @@ def test_openblas_controlling_thread_cleared_on_decorator_exit():
 
     outer()
     assert _openblas_controlling_thread() is None
+    assert lib.get_num_threads() == orig_limit
 
 
 def _require_resizable_non_openmp_openblas():
@@ -906,6 +915,37 @@ def _require_resizable_non_openmp_openblas():
 
 
 def test_recursive_wrap_releases_the_shared_pool_claim(request):
+    # One wrapped function calling itself must keep the limit between the inner
+    # return and the outer return, then restore the original count and drop the
+    # controlling thread. Another thread can then set the count.
+    libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+
+    @threadpool_limits.wrap(limits=1, user_api="blas")
+    def recurse(depth):
+        assert lib.get_num_threads() == 1
+        if depth:
+            recurse(depth - 1)
+            assert lib.get_num_threads() == 1
+
+    recurse(1)
+    assert lib.get_num_threads() == orig_limit
+
+    observed = {}
+
+    def other_thread():
+        lib.set_num_threads(1)
+        observed["threads"] = lib.get_num_threads()
+        observed["holder"] = lib._SHARED_STATE.controlling_thread
+
+    worker = run_in_thread(other_thread)
+    assert observed["threads"] == 1
+    assert observed["holder"] is worker
+
+
+def test_openblas_controlling_thread_manual_increment_decrement_api(request):
+    limiter = ThreadpoolController().limit()
+    request.addfinalizer(limiter.restore_original_limits)
 
     threadpool_limits(limits=1)
     CONTROLLING_THREAD_OWNERSHIP.increment()

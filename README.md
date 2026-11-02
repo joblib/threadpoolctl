@@ -276,11 +276,7 @@ OpenBLAS+pthreads) and in each worker thread.
 > Windows threading layer, setting the limit affects the whole process, because
 > it uses a process-wide shared thread pool. (This in contrast to some other
 > BLAS/OpenMP libraries, or OpenBLAS backed by OpenMP, that allow setting the
-> limit per-thread.) Having multiple Python threads set limits in this case
-> makes no sense, since they would effectively be arguing over a globally shared
-> resource. ``threadpoolctl`` therefore constrains the limiting API in the
-> OpenBLAS pthreads/Windows case to only work from the first thread that uses
-> it, the so-called controlling thread.
+> limit per-thread.)
 >
 > For many other libraries, for example OpenMP, the limit is set per thread. As
 > a result, you want to set limits both ways in generic code that doesn't know
@@ -378,10 +374,37 @@ with CONTROLLER.limit(limits=2):
 
 ## Usage: Additional APIs and details
 
-### OpenBLAS with pthreads/Windows
+### OpenBLAS with pthreads/Windows, and the controlling thread
 
 As mentioned above, OpenBLAS with pthreads or Windows threading layer uses a
-process-wide shared thread pool. As a result, there are only two limits that
+process-wide shared thread pool. Having multiple Python threads set limits in this case
+makes no sense, since they would effectively be arguing over a globally shared
+resource.
+
+``threadpoolctl`` therefore constrains the limiting API in the OpenBLAS
+pthreads/Windows case to only work from the first thread that uses it, the
+so-called controlling thread. The controlling thread can change the limits as
+normal. For other thread, calls will be silently ignored.
+
+When using `with threadpool_limits()` as a context manager or
+`@threadpool_limits.wrap()` as a decorator, the controlling thread should be
+automatically cleared when the code leaves the relevant block. This allows
+another thread to take control. You can also manually release the controlling
+thread by calling `OpenBLASController.clear_controlling_thread()` from the
+controlling thread; passing `force=True` allows clearing it from any thread.
+
+Note that if you call a standalone `threadpool_limits()` or similar API, and
+then later use the `with threadpool_limits()` or similar context
+manager/decorator API, clearing the controlling thread will still happen, as
+standalone limiting calls are not tracked.
+
+NumPy and SciPy, when installed from PyPI for example, can each have their own
+separate OpenBLAS with its own thread pool. The controlling thread will apply to
+both.
+
+#### Choosing limits for a process-wide shared thread pool
+
+Given a shared OpenBLAS process pool, logically there are only two limits that
 make sense in most circumstances:
 
 * A limit of `1`, which effectively means no OpenBLAS thread pool: all
@@ -392,7 +415,9 @@ make sense in most circumstances:
   you are calling BLAS from the main thread and there are no Python threads.
 
 While `threadpoolctl` does not limit you to these two values, you may wish to do
-so yourself in your code.
+so yourself in your code, after benchmarking to ensure that this actually
+maximizes performance. Benchmarking is important because empirically, these
+limits do not always maximize performance.
 
 ### Switching the FlexiBLAS backend
 

@@ -856,10 +856,7 @@ def _non_openmp_openblas():
 
 def _openblas_controlling_thread():
     libs = _non_openmp_openblas()
-    holders = {lib._SHARED_STATE.controlling_thread for lib in libs}
-    if len(holders) != 1:
-        return holders
-    return next(iter(holders))
+    return next(lib._SHARED_STATE.controlling_thread for lib in libs)
 
 
 def _restore_openblas_thread_counts(libs):

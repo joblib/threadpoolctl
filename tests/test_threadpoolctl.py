@@ -717,6 +717,7 @@ def run_in_thread(f, *args, **kwargs):
     thread = Thread(target=lambda: f(*args, **kwargs))
     thread.start()
     thread.join()
+    return thread
 
 
 def test_openblas_non_openmp_restricted_to_controlling_thread():
@@ -763,6 +764,7 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
     # This thread can change num threads:
     openblas_lib.set_num_threads(1)
     assert openblas_lib.get_num_threads() == 1
+    assert openblas_lib._SHARED_STATE.controlling_thread is current_thread()
 
     # Another thread's attempts are no-op:
     result = []
@@ -774,10 +776,12 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
     run_in_thread(another_thread)
     assert result[-1] == 1
     assert openblas_lib.get_num_threads() == 1
+    assert openblas_lib._SHARED_STATE.controlling_thread is current_thread()
 
     # This thread can still make changes:
     openblas_lib.set_num_threads(orig_num_threads)
     assert openblas_lib.get_num_threads() == orig_num_threads
+    assert openblas_lib._SHARED_STATE.controlling_thread is current_thread()
 
     # Another thread clearing the controlling thread has no effect:
     def clear_and_set():
@@ -786,15 +790,18 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
 
     run_in_thread(clear_and_set)
     assert openblas_lib.get_num_threads() == orig_num_threads
+    assert openblas_lib._SHARED_STATE.controlling_thread is current_thread()
 
     # The controlling thread can clear, and then another thread can set:
     openblas_lib.clear_controlling_thread()
-    run_in_thread(openblas_lib.set_num_threads, 1)
+    worker = run_in_thread(openblas_lib.set_num_threads, 1)
     assert openblas_lib.get_num_threads() == 1
+    assert openblas_lib._SHARED_STATE.controlling_thread is worker
 
     # Dead threads lose control:
     openblas_lib.set_num_threads(orig_num_threads)
     assert openblas_lib.get_num_threads() == orig_num_threads
+    assert openblas_lib._SHARED_STATE.controlling_thread is current_thread()
 
     # Release control:
     openblas_lib.clear_controlling_thread()
@@ -813,15 +820,18 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
     t.start()
     was_set.acquire()
     assert openblas_lib.get_num_threads() == 1
+    assert openblas_lib._SHARED_STATE.controlling_thread is t
 
     # This thread can't set since it's not the controller:
     openblas_lib.set_num_threads(orig_num_threads)
     assert openblas_lib.get_num_threads() == 1
+    assert openblas_lib._SHARED_STATE.controlling_thread is t
 
     # But when forced clear happens, we can set:
     openblas_lib.clear_controlling_thread(force=True)
     openblas_lib.set_num_threads(orig_num_threads)
     assert openblas_lib.get_num_threads() == orig_num_threads
+    assert openblas_lib._SHARED_STATE.controlling_thread is current_thread()
 
     # Clean up
     finish.release()

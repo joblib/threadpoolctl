@@ -558,7 +558,10 @@ class OpenBLASController(LibController):
         # threads fighting over limits:
         this_thread = current_thread()
         controlling_thread = self._SHARED_STATE.controlling_thread
-        if controlling_thread is None or not controlling_thread.is_alive():
+        if controlling_thread is this_thread:
+            # This thread controls OpenBLAS:
+            return self._real_set_num_threads(num_threads)
+        elif controlling_thread is None or not controlling_thread.is_alive():
             # No thread controls OpenBLAS, so try to take control:
             with self._SHARED_STATE.lock:
                 # Another thread might have changed it, so ensure that's not
@@ -571,9 +574,6 @@ class OpenBLASController(LibController):
             # Controlling thread should now be set, to either this thread or
             # another, so try again:
             return self.set_num_threads(num_threads)
-        elif controlling_thread is this_thread:
-            # This thread controls OpenBLAS:
-            return self._real_set_num_threads(num_threads)
         else:
             # Some other thread controlls OpenBLAS: do nothing.
             return

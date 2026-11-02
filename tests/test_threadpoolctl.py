@@ -838,18 +838,44 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
     t.join()
 
 
-def _openblas_controlling_thread():
-    openblas_controller = ThreadpoolController().select(internal_api="openblas")
-
-    if not (openblas_controller):
+def _non_openmp_openblas():
+    openblas = ThreadpoolController().select(internal_api="openblas")
+    if not openblas:
         pytest.skip("requires OpenBLAS.")
-    if {lc.threading_layer for lc in openblas_controller.lib_controllers} == {"openmp"}:
+    libs = []
+    seen = set()
+    for lib in openblas.lib_controllers:
+        if lib.threading_layer == "openmp" or lib.filepath in seen:
+            continue
+        seen.add(lib.filepath)
+        libs.append(lib)
+    if not libs:
         pytest.skip("require non-OpenMP OpenBLAS.")
-    return OpenBLASController._SHARED_STATE.controlling_thread
+    return libs
+
+
+def _openblas_controlling_thread():
+    libs = _non_openmp_openblas()
+    holders = {lib._SHARED_STATE.controlling_thread for lib in libs}
+    if len(holders) != 1:
+        return holders
+    return next(iter(holders))
+
+
+def _restore_openblas_thread_counts(libs):
+    originals = [(lib, lib.get_num_threads()) for lib in libs]
+
+    def restore():
+        OpenBLASController.clear_controlling_thread(force=True)
+        for lib, orig in originals:
+            if orig is not None:
+                lib.set_num_threads(orig)
+        OpenBLASController.clear_controlling_thread(force=True)
+
+    return restore
 
 
 def test_openblas_controlling_thread_cleared_on_limiter_context_manager_exit():
-
     with threadpool_limits(limits=1):
         assert _openblas_controlling_thread() is current_thread()
         with threadpool_limits(limits=1):
@@ -859,7 +885,6 @@ def test_openblas_controlling_thread_cleared_on_limiter_context_manager_exit():
 
 
 def test_openblas_controlling_thread_cleared_on_decorator_exit():
-
     @threadpool_limits.wrap(limits=1)
     def inner():
         assert _openblas_controlling_thread() is current_thread()
@@ -874,9 +899,16 @@ def test_openblas_controlling_thread_cleared_on_decorator_exit():
     assert _openblas_controlling_thread() is None
 
 
-def test_openblas_controlling_thread_manual_increment_decrement_api(request):
-    limiter = ThreadpoolController().limit()
-    request.addfinalizer(limiter.restore_original_limits)
+def _require_resizable_non_openmp_openblas():
+    libs = _non_openmp_openblas()
+    lib = libs[0]
+    orig = lib.get_num_threads()
+    if orig is None or orig < 2:
+        pytest.skip("Test requires a non-OpenMP OpenBLAS with at least 2 threads")
+    return libs, lib, orig
+
+
+def test_recursive_wrap_releases_the_shared_pool_claim(request):
 
     threadpool_limits(limits=1)
     CONTROLLING_THREAD_OWNERSHIP.increment()
@@ -888,6 +920,22 @@ def test_openblas_controlling_thread_manual_increment_decrement_api(request):
     assert _openblas_controlling_thread() is current_thread()
     CONTROLLING_THREAD_OWNERSHIP.decrement()
     assert _openblas_controlling_thread() is None
+
+
+def test_restore_original_limits_keeps_openblas_controlling_thread(request):
+    libs, lib, orig = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+
+    limiter = threadpool_limits(limits=1)
+    assert lib.get_num_threads() == 1
+    assert lib._SHARED_STATE.controlling_thread is current_thread()
+
+    limiter.restore_original_limits()
+    assert lib.get_num_threads() == orig
+    assert lib._SHARED_STATE.controlling_thread is current_thread()
+
+    OpenBLASController.clear_controlling_thread()
+    assert lib._SHARED_STATE.controlling_thread is None
 
 
 # skip test if not run in a azure pipelines job since it relies on a specific flexiblas

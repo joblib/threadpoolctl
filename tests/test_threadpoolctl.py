@@ -915,14 +915,18 @@ def _require_resizable_non_openmp_openblas():
 
 
 @pytest.mark.parametrize(
-    "wrap", [ThreadpoolController(internal_api="openblas").wrap, threadpool_limits.wrap]
+    "make_wrap", [lambda: ThreadpoolController().wrap, lambda: threadpool_limits.wrap]
 )
-def test_recursive_wrap_releases_the_shared_pool_claim(request, wrap):
+def test_recursive_wrap_releases_the_shared_pool_claim(request, make_wrap):
     # One wrapped function calling itself must keep the limit between the inner
     # return and the outer return, then restore the original count and drop the
     # controlling thread. Another thread can then set the count.
     libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
     request.addfinalizer(_restore_openblas_thread_counts(libs))
+
+
+    # To avoid annoying libiomp/omp warning happening at import time.
+    wrap = make_wrap()
 
     @wrap(limits=1, user_api="blas")
     def recurse(depth):

@@ -924,7 +924,6 @@ def test_recursive_wrap_releases_the_shared_pool_claim(request, make_wrap):
     libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
     request.addfinalizer(_restore_openblas_thread_counts(libs))
 
-
     # To avoid annoying libiomp/omp warning happening at import time.
     wrap = make_wrap()
 

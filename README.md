@@ -618,7 +618,7 @@ When there is a choice between different APIs, `threadpoolctl` will prefer APIs
 that:
 
 1. Have a per-thread worker pool (so each Python thread gets its own pool from
-   the underlying third-party library)
+   the underlying third-party library).
 2. Only affect the current thread.
 
 Current libraries where `threadpoolctl` explicitly makes this choice are:
@@ -630,9 +630,9 @@ Current libraries where `threadpoolctl` explicitly makes this choice are:
   sequential BLAS calls within an OpenMP parallel region, see
   [Sequential BLAS within OpenMP parallel region](#sequential-blas-within-openmp-parallel-region).
 
-When using OpenMP, this is also the default on Linux and macOS. On Windows
-OpenMP has a per-thread worker pool but the limiting API affects all threads in
-the process, not just the current one.
+When using OpenMP, a limit specific to the current is also the default on Linux
+and macOS. On Windows OpenMP has a per-thread worker pool but the limiting API
+affects all threads in the process, not just the current one.
 
 ### Checking the behavior of your installed libraries
 

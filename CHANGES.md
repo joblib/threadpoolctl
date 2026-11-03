@@ -50,6 +50,11 @@
 - Dropped official support for Python 3.9.
   https://github.com/joblib/threadpoolctl/pull/255
 
+- Fixed recursive `@threadpool_limits.wrap()` calls so they restore limits
+  correctly.
+  https://github.com/joblib/threadpoolctl/pull/294
+
+
 3.7.0 (2026-09-15)
 ==================
 

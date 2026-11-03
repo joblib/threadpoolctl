@@ -1194,15 +1194,30 @@ class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
     def __init__(self, controller, *, limits=None, user_api=None):
         self._limits, self._user_api = self._check_params(limits, user_api)
         self._controller = controller
+        # A single _ThreadpoolLimiterDecorator instance exists for all calls on
+        # a wrapped function. As a result, we use a thread-local stack of old
+        # limits so that we restore the correct one:
+        self._original_info = thread_local()
 
     def __enter__(self):
-        # we need to set the limits here and not in the __init__ because we want the
-        # limits to be set when calling the decorated function, not when creating the
-        # decorator.
-        self._original_info = self._controller.info()
+        # we need to set the limits here and not in the __init__ because we
+        # want the limits to be set when calling the decorated function, not
+        # when creating the decorator.
+        if not hasattr(self._original_info, "stack"):
+            self._original_info.stack = []
+        self._original_info.stack.append(self._controller.info())
         self._set_threadpool_limits()
         CONTROLLING_THREAD_OWNERSHIP.increment()
         return self
+
+    def __exit__(self, type, value, traceback):
+        """Set the limits back to their original values"""
+        total_original_info = self._original_info.stack.pop()
+        for lib_controller, original_info in zip(
+            self._controller.lib_controllers, total_original_info
+        ):
+            lib_controller.set_num_threads(original_info["num_threads"])
+        CONTROLLING_THREAD_OWNERSHIP.decrement()
 
 
 @_format_docstring(

@@ -914,7 +914,9 @@ def _require_resizable_non_openmp_openblas():
     return libs, lib, orig
 
 
-@pytest.mark.parametrize("wrap", [ThreadpoolController().wrap, threadpool_limits.wrap])
+@pytest.mark.parametrize(
+    "wrap", [ThreadpoolController(internal_api="openblas").wrap, threadpool_limits.wrap]
+)
 def test_recursive_wrap_releases_the_shared_pool_claim(request, wrap):
     # One wrapped function calling itself must keep the limit between the inner
     # return and the outer return, then restore the original count and drop the

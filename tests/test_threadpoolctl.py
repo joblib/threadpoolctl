@@ -943,6 +943,25 @@ def test_recursive_wrap_releases_the_shared_pool_claim(request):
     assert observed["holder"] is worker
 
 
+def test_recursive_wrap_releases_the_shared_pool_claim_exception(request):
+    libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+
+    @threadpool_limits.wrap(limits=1, user_api="blas")
+    def recurse(depth):
+        assert lib.get_num_threads() == 1
+        if depth:
+            recurse(depth - 1)
+            assert lib.get_num_threads() == 1
+        else:
+            raise ZeroDivisionError()
+
+    with pytest.raises(ZeroDivisionError):
+        recurse(1)
+    assert lib.get_num_threads() == orig_limit
+    assert _openblas_controlling_thread() is None
+
+
 def test_openblas_controlling_thread_manual_increment_decrement_api(request):
     limiter = ThreadpoolController().limit()
     request.addfinalizer(limiter.restore_original_limits)

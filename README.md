@@ -632,7 +632,8 @@ Current libraries where `threadpoolctl` explicitly makes this choice are:
 
 When using OpenMP, a limit specific to the current is also the default on Linux
 and macOS. On Windows OpenMP has a per-thread worker pool but the limiting API
-affects all threads in the process, not just the current one.
+When using OpenMP, a limit specific to the current thread is also the default on
+Linux and macOS. On Windows OpenMP has a per-thread worker pool but the limiting API
 
 ### Checking the behavior of your installed libraries
 

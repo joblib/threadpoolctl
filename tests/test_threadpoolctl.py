@@ -982,6 +982,9 @@ def test_recursive_wrap_releases_the_shared_pool_claim_exception(request):
 
 def test_wrap_notices_new_library():
     """A newly available library is noticed by subsequent wrap() calls."""
+    pytest.importorskip("numpy")
+    _require_resizable_non_openmp_openblas()
+
     script = """
 import numpy
 

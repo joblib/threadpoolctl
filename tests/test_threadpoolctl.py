@@ -952,6 +952,7 @@ def test_recursive_wrap_releases_the_shared_pool_claim(request, make_wrap):
         lib.set_num_threads(1)
         observed["threads"] = lib.get_num_threads()
         observed["holder"] = lib._SHARED_STATE.controlling_thread
+
     assert _openblas_controlling_thread() is None
 
     worker = run_in_thread(other_thread)
@@ -980,6 +981,9 @@ def test_recursive_wrap_releases_the_shared_pool_claim_exception(request):
     assert _openblas_controlling_thread() is None
 
 
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"), reason="Relies on glibc being loaded"
+)
 def test_wrap_notices_new_library():
     """A newly available library is noticed by subsequent wrap() calls."""
     pytest.importorskip("numpy")

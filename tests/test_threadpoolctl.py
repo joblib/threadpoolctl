@@ -968,6 +968,62 @@ def test_recursive_wrap_releases_the_shared_pool_claim_exception(request):
     assert _openblas_controlling_thread() is None
 
 
+def test_wrap_notices_new_library():
+    """A newly available library is noticed by subsequent wrap() calls."""
+    script = """
+import numpy
+
+from threadpoolctl import (
+    ThreadpoolController,
+    LibController,
+    reset_cached_controller,
+    register,
+    threadpool_limits,
+)
+
+fake_sets = []
+
+class FakeController(LibController):
+    user_api = "fake"
+    internal_api = "fake"
+    filename_prefixes = ("libc.",)
+    check_symbols = ("printf",)
+
+    def get_num_threads(self):
+        if not fake_sets:
+            return 2
+        else:
+            return fake_sets[-1]
+
+    def set_num_threads(self, num_threads):
+        fake_sets.append(num_threads)
+
+    def get_version(self):
+        return None
+
+blas = ThreadpoolController().select(user_api="blas").lib_controllers[0]
+blas.set_num_threads(2)
+
+registered = False
+
+@threadpool_limits.wrap(limits=1)
+def wrapped():
+    assert blas.get_num_threads() == 1
+    global registered
+    if not registered:
+        registered = True
+        register(FakeController)
+
+wrapped()
+assert blas.get_num_threads() == 2
+assert not fake_sets
+wrapped()
+assert blas.get_num_threads() == 2
+assert fake_sets == [1, 2], fake_sets
+"""
+    subprocess.check_call([sys.executable, "-c", script])
+
+
 def test_openblas_controlling_thread_manual_increment_decrement_api(request):
     limiter = ThreadpoolController().limit()
     request.addfinalizer(limiter.restore_original_limits)

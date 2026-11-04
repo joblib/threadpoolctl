@@ -55,6 +55,10 @@
   correctly.
   https://github.com/joblib/threadpoolctl/pull/294
 
+- Fixed `@threadpool_limits.wrap()` so it can use third-party libraries that
+  were registered or imported after the function was decorated.
+  https://github.com/joblib/threadpoolctl/pull/294
+
 
 3.7.0 (2026-09-15)
 ==================

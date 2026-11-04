@@ -927,8 +927,17 @@ def test_recursive_wrap_releases_the_shared_pool_claim(request, make_wrap):
     # To avoid annoying libiomp/omp warning happening at import time.
     wrap = make_wrap()
 
+    def set_in_thread():
+        lib.set_num_threads(2)
+
     @wrap(limits=1, user_api="blas")
     def recurse(depth):
+        assert lib.get_num_threads() == 1
+        assert _openblas_controlling_thread() is current_thread()
+
+        # This should be no-op since this thread controls OpenBLAS:
+        run_in_thread(set_in_thread)
+
         assert lib.get_num_threads() == 1
         if depth:
             recurse(depth - 1)
@@ -943,10 +952,12 @@ def test_recursive_wrap_releases_the_shared_pool_claim(request, make_wrap):
         lib.set_num_threads(1)
         observed["threads"] = lib.get_num_threads()
         observed["holder"] = lib._SHARED_STATE.controlling_thread
+    assert _openblas_controlling_thread() is None
 
     worker = run_in_thread(other_thread)
     assert observed["threads"] == 1
     assert observed["holder"] is worker
+    assert _openblas_controlling_thread() is worker
 
 
 def test_recursive_wrap_releases_the_shared_pool_claim_exception(request):
@@ -957,6 +968,7 @@ def test_recursive_wrap_releases_the_shared_pool_claim_exception(request):
     def recurse(depth):
         assert lib.get_num_threads() == 1
         if depth:
+            assert _openblas_controlling_thread() is current_thread()
             recurse(depth - 1)
             assert lib.get_num_threads() == 1
         else:

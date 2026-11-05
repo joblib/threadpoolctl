@@ -200,8 +200,9 @@ def _determine_thread_limit_scope(
         set_n_threads(previous)
         OpenBLASController.clear_controlling_thread(force=True)
 
-
-NOT_CONTROLLING = object()
+# Returned from set_num_threads() to indicate that setting did not happen,
+# typically because the current thread is not the controlling thread.
+DID_NOT_SET = object()
 
 
 class LibController(ABC):
@@ -296,8 +297,8 @@ class LibController(ABC):
         When possible, implementations of this method should choose a thread
         limiting API that only applies to the current thread.
 
-        Returns ``NOT_CONTROLLING`` if setting failed due to not being
-        controlling thread, possible in e.g. OpenBLAS-pthreads.
+        Returns ``DID_NOT_SET`` if setting did not happen; this is usually due
+        to not being the controlling thread for OpenBLAS-pthreads.
         """
 
     @abstractmethod
@@ -582,7 +583,7 @@ class OpenBLASController(LibController):
             return self.set_num_threads(num_threads)
         else:
             # Some other thread controls OpenBLAS: do nothing.
-            return NOT_CONTROLLING
+            return DID_NOT_SET
 
     def _real_set_num_threads(self, num_threads):
         # The OpenBLAS limiting API is process-wide, and we want current thread
@@ -1195,7 +1196,7 @@ class _ThreadpoolLimiter:
 
             if num_threads is not None:
                 result = lib_controller.set_num_threads(num_threads)
-                if result is NOT_CONTROLLING:
+                if result is DID_NOT_SET:
                     # Didn't set, so shouldn't restore either; if this thread
                     # can become the controlling thread during restoration, it
                     # might restore the wrong value.

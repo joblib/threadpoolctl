@@ -1,5 +1,5 @@
-3.8.0 (under development)
-=========================
+3.8.0 (2026-11-05)
+==================
 
 - Run faster on Linux, where the new `/proc/self/maps` mechanism in 3.7.0 added
   quite a bit of overhead.

@@ -1075,7 +1075,7 @@ def test_restore_original_limits_keeps_openblas_controlling_thread(request):
     assert lib._SHARED_STATE.controlling_thread is None
 
 
-@pytest.mark.xfail(
+@pytest.xfail(
     sys.platform == "windows",
     reason="OpenMP on Windows has its own issues with overlapping setting",
 )

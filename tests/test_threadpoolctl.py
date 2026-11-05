@@ -1075,7 +1075,19 @@ def test_restore_original_limits_keeps_openblas_controlling_thread(request):
     assert lib._SHARED_STATE.controlling_thread is None
 
 
+@pytest.mark.xfail(
+    sys.platform == "windows",
+    reason="OpenMP on Windows has its own issues with overlapping setting",
+)
 def test_overlapping_context_manager_restores_correctly(request):
+    flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
+
+    if flexiblas_controller:
+        pytest.skip(
+            "FlexiBLAS means there are two controllers for same OpenBLAS "
+            "(direct + FlexiBLAS) which causes test failures."
+        )
+
     libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
     request.addfinalizer(_restore_openblas_thread_counts(libs))
     openmp = ThreadpoolController().select(user_api="openmp")

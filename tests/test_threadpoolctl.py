@@ -1078,12 +1078,19 @@ def test_restore_original_limits_keeps_openblas_controlling_thread(request):
 def test_overlapping_context_manager_restores_correctly(request):
     libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
     request.addfinalizer(_restore_openblas_thread_counts(libs))
+    openmp = ThreadpoolController().select(user_api="openmp")
+    original_openmp_info = openmp.info()
+
     a_in, b_in, a_out = (Event() for _ in range(3))
+
+    a_limits_correct = []
+    b_limits_correct = []
 
     def A():
         with threadpool_limits(2):
             a_in.set()
             b_in.wait()
+        a_limits_correct.append(openmp.info() == original_openmp_info)
         a_out.set()
 
     def B():
@@ -1091,6 +1098,7 @@ def test_overlapping_context_manager_restores_correctly(request):
         with threadpool_limits(1):  # snapshot taken while A's limit is active
             b_in.set()
             a_out.wait()
+        b_limits_correct.append(openmp.info() == original_openmp_info)
 
     ts = [Thread(target=A), Thread(target=B)]
     for t in ts:
@@ -1098,7 +1106,10 @@ def test_overlapping_context_manager_restores_correctly(request):
     for t in ts:
         t.join()
 
+    assert a_limits_correct == [True]
+    assert b_limits_correct == [True]
     assert lib.get_num_threads() == orig_limit
+    assert openmp.info() == original_openmp_info
 
 
 # skip test if not run in a azure pipelines job since it relies on a specific flexiblas

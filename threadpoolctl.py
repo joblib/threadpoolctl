@@ -57,7 +57,7 @@ if sys.platform == "win32":
     del wintypes
 
 
-__version__ = "3.8.0.dev0"
+__version__ = "3.8.0"
 __all__ = [
     "LibController",
     "ThreadpoolController",

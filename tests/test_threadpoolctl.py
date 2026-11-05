@@ -1076,6 +1076,7 @@ def test_restore_original_limits_keeps_openblas_controlling_thread(request):
 
 
 def test_overlapping_context_manager_restores_correctly(request):
+    """A thread that failed to set should also not restore."""
     flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
 
     if sys.platform == "windows":
@@ -1108,6 +1109,56 @@ def test_overlapping_context_manager_restores_correctly(request):
         with threadpool_limits(1):  # snapshot taken while A's limit is active
             b_in.set()
             a_out.wait()
+        b_limits_correct.append(openmp.info() == original_openmp_info)
+
+    ts = [Thread(target=A), Thread(target=B)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+
+    assert a_limits_correct == [True]
+    assert b_limits_correct == [True]
+    assert lib.get_num_threads() == orig_limit
+    assert openmp.info() == original_openmp_info
+
+
+def test_overlapping_set_and_restore(request):
+    """A thread that failed to set should also not restore."""
+    flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
+
+    if sys.platform == "windows":
+        pytest.xfail("OpenMP on Windows has its own issues with overlapping setting")
+    if flexiblas_controller:
+        pytest.skip(
+            "FlexiBLAS means there are two controllers for same OpenBLAS "
+            "(direct + FlexiBLAS) which causes test failures."
+        )
+
+    libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+    openmp = ThreadpoolController().select(user_api="openmp")
+    original_openmp_info = openmp.info()
+
+    a_in, b_in, a_out = (Event() for _ in range(3))
+
+    a_limits_correct = []
+    b_limits_correct = []
+
+    def A():
+        limiter = threadpool_limits(2)
+        a_in.set()
+        b_in.wait()
+        limiter.restore_original_limits()
+        a_limits_correct.append(openmp.info() == original_openmp_info)
+        a_out.set()
+
+    def B():
+        a_in.wait()
+        limiter = threadpool_limits(1)  # snapshot taken while A's limit is active
+        b_in.set()
+        a_out.wait()
+        limiter.restore_original_limits()
         b_limits_correct.append(openmp.info() == original_openmp_info)
 
     ts = [Thread(target=A), Thread(target=B)]

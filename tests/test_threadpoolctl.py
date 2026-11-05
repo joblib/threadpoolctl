@@ -1079,7 +1079,7 @@ def test_overlapping_context_manager_restores_correctly(request):
     """A thread that failed to set should also not restore."""
     flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
 
-    if sys.platform == "windows":
+    if sys.platform == "win32":
         pytest.xfail("OpenMP on Windows has its own issues with overlapping setting")
     if flexiblas_controller:
         pytest.skip(

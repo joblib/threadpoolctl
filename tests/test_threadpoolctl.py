@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import sys
 import time
-from threading import Lock, Thread, current_thread, Event
+from threading import Event, Lock, Thread, current_thread
 
 import pytest
 

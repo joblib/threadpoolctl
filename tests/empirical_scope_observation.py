@@ -98,10 +98,12 @@ def run(which: str) -> None:
 
     num_python_threads = 10 * cpu_count()
     count_threads = start_counting_threads()
-    if not func(num_python_threads):
-        count_threads()
+    try:
+        available = func(num_python_threads)
+    finally:
+        max_num_threads = count_threads()
+    if not available:
         return
-    max_num_threads = count_threads()
 
     # We're creating os.cpu_count() * 10 Python threads, and asking for 2
     # native threads. If number is close to number of Python threads, we'll

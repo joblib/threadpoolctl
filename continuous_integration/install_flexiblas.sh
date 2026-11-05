@@ -38,7 +38,7 @@ cmake ../ -DCMAKE_INSTALL_PREFIX=$ABS_PATH"/flexiblas_install" \
     -DCMAKE_Fortran_COMPILER_LAUNCHER=ccache \
     -DBLAS_AUTO_DETECT="OFF" \
     -DEXTRA="OPENBLAS_CONDA" \
-    -DFLEXIBLAS_DEFAULT="OPENBLAS_CONDA" \
+    -DFLEXIBLAS_DEFAULT_BLAS="OPENBLAS_CONDA" \
     -DTESTS=OFF \
     -DOPENBLAS_CONDA_LIBRARY=$CONDA_PREFIX"/lib/libopenblas"$EXTENSION
 
@@ -58,6 +58,10 @@ fi
 
 # Check that all 3 BLAS are listed in FlexiBLAS configuration
 $ABS_PATH/flexiblas_install/bin/flexiblas list
+
+# FlexiBLAS silently falls back to NETLIB if the requested default is
+# ignored (e.g. when the CMake option is renamed upstream).
+grep -rq "default = OPENBLAS_CONDA" $ABS_PATH/flexiblas_install/etc/
 popd
 popd
 

@@ -1196,7 +1196,9 @@ class _ThreadpoolLimiter:
             if num_threads is not None:
                 result = lib_controller.set_num_threads(num_threads)
                 if result is NOT_CONTROLLING:
-                    # Can't restore to this:
+                    # Didn't set, so shouldn't restore either; if this thread
+                    # can become the controlling thread during restoration, it
+                    # might restore the wrong value.
                     self._original_info.pop(lib_controller, None)
 
 

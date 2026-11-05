@@ -14,6 +14,7 @@
   limit APIs will automatically call that API when they are done.
   https://github.com/joblib/threadpoolctl/pull/275
   https://github.com/joblib/threadpoolctl/pull/289
+  https://github.com/joblib/threadpoolctl/pull/294
 
 - Add a new API to get a cached `ThreadpoolController` instance
   (`get_cached_controller()`), as an optimization for cases where limits are set
@@ -49,6 +50,15 @@
 
 - Dropped official support for Python 3.9.
   https://github.com/joblib/threadpoolctl/pull/255
+
+- Fixed recursive `@threadpool_limits.wrap()` calls so they restore limits
+  correctly.
+  https://github.com/joblib/threadpoolctl/pull/294
+
+- Fixed `@threadpool_limits.wrap()` so it can use third-party libraries that
+  were registered or imported after the function was decorated.
+  https://github.com/joblib/threadpoolctl/pull/294
+
 
 3.7.0 (2026-09-15)
 ==================

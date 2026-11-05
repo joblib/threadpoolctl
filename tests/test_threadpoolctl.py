@@ -717,6 +717,7 @@ def run_in_thread(f, *args, **kwargs):
     thread = Thread(target=lambda: f(*args, **kwargs))
     thread.start()
     thread.join()
+    return thread
 
 
 def test_openblas_non_openmp_restricted_to_controlling_thread():
@@ -763,6 +764,7 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
     # This thread can change num threads:
     openblas_lib.set_num_threads(1)
     assert openblas_lib.get_num_threads() == 1
+    assert openblas_lib._SHARED_STATE.controlling_thread is current_thread()
 
     # Another thread's attempts are no-op:
     result = []
@@ -774,10 +776,12 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
     run_in_thread(another_thread)
     assert result[-1] == 1
     assert openblas_lib.get_num_threads() == 1
+    assert openblas_lib._SHARED_STATE.controlling_thread is current_thread()
 
     # This thread can still make changes:
     openblas_lib.set_num_threads(orig_num_threads)
     assert openblas_lib.get_num_threads() == orig_num_threads
+    assert openblas_lib._SHARED_STATE.controlling_thread is current_thread()
 
     # Another thread clearing the controlling thread has no effect:
     def clear_and_set():
@@ -786,15 +790,18 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
 
     run_in_thread(clear_and_set)
     assert openblas_lib.get_num_threads() == orig_num_threads
+    assert openblas_lib._SHARED_STATE.controlling_thread is current_thread()
 
     # The controlling thread can clear, and then another thread can set:
     openblas_lib.clear_controlling_thread()
-    run_in_thread(openblas_lib.set_num_threads, 1)
+    worker = run_in_thread(openblas_lib.set_num_threads, 1)
     assert openblas_lib.get_num_threads() == 1
+    assert openblas_lib._SHARED_STATE.controlling_thread is worker
 
     # Dead threads lose control:
     openblas_lib.set_num_threads(orig_num_threads)
     assert openblas_lib.get_num_threads() == orig_num_threads
+    assert openblas_lib._SHARED_STATE.controlling_thread is current_thread()
 
     # Release control:
     openblas_lib.clear_controlling_thread()
@@ -813,42 +820,75 @@ def check_openblas_non_openmp_restricted_to_controlling_thread(openblas_lib):
     t.start()
     was_set.acquire()
     assert openblas_lib.get_num_threads() == 1
+    assert openblas_lib._SHARED_STATE.controlling_thread is t
 
     # This thread can't set since it's not the controller:
     openblas_lib.set_num_threads(orig_num_threads)
     assert openblas_lib.get_num_threads() == 1
+    assert openblas_lib._SHARED_STATE.controlling_thread is t
 
     # But when forced clear happens, we can set:
     openblas_lib.clear_controlling_thread(force=True)
     openblas_lib.set_num_threads(orig_num_threads)
     assert openblas_lib.get_num_threads() == orig_num_threads
+    assert openblas_lib._SHARED_STATE.controlling_thread is current_thread()
 
     # Clean up
     finish.release()
     t.join()
 
 
-def _openblas_controlling_thread():
-    openblas_controller = ThreadpoolController().select(internal_api="openblas")
-
-    if not (openblas_controller):
+def _non_openmp_openblas():
+    openblas = ThreadpoolController().select(internal_api="openblas")
+    if not openblas:
         pytest.skip("requires OpenBLAS.")
-    if {lc.threading_layer for lc in openblas_controller.lib_controllers} == {"openmp"}:
+    libs = []
+    seen = set()
+    for lib in openblas.lib_controllers:
+        if lib.threading_layer == "openmp" or lib.filepath in seen:
+            continue
+        seen.add(lib.filepath)
+        libs.append(lib)
+    if not libs:
         pytest.skip("require non-OpenMP OpenBLAS.")
-    return OpenBLASController._SHARED_STATE.controlling_thread
+    return libs
 
 
-def test_openblas_controlling_thread_cleared_on_limiter_context_manager_exit():
+def _openblas_controlling_thread():
+    libs = _non_openmp_openblas()
+    return next(lib._SHARED_STATE.controlling_thread for lib in libs)
+
+
+def _restore_openblas_thread_counts(libs):
+    originals = [(lib, lib.get_num_threads()) for lib in libs]
+
+    def restore():
+        OpenBLASController.clear_controlling_thread(force=True)
+        for lib, orig in originals:
+            if orig is not None:
+                lib.set_num_threads(orig)
+        OpenBLASController.clear_controlling_thread(force=True)
+
+    return restore
+
+
+def test_openblas_controlling_thread_cleared_on_limiter_context_manager_exit(request):
+    libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
 
     with threadpool_limits(limits=1):
         assert _openblas_controlling_thread() is current_thread()
         with threadpool_limits(limits=1):
             assert _openblas_controlling_thread() is current_thread()
         assert _openblas_controlling_thread() is current_thread()
+
     assert _openblas_controlling_thread() is None
+    assert lib.get_num_threads() == orig_limit
 
 
-def test_openblas_controlling_thread_cleared_on_decorator_exit():
+def test_openblas_controlling_thread_cleared_on_decorator_exit_non_recursive(request):
+    libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
 
     @threadpool_limits.wrap(limits=1)
     def inner():
@@ -862,6 +902,145 @@ def test_openblas_controlling_thread_cleared_on_decorator_exit():
 
     outer()
     assert _openblas_controlling_thread() is None
+    assert lib.get_num_threads() == orig_limit
+
+
+def _require_resizable_non_openmp_openblas():
+    libs = _non_openmp_openblas()
+    lib = libs[0]
+    orig = lib.get_num_threads()
+    if orig is None or orig < 2:
+        pytest.skip("Test requires a non-OpenMP OpenBLAS with at least 2 threads")
+    return libs, lib, orig
+
+
+@pytest.mark.parametrize(
+    "make_wrap", [lambda: ThreadpoolController().wrap, lambda: threadpool_limits.wrap]
+)
+def test_recursive_wrap_releases_the_shared_pool_claim(request, make_wrap):
+    # One wrapped function calling itself must keep the limit between the inner
+    # return and the outer return, then restore the original count and drop the
+    # controlling thread. Another thread can then set the count.
+    libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+
+    # To avoid annoying libiomp/omp warning happening at import time.
+    wrap = make_wrap()
+
+    def set_in_thread():
+        lib.set_num_threads(2)
+
+    @wrap(limits=1, user_api="blas")
+    def recurse(depth):
+        assert lib.get_num_threads() == 1
+        assert _openblas_controlling_thread() is current_thread()
+
+        # This should be no-op since this thread controls OpenBLAS:
+        run_in_thread(set_in_thread)
+
+        assert lib.get_num_threads() == 1
+        if depth:
+            recurse(depth - 1)
+            assert lib.get_num_threads() == 1
+
+    recurse(1)
+    assert lib.get_num_threads() == orig_limit
+
+    observed = {}
+
+    def other_thread():
+        lib.set_num_threads(1)
+        observed["threads"] = lib.get_num_threads()
+        observed["holder"] = lib._SHARED_STATE.controlling_thread
+
+    assert _openblas_controlling_thread() is None
+
+    worker = run_in_thread(other_thread)
+    assert observed["threads"] == 1
+    assert observed["holder"] is worker
+    assert _openblas_controlling_thread() is worker
+
+
+def test_recursive_wrap_releases_the_shared_pool_claim_exception(request):
+    libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+
+    @threadpool_limits.wrap(limits=1, user_api="blas")
+    def recurse(depth):
+        assert lib.get_num_threads() == 1
+        if depth:
+            assert _openblas_controlling_thread() is current_thread()
+            recurse(depth - 1)
+            assert lib.get_num_threads() == 1
+        else:
+            raise ZeroDivisionError()
+
+    with pytest.raises(ZeroDivisionError):
+        recurse(1)
+    assert lib.get_num_threads() == orig_limit
+    assert _openblas_controlling_thread() is None
+
+
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"), reason="Relies on glibc being loaded"
+)
+def test_wrap_notices_new_library():
+    """A newly available library is noticed by subsequent wrap() calls."""
+    pytest.importorskip("numpy")
+    _require_resizable_non_openmp_openblas()
+
+    script = """
+import numpy
+
+from threadpoolctl import (
+    ThreadpoolController,
+    LibController,
+    reset_cached_controller,
+    register,
+    threadpool_limits,
+)
+
+fake_sets = []
+
+class FakeController(LibController):
+    user_api = "fake"
+    internal_api = "fake"
+    filename_prefixes = ("libc.",)
+    check_symbols = ("printf",)
+
+    def get_num_threads(self):
+        if not fake_sets:
+            return 2
+        else:
+            return fake_sets[-1]
+
+    def set_num_threads(self, num_threads):
+        fake_sets.append(num_threads)
+
+    def get_version(self):
+        return None
+
+blas = ThreadpoolController().select(user_api="blas").lib_controllers[0]
+blas.set_num_threads(2)
+
+registered = False
+
+@threadpool_limits.wrap(limits=1)
+def wrapped():
+    assert blas.get_num_threads() == 1
+    global registered
+    if not registered:
+        registered = True
+        register(FakeController)
+
+wrapped()
+assert blas.get_num_threads() == 2
+assert not fake_sets
+wrapped()
+assert blas.get_num_threads() == 2
+assert fake_sets == [1, 2], fake_sets
+"""
+    subprocess.check_call([sys.executable, "-c", script])
 
 
 def test_openblas_controlling_thread_manual_increment_decrement_api(request):
@@ -878,6 +1057,22 @@ def test_openblas_controlling_thread_manual_increment_decrement_api(request):
     assert _openblas_controlling_thread() is current_thread()
     CONTROLLING_THREAD_OWNERSHIP.decrement()
     assert _openblas_controlling_thread() is None
+
+
+def test_restore_original_limits_keeps_openblas_controlling_thread(request):
+    libs, lib, orig = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+
+    limiter = threadpool_limits(limits=1)
+    assert lib.get_num_threads() == 1
+    assert lib._SHARED_STATE.controlling_thread is current_thread()
+
+    limiter.restore_original_limits()
+    assert lib.get_num_threads() == orig
+    assert lib._SHARED_STATE.controlling_thread is current_thread()
+
+    OpenBLASController.clear_controlling_thread()
+    assert lib._SHARED_STATE.controlling_thread is None
 
 
 # skip test if not run in a azure pipelines job since it relies on a specific flexiblas

@@ -558,7 +558,10 @@ class OpenBLASController(LibController):
         # threads fighting over limits:
         this_thread = current_thread()
         controlling_thread = self._SHARED_STATE.controlling_thread
-        if controlling_thread is None or not controlling_thread.is_alive():
+        if controlling_thread is this_thread:
+            # This thread controls OpenBLAS:
+            return self._real_set_num_threads(num_threads)
+        elif controlling_thread is None or not controlling_thread.is_alive():
             # No thread controls OpenBLAS, so try to take control:
             with self._SHARED_STATE.lock:
                 # Another thread might have changed it, so ensure that's not
@@ -571,11 +574,8 @@ class OpenBLASController(LibController):
             # Controlling thread should now be set, to either this thread or
             # another, so try again:
             return self.set_num_threads(num_threads)
-        elif controlling_thread is this_thread:
-            # This thread controls OpenBLAS:
-            return self._real_set_num_threads(num_threads)
         else:
-            # Some other thread controlls OpenBLAS: do nothing.
+            # Some other thread controls OpenBLAS: do nothing.
             return
 
     def _real_set_num_threads(self, num_threads):
@@ -1032,6 +1032,63 @@ def threadpool_info(debugging_info: bool = False):
 _missing = object()
 
 
+def _check_limiter_params(controller, limits, user_api):
+    """Suitable values for the _limits and _user_api attributes"""
+
+    if isinstance(limits, str) and limits == "sequential_blas_under_openmp":
+        (
+            limits,
+            user_api,
+        ) = controller._get_params_for_sequential_blas_under_openmp().values()
+
+    if limits is None or isinstance(limits, int):
+        if user_api is None:
+            user_api = _ALL_USER_APIS
+        elif user_api in _ALL_USER_APIS:
+            user_api = [user_api]
+        else:
+            raise ValueError(
+                f"user_api must be either in {_ALL_USER_APIS} or None. Got "
+                f"{user_api} instead."
+            )
+
+        if limits is not None:
+            limits = {api: limits for api in user_api}
+    else:
+        if isinstance(limits, list):
+            # This should be a list of dicts of library info, for
+            # compatibility with the result from threadpool_info.
+            result = {}
+            for lib_info in limits:
+                # Use prefix key for backwards compatibility with older
+                # versions that didn't use the filepath as the key.
+                if (filepath := lib_info.get("filepath", _missing)) is not _missing:
+                    key = filepath
+                else:
+                    key = lib_info["prefix"]
+                result[key] = lib_info["num_threads"]
+            limits = result
+        elif isinstance(limits, ThreadpoolController):
+            # To set the limits from the library controllers of a
+            # ThreadpoolController object.
+            limits = {
+                lib_controller.filepath: lib_controller.num_threads
+                for lib_controller in limits.lib_controllers
+            }
+
+        if not isinstance(limits, dict):
+            raise TypeError(
+                "limits must either be an int, a list, a dict, or "
+                f"'sequential_blas_under_openmp'. Got {type(limits)} instead"
+            )
+
+        # With a dictionary, can set both specific limit for given
+        # libraries and global limit for user_api. Fetch each separately.
+        user_api = [api for api in limits if api in _ALL_USER_APIS]
+
+    return limits, user_api
+
+
 class _ThreadpoolLimiter:
     """The guts of ThreadpoolController.limit
 
@@ -1045,7 +1102,9 @@ class _ThreadpoolLimiter:
 
     def __init__(self, controller, *, limits=None, user_api=None):
         self._controller = controller
-        self._limits, self._user_api = self._check_params(limits, user_api)
+        self._limits, self._user_api = _check_limiter_params(
+            controller, limits, user_api
+        )
         self._original_info = self._controller.info()
         self._set_threadpool_limits()
 
@@ -1110,62 +1169,6 @@ class _ThreadpoolLimiter:
 
         return num_threads
 
-    def _check_params(self, limits, user_api):
-        """Suitable values for the _limits and _user_api attributes"""
-
-        if isinstance(limits, str) and limits == "sequential_blas_under_openmp":
-            (
-                limits,
-                user_api,
-            ) = self._controller._get_params_for_sequential_blas_under_openmp().values()
-
-        if limits is None or isinstance(limits, int):
-            if user_api is None:
-                user_api = _ALL_USER_APIS
-            elif user_api in _ALL_USER_APIS:
-                user_api = [user_api]
-            else:
-                raise ValueError(
-                    f"user_api must be either in {_ALL_USER_APIS} or None. Got "
-                    f"{user_api} instead."
-                )
-
-            if limits is not None:
-                limits = {api: limits for api in user_api}
-        else:
-            if isinstance(limits, list):
-                # This should be a list of dicts of library info, for
-                # compatibility with the result from threadpool_info.
-                result = {}
-                for lib_info in limits:
-                    # Use prefix key for backwards compatibility with older
-                    # versions that didn't use the filepath as the key.
-                    if (filepath := lib_info.get("filepath", _missing)) is not _missing:
-                        key = filepath
-                    else:
-                        key = lib_info["prefix"]
-                    result[key] = lib_info["num_threads"]
-                limits = result
-            elif isinstance(limits, ThreadpoolController):
-                # To set the limits from the library controllers of a
-                # ThreadpoolController object.
-                limits = {
-                    lib_controller.filepath: lib_controller.num_threads
-                    for lib_controller in limits.lib_controllers
-                }
-
-            if not isinstance(limits, dict):
-                raise TypeError(
-                    "limits must either be an int, a list, a dict, or "
-                    f"'sequential_blas_under_openmp'. Got {type(limits)} instead"
-                )
-
-            # With a dictionary, can set both specific limit for given
-            # libraries and global limit for user_api. Fetch each separately.
-            user_api = [api for api in limits if api in _ALL_USER_APIS]
-
-        return limits, user_api
-
     def _set_threadpool_limits(self):
         """Change the maximal number of threads in selected thread pools."""
         if self._limits is None:
@@ -1188,21 +1191,41 @@ class _ThreadpoolLimiter:
                 lib_controller.set_num_threads(num_threads)
 
 
-class _ThreadpoolLimiterDecorator(_ThreadpoolLimiter, ContextDecorator):
-    """Same as _ThreadpoolLimiter but to be used as a decorator"""
+class _ThreadpoolLimiterDecorator(ContextDecorator):
+    """Same as _ThreadpoolLimiter but to be used as a decorator.
+
+    If ``controller`` is None, use ``get_cached_controller()``.
+    """
 
     def __init__(self, controller, *, limits=None, user_api=None):
-        self._limits, self._user_api = self._check_params(limits, user_api)
         self._controller = controller
+        _check_limiter_params(self._get_controller(), limits, user_api)
+        self._limits, self._user_api = limits, user_api
+        self._limiters = thread_local()
+
+    def _get_controller(self):
+        if self._controller is not None:
+            return self._controller
+        return get_cached_controller()
 
     def __enter__(self):
-        # we need to set the limits here and not in the __init__ because we want the
-        # limits to be set when calling the decorated function, not when creating the
-        # decorator.
-        self._original_info = self._controller.info()
-        self._set_threadpool_limits()
-        CONTROLLING_THREAD_OWNERSHIP.increment()
+        # we need to set the limits here and not in the __init__ because we
+        # want the limits to be set when calling the decorated function, not
+        # when creating the decorator.
+        if not hasattr(self._limiters, "stack"):
+            self._limiters.stack = []
+        controller = self._get_controller()
+        limiter = _ThreadpoolLimiter(
+            controller, limits=self._limits, user_api=self._user_api
+        )
+        limiter.__enter__()
+        self._limiters.stack.append(limiter)
         return self
+
+    def __exit__(self, type, value, traceback):
+        """Set the limits back to their original values"""
+        limiter = self._limiters.stack.pop()
+        return limiter.__exit__(type, value, traceback)
 
 
 @_format_docstring(
@@ -1271,7 +1294,8 @@ class threadpool_limits(_ThreadpoolLimiter):
 
     @classmethod
     def wrap(cls, limits=None, user_api=None):
-        return super().wrap(ThreadpoolController(), limits=limits, user_api=user_api)
+        """Wrap a function, using ``get_cached_controller()`` on every call."""
+        return super().wrap(None, limits=limits, user_api=user_api)
 
 
 _INCOMPATIBLE_OPENMP_MESSAGE = """

@@ -200,6 +200,7 @@ def _determine_thread_limit_scope(
         set_n_threads(previous)
         OpenBLASController.clear_controlling_thread(force=True)
 
+
 # Returned from set_num_threads() to indicate that setting did not happen,
 # typically because the current thread is not the controlling thread.
 DID_NOT_SET = object()

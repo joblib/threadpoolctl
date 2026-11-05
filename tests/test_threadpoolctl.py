@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import sys
 import time
-from threading import Lock, Thread, current_thread
+from threading import Lock, Thread, current_thread, Event
 
 import pytest
 
@@ -1073,6 +1073,32 @@ def test_restore_original_limits_keeps_openblas_controlling_thread(request):
 
     OpenBLASController.clear_controlling_thread()
     assert lib._SHARED_STATE.controlling_thread is None
+
+
+def test_overlapping_context_manager_restores_correctly(request):
+    libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+    a_in, b_in, a_out = (Event() for _ in range(3))
+
+    def A():
+        with threadpool_limits(2):
+            a_in.set()
+            b_in.wait()
+        a_out.set()
+
+    def B():
+        a_in.wait()
+        with threadpool_limits(1):  # snapshot taken while A's limit is active
+            b_in.set()
+            a_out.wait()
+
+    ts = [Thread(target=A), Thread(target=B)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+
+    assert lib.get_num_threads() == orig_limit
 
 
 # skip test if not run in a azure pipelines job since it relies on a specific flexiblas

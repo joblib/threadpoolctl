@@ -201,6 +201,9 @@ def _determine_thread_limit_scope(
         OpenBLASController.clear_controlling_thread(force=True)
 
 
+NOT_CONTROLLING = object()
+
+
 class LibController(ABC):
     """Abstract base class for the individual library controllers
 
@@ -292,6 +295,9 @@ class LibController(ABC):
 
         When possible, implementations of this method should choose a thread
         limiting API that only applies to the current thread.
+
+        Returns ``NOT_CONTROLLING`` if setting failed due to not being
+        controlling thread, possible in e.g. OpenBLAS-pthreads.
         """
 
     @abstractmethod
@@ -576,7 +582,7 @@ class OpenBLASController(LibController):
             return self.set_num_threads(num_threads)
         else:
             # Some other thread controls OpenBLAS: do nothing.
-            return
+            return NOT_CONTROLLING
 
     def _real_set_num_threads(self, num_threads):
         # The OpenBLAS limiting API is process-wide, and we want current thread
@@ -1105,7 +1111,9 @@ class _ThreadpoolLimiter:
         self._limits, self._user_api = _check_limiter_params(
             controller, limits, user_api
         )
-        self._original_info = self._controller.info()
+        self._original_info = dict(
+            zip(self._controller.lib_controllers, self._controller.info())
+        )
         self._set_threadpool_limits()
 
     def __enter__(self):
@@ -1125,9 +1133,7 @@ class _ThreadpoolLimiter:
 
     def restore_original_limits(self):
         """Set the limits back to their original values"""
-        for lib_controller, original_info in zip(
-            self._controller.lib_controllers, self._original_info
-        ):
+        for lib_controller, original_info in self._original_info.items():
             lib_controller.set_num_threads(original_info["num_threads"])
 
     # Alias of `restore_original_limits` for backward compatibility
@@ -1144,7 +1150,7 @@ class _ThreadpoolLimiter:
         for user_api in self._user_api:
             limits = [
                 lib_info["num_threads"]
-                for lib_info in self._original_info
+                for lib_info in self._original_info.values()
                 if lib_info["user_api"] == user_api
             ]
             limits = set(limits)
@@ -1188,7 +1194,10 @@ class _ThreadpoolLimiter:
                 continue
 
             if num_threads is not None:
-                lib_controller.set_num_threads(num_threads)
+                result = lib_controller.set_num_threads(num_threads)
+                if result is NOT_CONTROLLING:
+                    # Can't restore to this:
+                    self._original_info.pop(lib_controller, None)
 
 
 class _ThreadpoolLimiterDecorator(ContextDecorator):

@@ -1,5 +1,12 @@
-3.9.0 (under development)
+3.8.1 (under development)
 =========================
+
+- When setting the limit failed because the current thread doesn't control
+  OpenBLAS-pthreads, this information is returned, and `threadpool_limits` uses
+  this to prevent incorrectly restoring to the wrong limit. This is done both
+  for context manager usage and for direct calls to `restore_original_limits()`.
+  https://github.com/joblib/threadpoolctl/pull/300
+
 
 3.8.0 (2026-11-05)
 ==================

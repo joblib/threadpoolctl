@@ -1075,8 +1075,7 @@ def test_restore_original_limits_keeps_openblas_controlling_thread(request):
     assert lib._SHARED_STATE.controlling_thread is None
 
 
-def test_overlapping_context_manager_restores_correctly(request):
-    """A thread that failed to set should also not restore."""
+def _race_condition_skip_problem_platforms():
     flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
 
     if sys.platform == "win32":
@@ -1086,6 +1085,11 @@ def test_overlapping_context_manager_restores_correctly(request):
             "FlexiBLAS means there are two controllers for same OpenBLAS "
             "(direct + FlexiBLAS) which causes test failures."
         )
+
+
+def test_overlapping_context_manager_restores_correctly(request):
+    """A thread that failed to set should also not restore."""
+    _race_condition_skip_problem_platforms()
 
     libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
     request.addfinalizer(_restore_openblas_thread_counts(libs))
@@ -1125,15 +1129,7 @@ def test_overlapping_context_manager_restores_correctly(request):
 
 def test_overlapping_set_and_restore(request):
     """A thread that failed to set should also not restore."""
-    flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
-
-    if sys.platform == "win32":
-        pytest.xfail("OpenMP on Windows has its own issues with overlapping setting")
-    if flexiblas_controller:
-        pytest.skip(
-            "FlexiBLAS means there are two controllers for same OpenBLAS "
-            "(direct + FlexiBLAS) which causes test failures."
-        )
+    _race_condition_skip_problem_platforms()
 
     libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
     request.addfinalizer(_restore_openblas_thread_counts(libs))
@@ -1171,6 +1167,50 @@ def test_overlapping_set_and_restore(request):
     assert b_limits_correct == [True]
     assert lib.get_num_threads() == orig_limit
     assert openmp.info() == original_openmp_info
+
+
+def test_get_current_info_race_condition(request):
+    """Test for race condition in multi-threaded OpenBLAS-pthreads usage.
+
+    1. Thread A sets limit L.
+    2. Thread B gets limit L in `_ThreadpoolLimiter.__init__`.
+    3. Thread A restores to original limit O and releases control.
+    4. Thread B continues `__init__`, setting a limit and taking control.
+    5. Thread B restores to limit L.
+    """
+    _race_condition_skip_problem_platforms()
+
+    libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+
+    a_in, b_retrieved, a_out = (Event() for _ in range(3))
+
+    def A():
+        with threadpool_limits(2):
+            a_in.set()
+            b_retrieved.wait()
+        a_out.set()
+
+    class racy_threadpool_limits(threadpool_limits):
+        def _set_threadpool_limits(self):
+            # Tell A it can finish up:
+            b_retrieved.set()
+            # Wait until thread A is finished, so we can take control:
+            a_out.wait()
+            super()._set_threadpool_limits()
+
+    def B():
+        a_in.wait()
+        with racy_threadpool_limits(1):
+            pass
+
+    ts = [Thread(target=A), Thread(target=B)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+
+    assert lib.get_num_threads() == orig_limit
 
 
 # skip test if not run in a azure pipelines job since it relies on a specific flexiblas

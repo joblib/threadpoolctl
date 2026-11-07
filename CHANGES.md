@@ -1,6 +1,12 @@
 3.9.0 (under development)
 =========================
 
+- Report the calling thread's OpenMP `blocktime` in `threadpool_info()` and
+  controller information using LLVM/Intel OpenMP's `kmp_get_blocktime` when
+  available. The value is queried dynamically; other OpenMP runtimes report
+  `None`.
+  https://github.com/joblib/threadpoolctl/issues/270
+
 3.8.0 (2026-11-05)
 ==================
 

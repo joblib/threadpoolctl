@@ -59,7 +59,8 @@ python -m threadpoolctl -i numpy scipy.linalg
     "user_api": "openmp",
     "internal_api": "openmp",
     "version": null,
-    "num_threads": 4
+    "num_threads": 4,
+    "blocktime_ms": 200
   }
 ]
 ```
@@ -87,7 +88,8 @@ that are loaded when importing Python packages:
   'threading_layer': 'intel',
   'user_api': 'blas',
   'version': '2019.0.4'},
- {'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libiomp5.so',
+ {'blocktime_ms': 200,
+  'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libiomp5.so',
   'internal_api': 'openmp',
   'num_threads': 4,
   'prefix': 'libiomp',
@@ -103,13 +105,15 @@ that are loaded when importing Python packages:
   'threading_layer': 'intel',
   'user_api': 'blas',
   'version': '2019.0.4'},
- {'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libiomp5.so',
+ {'blocktime_ms': 200,
+  'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libiomp5.so',
   'internal_api': 'openmp',
   'num_threads': 4,
   'prefix': 'libiomp',
   'user_api': 'openmp',
   'version': None},
- {'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libgomp.so.1.0.0',
+ {'blocktime_ms': None,
+  'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libgomp.so.1.0.0',
   'internal_api': 'openmp',
   'num_threads': 4,
   'prefix': 'libgomp',
@@ -121,6 +125,17 @@ In the above example, `numpy` was installed from the default anaconda channel an
 with MKL and its Intel OpenMP (`libiomp5`) implementation while `xgboost` was installed
 from pypi.org and links against GNU OpenMP (`libgomp`) so both OpenMP runtimes are
 loaded in the same Python program.
+
+For OpenMP libraries, `blocktime_ms` reports the calling thread's active wait
+time before worker threads sleep, in milliseconds. It is `None` when the runtime
+does not expose `kmp_get_blocktime` (for example, GNU OpenMP). A valid
+`KMP_BLOCKTIME=35001us` startup setting reports `35.001`; microsecond settings
+require a runtime that supports them. The startup setting must remain in the
+environment until the loaded runtime is first inspected. Its unit is then cached
+per runtime, while the thread's value is queried on every call, including after
+`kmp_set_blocktime` and when reusing a controller. Different Python threads can
+report different values. The native API has no unit getter, so changing units
+with `kmp_set_defaults` after initialization is not supported.
 
 The state of these libraries is also accessible through the object oriented API:
 

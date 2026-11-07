@@ -234,7 +234,8 @@ class LibController(ABC):
       - version : version of the library (if available).
 
     In addition, each library controller may expose internal API specific entries. They
-    must be set as attributes in the `set_additional_attributes` method.
+    can be set as attributes in the `set_additional_attributes` method, or added
+    by overriding `info` when their values need to be queried dynamically.
     """
 
     @final
@@ -940,6 +941,28 @@ class OpenMPController(LibController):
         "omp_get_num_threads",
     )
 
+    def info(self, debugging_info: bool = False):
+        return {**super().info(debugging_info), "blocktime": self.blocktime}
+
+    @property
+    def blocktime(self):
+        """The calling thread's blocktime, queried dynamically from the runtime."""
+        return self.get_blocktime()
+
+    def get_blocktime(self):
+        """Return the calling thread's blocktime, or None if unavailable.
+
+        The value is returned in the units used by ``kmp_get_blocktime``:
+        milliseconds by default, or microseconds when configured through
+        ``KMP_BLOCKTIME`` on runtimes supporting that unit.
+        """
+        get_func = self._get_symbol("kmp_get_blocktime")
+        if get_func is None:
+            return None
+        get_func.argtypes = []
+        get_func.restype = ctypes.c_int
+        return get_func()
+
     def get_num_threads(self):
         get_func = getattr(self.dynlib, "omp_get_max_threads", lambda: None)
         return get_func()
@@ -1016,6 +1039,11 @@ def threadpool_info(debugging_info: bool = False):
       - "num_threads": the current thread limit.
 
     In addition, each library may contain internal_api specific entries.
+    OpenMP libraries expose "blocktime", the calling thread's active wait time
+    from ``kmp_get_blocktime`` (LLVM/Intel OpenMP), or None when unavailable.
+    Its units are milliseconds by default, or microseconds when configured
+    through ``KMP_BLOCKTIME`` on runtimes supporting that unit. This value is
+    queried on every call, including when reusing a controller.
 
     Parameters
     ----------

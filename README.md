@@ -59,7 +59,8 @@ python -m threadpoolctl -i numpy scipy.linalg
     "user_api": "openmp",
     "internal_api": "openmp",
     "version": null,
-    "num_threads": 4
+    "num_threads": 4,
+    "blocktime": 200
   }
 ]
 ```
@@ -87,7 +88,8 @@ that are loaded when importing Python packages:
   'threading_layer': 'intel',
   'user_api': 'blas',
   'version': '2019.0.4'},
- {'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libiomp5.so',
+ {'blocktime': 200,
+  'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libiomp5.so',
   'internal_api': 'openmp',
   'num_threads': 4,
   'prefix': 'libiomp',
@@ -103,13 +105,15 @@ that are loaded when importing Python packages:
   'threading_layer': 'intel',
   'user_api': 'blas',
   'version': '2019.0.4'},
- {'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libiomp5.so',
+ {'blocktime': 200,
+  'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libiomp5.so',
   'internal_api': 'openmp',
   'num_threads': 4,
   'prefix': 'libiomp',
   'user_api': 'openmp',
   'version': None},
- {'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libgomp.so.1.0.0',
+ {'blocktime': None,
+  'filepath': '/home/ogrisel/miniconda3/envs/tmp/lib/libgomp.so.1.0.0',
   'internal_api': 'openmp',
   'num_threads': 4,
   'prefix': 'libgomp',
@@ -121,6 +125,15 @@ In the above example, `numpy` was installed from the default anaconda channel an
 with MKL and its Intel OpenMP (`libiomp5`) implementation while `xgboost` was installed
 from pypi.org and links against GNU OpenMP (`libgomp`) so both OpenMP runtimes are
 loaded in the same Python program.
+
+For OpenMP libraries, `blocktime` reports the calling thread's active wait time
+before worker threads sleep, as returned by LLVM/Intel OpenMP's
+`kmp_get_blocktime`. It is `None` when the runtime does not expose that function
+(for example, GNU OpenMP). The value uses the runtime's units: milliseconds by
+default, or microseconds when configured via `KMP_BLOCKTIME` on runtimes that
+support that unit. It is queried on each call, so changes made through the native
+API are reflected even when reusing a controller. Calls from different Python
+threads can report different values.
 
 The state of these libraries is also accessible through the object oriented API:
 

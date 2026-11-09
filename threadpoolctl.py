@@ -679,6 +679,8 @@ class _ControllingThreadOwnership(thread_local):
         """Decrement ownership."""
         self.count -= 1
         if self.count <= 0:
+            # If we're not currently the controlling thread, this will do
+            # nothing, which is the desired behavior:
             OpenBLASController.clear_controlling_thread()
 
 

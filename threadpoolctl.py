@@ -307,9 +307,6 @@ class LibController(ABC):
 
         When possible, implementations of this method should choose a thread
         limiting API that only applies to the current thread.
-
-        Implementations may return values tied to internal implementation
-        details.
         """
 
     @abstractmethod
@@ -568,6 +565,9 @@ class OpenBLASController(LibController):
                 cls._SHARED_STATE.controlling_thread = None
 
     def set_num_threads(self, num_threads):
+        self._set_num_threads_with_extra_info(num_threads)
+
+    def _set_num_threads_with_extra_info(self, num_threads):
         if self.threading_layer == "openmp":
             # Per-thread limits, so no need to be constraining:
             return self._real_set_num_threads(num_threads)
@@ -1213,7 +1213,11 @@ class _ThreadpoolLimiter:
                 continue
 
             if num_threads is not None:
-                result = lib_controller.set_num_threads(num_threads)
+                if type(lib_controller) == OpenBLASController:
+                    # Special-case API that returns additional information:
+                    result = lib_controller._set_num_threads_with_extra_info(num_threads)
+                else:
+                    result = lib_controller.set_num_threads(num_threads)
                 if result is _DID_NOT_SET:
                     # Didn't set, so shouldn't restore either; if this thread
                     # can become the controlling thread during restoration, it

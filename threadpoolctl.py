@@ -1215,7 +1215,9 @@ class _ThreadpoolLimiter:
             if num_threads is not None:
                 if type(lib_controller) == OpenBLASController:
                     # Special-case API that returns additional information:
-                    result = lib_controller._set_num_threads_with_extra_info(num_threads)
+                    result = lib_controller._set_num_threads_with_extra_info(
+                        num_threads
+                    )
                 else:
                     result = lib_controller.set_num_threads(num_threads)
                 if result is _DID_NOT_SET:

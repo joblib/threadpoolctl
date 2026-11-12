@@ -7,16 +7,13 @@ set -xe
 UNAMESTR=`uname`
 
 
-# Install a recent version of clang and libomp if needed
-# Only applicable to linux jobs
+# Install the matching Clang and OpenMP packages from Ubuntu 24.04.
 if [[ "$CC_OUTER_LOOP" == "clang-18" ]] || \
    [[ "$CC_INNER_LOOP" == "clang-18" ]] || \
    [[ "$BLIS_CC" == "clang-18" ]]
 then
-    wget https://apt.llvm.org/llvm.sh
-    chmod +x llvm.sh
-    sudo ./llvm.sh 18
-    sudo apt-get install libomp-dev
+    sudo apt-get update
+    sudo apt-get install -y clang-18 libomp-18-dev
 fi
 
 

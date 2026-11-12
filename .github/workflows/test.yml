@@ -73,16 +73,16 @@ jobs:
             PACKAGER: "conda"
             INSTALL_OPENCV: "true"
           # Windows env with numpy, scipy installed through pip
-          - name: py310_pip
+          - name: py311_pip
             os: windows-latest
-            PYTHON_VERSION: "3.10"
+            PYTHON_VERSION: "3.11"
             PACKAGER: "pip"
             INSTALL_OPENCV: "true"
 
           # MacOS env with OpenMP installed through homebrew
-          - name: py310_conda_homebrew_libomp
+          - name: py311_conda_homebrew_libomp
             os: macos-latest
-            PYTHON_VERSION: "3.10"
+            PYTHON_VERSION: "3.11"
             PACKAGER: "conda"
             BLAS: "openblas"
             CC_OUTER_LOOP: "clang"
@@ -106,20 +106,19 @@ jobs:
             INSTALL_BLAS: "flexiblas"
             PLATFORM_SPECIFIC_PACKAGES: "llvm-openmp"
 
-          # Linux environments to test that packages that comes with Ubuntu 22.04
-          # are correctly handled.
-          - name: py310_ubuntu_atlas_gcc_gcc
-            os: ubuntu-22.04
-            PYTHON_VERSION: "3.10"
+          # Test distro-provided SciPy and BLAS with Ubuntu 24.04's system Python.
+          - name: py312_ubuntu_atlas_gcc_gcc
+            os: ubuntu-24.04
+            PYTHON_VERSION: "3.12"
             PACKAGER: "ubuntu"
             APT_BLAS: "libatlas3-base libatlas-base-dev"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
-          - name: py310_ubuntu_openblas_gcc_gcc
-            os: ubuntu-22.04
-            PYTHON_VERSION: "3.10"
+          - name: py312_ubuntu_openblas_gcc_gcc
+            os: ubuntu-24.04
+            PYTHON_VERSION: "3.12"
             PACKAGER: "ubuntu"
-            APT_BLAS: "libopenblas-base libopenblas-dev"
+            APT_BLAS: "libopenblas0-pthread libopenblas-dev"
             CC_OUTER_LOOP: "gcc"
             CC_INNER_LOOP: "gcc"
 
@@ -132,11 +131,11 @@ jobs:
             CC_INNER_LOOP: "gcc"
             INSTALL_OPENCV: "true"
 
-          # Linux + Python 3.10 and homogeneous runtime nesting.
-          - name: py310_conda_openblas_clang_clang
+          # Linux + Python 3.11 and homogeneous runtime nesting.
+          - name: py311_conda_openblas_clang_clang
             os: ubuntu-latest
             PACKAGER: "conda"
-            PYTHON_VERSION: "3.10"
+            PYTHON_VERSION: "3.11"
             BLAS: "openblas"
             CC_OUTER_LOOP: "clang-18"
             CC_INNER_LOOP: "clang-18"

@@ -1063,7 +1063,7 @@ def test_restore_original_limits_keeps_openblas_controlling_thread(request):
     libs, lib, orig = _require_resizable_non_openmp_openblas()
     request.addfinalizer(_restore_openblas_thread_counts(libs))
 
-    limiter = threadpool_limits(limits=1)
+    limiter = ThreadpoolController().select(internal_api="openblas").limit(limits=1)
     assert lib.get_num_threads() == 1
     assert lib._SHARED_STATE.controlling_thread is current_thread()
 

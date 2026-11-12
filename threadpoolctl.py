@@ -201,6 +201,21 @@ def _determine_thread_limit_scope(
         OpenBLASController.clear_controlling_thread(force=True)
 
 
+# Returned from set_num_threads() to indicate that setting did not happen,
+# typically because the current thread is not the controlling thread.
+_DID_NOT_SET = object()
+
+
+@dataclass
+class _THIS_THREAD_TOOK_CONTROL:
+    """Indicates the current thread took control when calling ``set_num_threads()``.
+
+    Includes number of threads set previously, right after control was released.
+    """
+
+    previous_num_threads: int
+
+
 class LibController(ABC):
     """Abstract base class for the individual library controllers
 
@@ -550,6 +565,9 @@ class OpenBLASController(LibController):
                 cls._SHARED_STATE.controlling_thread = None
 
     def set_num_threads(self, num_threads):
+        self._set_num_threads_with_extra_info(num_threads)
+
+    def _set_num_threads_with_extra_info(self, num_threads):
         if self.threading_layer == "openmp":
             # Per-thread limits, so no need to be constraining:
             return self._real_set_num_threads(num_threads)
@@ -563,6 +581,7 @@ class OpenBLASController(LibController):
             return self._real_set_num_threads(num_threads)
         elif controlling_thread is None or not controlling_thread.is_alive():
             # No thread controls OpenBLAS, so try to take control:
+            previous_num_threads = None
             with self._SHARED_STATE.lock:
                 # Another thread might have changed it, so ensure that's not
                 # the case:
@@ -571,12 +590,16 @@ class OpenBLASController(LibController):
                     or not self._SHARED_STATE.controlling_thread.is_alive()
                 ):
                     self._SHARED_STATE.controlling_thread = this_thread
-            # Controlling thread should now be set, to either this thread or
-            # another, so try again:
-            return self.set_num_threads(num_threads)
+                    previous_num_threads = self.get_num_threads()
+            if previous_num_threads is not None:
+                self._real_set_num_threads(num_threads)
+                return _THIS_THREAD_TOOK_CONTROL(previous_num_threads)
+            else:
+                # Another thread took control:
+                return _DID_NOT_SET
         else:
             # Some other thread controls OpenBLAS: do nothing.
-            return
+            return _DID_NOT_SET
 
     def _real_set_num_threads(self, num_threads):
         # The OpenBLAS limiting API is process-wide, and we want current thread
@@ -656,6 +679,8 @@ class _ControllingThreadOwnership(thread_local):
         """Decrement ownership."""
         self.count -= 1
         if self.count <= 0:
+            # If we're not currently the controlling thread, this will do
+            # nothing, which is the desired behavior:
             OpenBLASController.clear_controlling_thread()
 
 
@@ -1105,7 +1130,9 @@ class _ThreadpoolLimiter:
         self._limits, self._user_api = _check_limiter_params(
             controller, limits, user_api
         )
-        self._original_info = self._controller.info()
+        self._original_info = dict(
+            zip(self._controller.lib_controllers, self._controller.info())
+        )
         self._set_threadpool_limits()
 
     def __enter__(self):
@@ -1125,9 +1152,7 @@ class _ThreadpoolLimiter:
 
     def restore_original_limits(self):
         """Set the limits back to their original values"""
-        for lib_controller, original_info in zip(
-            self._controller.lib_controllers, self._original_info
-        ):
+        for lib_controller, original_info in self._original_info.items():
             lib_controller.set_num_threads(original_info["num_threads"])
 
     # Alias of `restore_original_limits` for backward compatibility
@@ -1144,7 +1169,7 @@ class _ThreadpoolLimiter:
         for user_api in self._user_api:
             limits = [
                 lib_info["num_threads"]
-                for lib_info in self._original_info
+                for lib_info in self._original_info.values()
                 if lib_info["user_api"] == user_api
             ]
             limits = set(limits)
@@ -1188,7 +1213,22 @@ class _ThreadpoolLimiter:
                 continue
 
             if num_threads is not None:
-                lib_controller.set_num_threads(num_threads)
+                if type(lib_controller) is OpenBLASController:
+                    # Special-case API that returns additional information:
+                    result = lib_controller._set_num_threads_with_extra_info(
+                        num_threads
+                    )
+                else:
+                    result = lib_controller.set_num_threads(num_threads)
+                if result is _DID_NOT_SET:
+                    # Didn't set, so shouldn't restore either; if this thread
+                    # can become the controlling thread during restoration, it
+                    # might restore the wrong value.
+                    self._original_info.pop(lib_controller, None)
+                elif isinstance(result, _THIS_THREAD_TOOK_CONTROL):
+                    self._original_info[lib_controller]["num_threads"] = (
+                        result.previous_num_threads
+                    )
 
 
 class _ThreadpoolLimiterDecorator(ContextDecorator):

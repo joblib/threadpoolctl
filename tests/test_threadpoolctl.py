@@ -604,12 +604,15 @@ def test_libomp_libiomp_warning(recwarn):
     assert "multiple_openmp.md" in str(wm.message)
 
 
-def test_command_line_empty_or_system_openmp():
+@pytest.mark.parametrize("import_args", [[], ["-i"], ["--import"], ["-i", "--import"]])
+def test_command_line_empty_or_system_openmp(import_args):
     # When the command line is called without arguments, no library should be
     # detected. The only exception is a system OpenMP library that can be
     # linked to the Python interpreter, for instance via the libb2.so BLAKE2
     # library that can itself be linked to an OpenMP runtime on Gentoo.
-    output = subprocess.check_output((sys.executable + " -m threadpoolctl").split())
+    output = subprocess.check_output(
+        [sys.executable, "-m", "threadpoolctl", *import_args]
+    )
     results = json.loads(output.decode("utf-8"))
     conda_prefix = os.getenv("CONDA_PREFIX")
     managed_by_conda = conda_prefix and sys.executable.startswith(conda_prefix)
@@ -632,17 +635,43 @@ def test_command_line_command_flag():
         assert lib_info in this_process_info
 
 
-def test_command_line_import_flag():
+@pytest.mark.parametrize(
+    "import_args",
+    [
+        ["-i", "numpy", "scipy.linalg", "invalid_package", "numpy.invalid_sumodule"],
+        [
+            "-i",
+            "numpy",
+            "invalid_package",
+            "-i",
+            "scipy.linalg",
+            "numpy.invalid_sumodule",
+        ],
+        [
+            "--import",
+            "numpy",
+            "invalid_package",
+            "--import",
+            "scipy.linalg",
+            "numpy.invalid_sumodule",
+        ],
+        [
+            "-i",
+            "numpy",
+            "invalid_package",
+            "--import",
+            "scipy.linalg",
+            "numpy.invalid_sumodule",
+        ],
+    ],
+)
+def test_command_line_import_flag(import_args):
     result = subprocess.run(
         [
             sys.executable,
             "-m",
             "threadpoolctl",
-            "-i",
-            "numpy",
-            "scipy.linalg",
-            "invalid_package",
-            "numpy.invalid_sumodule",
+            *import_args,
         ],
         capture_output=True,
         check=True,

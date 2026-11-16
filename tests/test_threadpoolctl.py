@@ -1079,6 +1079,13 @@ def test_restore_original_limits_keeps_openblas_controlling_thread(request):
 @pytest.mark.parametrize("user_api", ["openmp", "blas", None])
 def test_limit_in_worker_thread_integer(user_api):
     """Python worker thread API should not set limits on shared thread pools."""
+    flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
+    if flexiblas_controller:
+        pytest.skip(
+            "FlexiBLAS means there are two controllers for same OpenBLAS "
+            "(direct + FlexiBLAS) which causes test failures."
+        )
+
     controller = ThreadpoolController()
     original_limits = controller.info()
 

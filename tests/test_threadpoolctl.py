@@ -21,6 +21,7 @@ from threadpoolctl import (
     OpenBLASController,
     ThreadpoolController,
     _determine_thread_limit_scope,
+    _ThreadpoolLimiter,
     get_cached_controller,
     reset_cached_controller,
     threadpool_info,
@@ -1073,6 +1074,37 @@ def test_restore_original_limits_keeps_openblas_controlling_thread(request):
 
     OpenBLASController.clear_controlling_thread()
     assert lib._SHARED_STATE.controlling_thread is None
+
+
+@pytest.mark.parametrize("user_api", ["openmp", "blas", None])
+def test_limit_in_worker_thread_integer(user_api):
+    """Python worker thread API should not set limits on shared thread pools."""
+    controller = ThreadpoolController()
+    original_limits = controller.info()
+
+    limiter = controller.limit_in_worker_thread(limits=1, user_api=user_api)
+    assert isinstance(limiter, _ThreadpoolLimiter)
+    for lib, info in zip(controller.lib_controllers, original_limits):
+        # If this logic ever grows beyond OpenBLAS, this check should be made
+        # more general:
+        if isinstance(lib, OpenBLASController) and lib.threading_layer != "openmp":
+            # Should be unchanged:
+            assert lib.get_num_threads() == info["num_threads"]
+        else:
+            assert lib.get_num_threads() == 1
+    limiter.restore_original_limits()
+    assert controller.info() == original_limits
+
+
+@pytest.mark.parametrize("limit", [[], {}, "sequential_blas_under_openmp", None])
+def test_limit_in_worker_thread_not_integer(limit):
+    """Python worker thread API should not set limits on shared thread pools."""
+    controller = ThreadpoolController()
+    original_limits = controller.info()
+
+    with pytest.raises(TypeError, match="only int is supported"):
+        controller.limit_in_worker_thread(limits=limit)
+    assert controller.info() == original_limits
 
 
 def _race_condition_skip_problem_platforms():

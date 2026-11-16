@@ -1496,6 +1496,55 @@ class ThreadpoolController:
         """
         return _ThreadpoolLimiter(self, limits=limits, user_api=user_api)
 
+    def limit_in_worker_thread(self, *, limits=None, user_api=None):
+        """Like ``limit()``, but for use in Python thread pool workers.
+
+        This has the same behavior and similar arguments to ``limit()``, except
+        that ``limits`` may only be an integer, and it may skip setting limits
+        on some libraries that are process-wide and should therefore only have
+        their limit set in the main thread.
+
+        Parameters
+        ----------
+        limits : int
+            Sets the maximum number of threads to `limits` for each
+            library selected by `user_api`, except it will skip setting limits
+            on some libraries that are process-wide and should therefore only
+            have their limit set in the main thread.
+
+        user_api : {USER_APIS} or None (default=None)
+            APIs of libraries to limit. Used only if `limits` is an int.
+            See limit() for more details.
+        """
+        if not isinstance(limits, int):
+            raise TypeError(
+                "only int is supported as limit for limit_in_worker_thread()"
+            )
+
+        new_limits = []
+
+        for lib_controller in self.lib_controllers:
+            # If this logic grows beyond OpenBLAS, maybe add a new API to
+            # LibController to detect shared process pools:
+            if (
+                isinstance(lib_controller, OpenBLASController)
+                and lib_controller.threading_layer != "openmp"
+            ):
+                # Worker threads shouldn't try to set OpenBLAS-pthreads global
+                # state in their initializer, because it might never get restored.
+                continue
+
+            # "filepath" is for threadpoolctl 3.8+, "prefix" for backwards compat
+            # with older versions.
+            new_limits.append(
+                {
+                    "filepath": lib_controller.filepath,
+                    "num_threads": limits,
+                }
+            )
+
+        return self.limit(limits=new_limits, user_api=user_api)
+
     @_format_docstring(
         USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),
         BLAS_LIBS=", ".join(_ALL_BLAS_LIBRARIES),

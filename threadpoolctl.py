@@ -216,6 +216,16 @@ class _THIS_THREAD_TOOK_CONTROL:
     previous_num_threads: int
 
 
+@dataclass
+class _ALREADY_HAD_CONTROL:
+    """Indicates control was needed, but this thread already had it.
+
+    Includes number of threads set previously.
+    """
+
+    previous_num_threads: int
+
+
 class LibController(ABC):
     """Abstract base class for the individual library controllers
 
@@ -577,8 +587,10 @@ class OpenBLASController(LibController):
         this_thread = current_thread()
         controlling_thread = self._SHARED_STATE.controlling_thread
         if controlling_thread is this_thread:
-            # This thread controls OpenBLAS:
-            return self._real_set_num_threads(num_threads)
+            # This thread already controls OpenBLAS:
+            previous_threads = self.get_num_threads()
+            self._real_set_num_threads(num_threads)
+            return _ALREADY_HAD_CONTROL(previous_threads)
         elif controlling_thread is None or not controlling_thread.is_alive():
             # No thread controls OpenBLAS, so try to take control:
             previous_num_threads = None
@@ -1199,6 +1211,8 @@ class _ThreadpoolLimiter:
         if self._limits is None:
             return
 
+        took_control = False
+
         for lib_controller in self._controller.lib_controllers:
             # self._limits is a dict {key: num_threads} where key is either a
             # filepath, a prefix, or a user_api. Libraries are matched in that
@@ -1213,19 +1227,47 @@ class _ThreadpoolLimiter:
                 continue
 
             if num_threads is not None:
-                if type(lib_controller) is OpenBLASController:
-                    # Special-case API that returns additional information:
-                    result = lib_controller._set_num_threads_with_extra_info(
-                        num_threads
-                    )
-                else:
-                    result = lib_controller.set_num_threads(num_threads)
+                if (
+                    type(lib_controller) is not OpenBLASController
+                    or lib_controller.threading_layer == "openmp"
+                ):
+                    lib_controller.set_num_threads(num_threads)
+                    continue
+
+                # Special-case OpenBLASController API that returns additional
+                # information, only used in the pthreads/windows threading
+                # layer case:
+                result = lib_controller._set_num_threads_with_extra_info(num_threads)
+
                 if result is _DID_NOT_SET:
-                    # Didn't set, so shouldn't restore either; if this thread
-                    # can become the controlling thread during restoration, it
-                    # might restore the wrong value.
+                    # Didn't set, so shouldn't restore either. Lacking this, if
+                    # this thread later became the controlling thread during
+                    # restoration, it might restore the wrong value.
                     self._original_info.pop(lib_controller, None)
                 elif isinstance(result, _THIS_THREAD_TOOK_CONTROL):
+                    # Now that we took control:
+                    #
+                    # 1. Recorded limits for OpenBLAS-pthreads might be wrong,
+                    #    since they're global and another thread may have been
+                    #    in control and changed them since they were recorded
+                    #    in self._original_info.
+                    # 2. Since this thread is now in control, no other thread
+                    #    can change that behind our back anymore
+                    # 3. There might be multiple OpenBLAS-pthreads loaded.
+                    #
+                    # So, first set update info for this one, and then set
+                    # took_control to True so later sets of OpenBLAS-pthreads
+                    # can also be updated.
+                    self._original_info[lib_controller]["num_threads"] = (
+                        result.previous_num_threads
+                    )
+                    took_control = True
+                elif took_control and isinstance(result, _ALREADY_HAD_CONTROL):
+                    # This happens if there are multiple OpenBLAS-pthreads
+                    # loaded, e.g. NumPy and SciPy installed from PyPI. Only
+                    # want to do this if we took control, cause that is the
+                    # only case where previously set value might have been
+                    # changed since we recorded it originally.
                     self._original_info[lib_controller]["num_threads"] = (
                         result.previous_num_threads
                     )

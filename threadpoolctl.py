@@ -1686,6 +1686,13 @@ class ThreadpoolController:
             # Non-Linux Unix platforms.
             self._find_libraries_with_dl_iterate_phdr()
 
+        # Make FlexiBLASController last, so some of the OpenBLAS special-casing
+        # we do gets overriden by FlexiBLAS if FlexiBLAS is using OpenBLAS:
+        for lib in self.lib_controllers[:]:
+            if isinstance(lib, FlexiBLASController):
+                self.lib_controllers.remove(lib)
+                self.lib_controllers.append(lib)
+
     _PATH_RE = re.compile(rb" (/[^\n]+\.so[^\n^/]*)\n", re.MULTILINE)
 
     def _find_libraries_with_linux(self):

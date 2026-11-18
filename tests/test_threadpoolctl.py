@@ -1662,7 +1662,9 @@ def test_restore_only_restores_modified_limits(api1, api2, request):
     request.addfinalizer(done)
 
     limiter1 = threadpool_limits(1, user_api=api1)
+    assert limiter1.get_original_num_threads() == {api1: orig_limit1}
     limiter2 = threadpool_limits(2, user_api=api2)
+    assert limiter2.get_original_num_threads() == {api2: orig_limit2}
 
     # This should only overwrite limits for api1, not api2:
     limiter1.restore_original_limits()
@@ -1676,6 +1678,10 @@ def test_restore_only_restores_modified_limits(api1, api2, request):
 
     # limit=None should restore everthing:
     limiter_all = threadpool_limits(limits=None)
+    assert limiter_all.get_original_num_threads() == {
+        api1: orig_limit1,
+        api2: orig_limit2,
+    }
     assert lib1.get_num_threads() == orig_limit1
     assert lib2.get_num_threads() == orig_limit2
     threadpool_limits(1, user_api=api1)

@@ -1,11 +1,6 @@
 # Thread-pool Controls [![Build Status](https://github.com/joblib/threadpoolctl/actions/workflows/test.yml/badge.svg?branch=master)](https://github.com/joblib/threadpoolctl/actions?query=branch%3Amaster) [![codecov](https://codecov.io/gh/joblib/threadpoolctl/branch/master/graph/badge.svg)](https://codecov.io/gh/joblib/threadpoolctl)
 
-Python helpers to limit the number of threads used in the
-threadpool-backed of common native libraries used for scientific
-computing and data science (e.g. BLAS and OpenMP).
-
-Fine control of the underlying thread-pool size can be useful in
-workloads that involve nested parallelism so as to mitigate
+lve nested parallelism so as to mitigate
 oversubscription issues.
 
 Note that "limiting the number of threads" in practice involves a variety of

@@ -1,5 +1,11 @@
-3.9.0 (under development)
+3.8.1 (under development)
 =========================
+
+- Fix a bug in `restore_original_limits()` where all limits were always
+  restored, even if only some were modified. Similarly,
+  `get_original_num_threads()` will only return original values for those values
+  that have been modified.
+  https://github.com/joblib/threadpoolctl/pull/309
 
 3.8.0 (2026-11-05)
 ==================

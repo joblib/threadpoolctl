@@ -1640,3 +1640,54 @@ threadpoolctl.threadpool_info()
 assert "ctypes.util" not in sys.modules
 """
     subprocess.check_call([sys.executable, "-c", script], env=env)
+
+
+@pytest.mark.parametrize(["api1", "api2"], [("blas", "openmp"), ("openmp", "blas")])
+def test_restore_only_restores_modified_limits(api1, api2, request):
+    try:
+        lib1 = ThreadpoolController().select(user_api=api1).lib_controllers[0]
+        orig_limit1 = lib1.get_num_threads()
+        lib2 = ThreadpoolController().select(user_api=api2).lib_controllers[0]
+        orig_limit2 = lib2.get_num_threads()
+    except IndexError:
+        pytest.skip("need both BLAS and OpenMP")
+    if orig_limit1 < 3 or orig_limit2 < 3:
+        pytest.skip("need at least 3 cores")
+
+    restore_limiter = threadpool_limits(limits=None)
+
+    def done():
+        restore_limiter.restore_original_limits()
+
+    request.addfinalizer(done)
+
+    limiter1 = threadpool_limits(1, user_api=api1)
+    assert limiter1.get_original_num_threads() == {api1: orig_limit1}
+    limiter2 = threadpool_limits(2, user_api=api2)
+    assert limiter2.get_original_num_threads() == {api2: orig_limit2}
+
+    # This should only overwrite limits for api1, not api2:
+    limiter1.restore_original_limits()
+    assert lib1.get_num_threads() == orig_limit1
+    assert lib2.get_num_threads() == 2
+
+    # This should only overwrite limits for api2, not api1:
+    limiter2.restore_original_limits()
+    assert lib1.get_num_threads() == orig_limit1
+    assert lib2.get_num_threads() == orig_limit2
+
+    # limit=None should restore everthing:
+    limiter_all = threadpool_limits(limits=None)
+    assert limiter_all.get_original_num_threads() == {
+        api1: orig_limit1,
+        api2: orig_limit2,
+    }
+    assert lib1.get_num_threads() == orig_limit1
+    assert lib2.get_num_threads() == orig_limit2
+    threadpool_limits(1, user_api=api1)
+    threadpool_limits(2, user_api=api2)
+    assert lib1.get_num_threads() == 1
+    assert lib2.get_num_threads() == 2
+    limiter_all.restore_original_limits()
+    assert lib1.get_num_threads() == orig_limit1
+    assert lib2.get_num_threads() == orig_limit2

@@ -234,7 +234,8 @@ class LibController(ABC):
       - version : version of the library (if available).
 
     In addition, each library controller may expose internal API specific entries. They
-    must be set as attributes in the `set_additional_attributes` method.
+    can be set as attributes in the `set_additional_attributes` method, or added
+    by overriding `info` when their values need to be queried dynamically.
     """
 
     @final
@@ -940,6 +941,37 @@ class OpenMPController(LibController):
         "omp_get_num_threads",
     )
 
+    def info(self, debugging_info: bool = False):
+        return {**super().info(debugging_info), "blocktime_ms": self.blocktime_ms}
+
+    @property
+    def blocktime_ms(self):
+        """The calling thread's blocktime in milliseconds, queried dynamically."""
+        return self.get_blocktime()
+
+    def get_blocktime(self):
+        """Return the calling thread's blocktime in ms, or None if unavailable.
+
+        The native API returns the units of its KMP_BLOCKTIME startup setting.
+        That setting must still be present when the runtime is first inspected.
+        Changing units with kmp_set_defaults is not supported: the kmp API has
+        no unit getter. Microsecond settings require a runtime supporting them.
+        """
+        get_func = self._get_symbol("kmp_get_blocktime")
+        if get_func is None:
+            return None
+        get_func.argtypes = []
+        get_func.restype = ctypes.c_int
+        value = get_func()
+        return value / 1000 if self._blocktime_uses_microseconds() else value
+
+    @_CDLL_CACHE.cache_method_on_dynlib
+    def _blocktime_uses_microseconds(self):
+        # Cache the startup unit per loaded runtime, never the thread-local value.
+        # The runtime's __kmp_blocktime_units is not part of its exported API.
+        setting = os.environ.get("KMP_BLOCKTIME", "")
+        return re.fullmatch(r"\s*\d+\s*us\s*", setting, re.IGNORECASE) is not None
+
     def get_num_threads(self):
         get_func = getattr(self.dynlib, "omp_get_max_threads", lambda: None)
         return get_func()
@@ -1016,6 +1048,11 @@ def threadpool_info(debugging_info: bool = False):
       - "num_threads": the current thread limit.
 
     In addition, each library may contain internal_api specific entries.
+    OpenMP libraries expose "blocktime_ms", the calling thread's active wait
+    time in milliseconds, or None when unavailable. LLVM/Intel OpenMP values
+    are read from ``kmp_get_blocktime`` on every call and normalized using the
+    valid ``KMP_BLOCKTIME`` startup setting, which must be preserved until
+    first inspection. Unit changes through ``kmp_set_defaults`` are unsupported.
 
     Parameters
     ----------

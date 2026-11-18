@@ -699,7 +699,7 @@ To make a release:
 
 - Publish the release on github.
 
-If for some reason the steps above can't be achieved and a munual upload of the wheel
+If for some reason the steps above can't be achieved and a manual upload of the wheel
 and source distribution is needed:
 
 - Build the distribution archives:

@@ -1,5 +1,10 @@
-3.9.0 (under development)
+3.8.1 (under development)
 =========================
+
+- Fix a number of race conditions in OpenBLAS-pthreads/win32 controlling thread
+  logic, that could result in unexpected number of threads being set.
+  https://github.com/joblib/threadpoolctl/pull/300
+
 
 3.8.0 (2026-11-05)
 ==================

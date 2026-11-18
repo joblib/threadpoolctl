@@ -297,10 +297,12 @@ with (
     # APIs operate on a process-wide basis. Because it's a context manager, it
     # will restore the limits after the ``with`` is done.
     controller.limit(limits=1),
-    # Make sure each Python worker thread also calls threadpool_limits(). If
-    # you're using another thread pool class, you will need to do so some other
-    # way.
-    ThreadPoolExecutor(4, initializer=lambda: controller.limit(limits=1)) as pool,
+    # Make sure each Python worker thread also sets limits, using an API that
+    # is specifically for Python worker threads. If you're using another thread
+    # pool class, you will need to do so some other way.
+    ThreadPoolExecutor(
+        4, initializer=lambda: controller.limit_in_worker_thread(limits=1)
+    ) as pool,
 ):
     # ... run some BLAS-using code in the thread pool ...
     pool.map(somefunc, someargs)
@@ -309,7 +311,9 @@ with (
 controller = ThreadpoolController()
 with (
     controller.limit(limits=2),
-    ThreadPoolExecutor(4, initializer=lambda: controller.limit(limits=2)) as pool,
+    ThreadPoolExecutor(
+        4, initializer=lambda: controller.limit_in_worker_thread(limits=2)
+    ) as pool,
 ):
     # ... run some BLAS-using code in the thread pool ...
     pool.map(somefunc, someargs)
@@ -323,7 +327,9 @@ from threadpoolctl import ThreadpoolController
 controller = ThreadpoolController()
 try:
     limiter = controller.limit(limits=1)
-    with ThreadPoolExecutor(4, initializer=lambda: controller.limit(limits=1)) as pool:
+    with ThreadPoolExecutor(
+        4, initializer=lambda: controller.limit_in_worker_thread(limits=1)
+    ) as pool:
         # ... run some BLAS-using code in the thread pool ...
         pool.map(somefunc, someargs)
 finally:
@@ -350,7 +356,7 @@ with CONTROLLER.limit(limits=1):
 
     def limit_then_do_work(*args, **kwargs):
         # Set a limit on OpenMP in the current thread:
-        CONTROLLER.limit(limits=1)
+        CONTROLLER.limit_in_worker_thread(limits=1)
         # Do the actual work:
         return do_real_work_with_openmp(*args, **kwargs)
 
@@ -366,7 +372,7 @@ with CONTROLLER.limit(limits=4):
 with CONTROLLER.limit(limits=2):
 
     def limit_then_do_work2(*args, **kwargs):
-        CONTROLLER.limit(limits=2)
+        CONTROLLER.limit_in_worker_thread(limits=2)
         return do_even_more_real_work_with_openmp(*args, **kwargs)
 
     results3 = POOL.map(limit_then_do_work2, results2)

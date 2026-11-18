@@ -1655,11 +1655,9 @@ def test_restore_only_restores_modified_limits(api1, api2, request):
         pytest.skip("need at least 3 cores")
 
     restore_limiter = threadpool_limits(limits=None)
+
     def done():
-        # limits=None should restore everything:
         restore_limiter.restore_original_limits()
-        assert lib1.get_num_threads() == orig_limit1
-        assert lib2.get_num_threads() == orig_limit2
 
     request.addfinalizer(done)
 
@@ -1674,6 +1672,16 @@ def test_restore_only_restores_modified_limits(api1, api2, request):
     # This should only overwrite limits for api2, not api1:
     limiter2.restore_original_limits()
     assert lib1.get_num_threads() == orig_limit1
-    # The limit for api2 was 1 when limiter2 was created, so that's what it
-    # should restore to:
-    assert lib2.get_num_threads() == 1
+    assert lib2.get_num_threads() == orig_limit2
+
+    # limit=None should restore everthing:
+    limiter_all = threadpool_limits(limits=None)
+    assert lib1.get_num_threads() == orig_limit1
+    assert lib2.get_num_threads() == orig_limit2
+    threadpool_limits(1, user_api=api1)
+    threadpool_limits(2, user_api=api2)
+    assert lib1.get_num_threads() == 1
+    assert lib2.get_num_threads() == 2
+    limiter_all.restore_original_limits()
+    assert lib1.get_num_threads() == orig_limit1
+    assert lib2.get_num_threads() == orig_limit2

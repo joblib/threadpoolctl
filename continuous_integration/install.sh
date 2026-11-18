@@ -111,12 +111,9 @@ elif [[ "$PACKAGER" == "pip-dev" ]]; then
     pip install --pre --upgrade --timeout=60 --extra-index $dev_anaconda_url numpy scipy
 
 elif [[ "$PACKAGER" == "ubuntu" ]]; then
-    # Remove the ubuntu toolchain PPA that seems to be invalid:
-    # https://github.com/scikit-learn/scikit-learn/pull/13934
-    sudo add-apt-repository --remove ppa:ubuntu-toolchain-r/test
     sudo apt-get update
     sudo apt-get install python3-scipy python3-virtualenv $APT_BLAS
-    python3 -m virtualenv --system-site-packages --python=python3 testenv
+    /usr/bin/python3 -m virtualenv --system-site-packages testenv
     source testenv/bin/activate
 
 elif [[ "$INSTALL_BLAS" == "blis" ]]; then

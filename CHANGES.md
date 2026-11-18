@@ -1,6 +1,9 @@
 3.9.0 (under development)
 =========================
 
+- Python 3.11 is now the minimum supported Python version.
+  https://github.com/joblib/threadpoolctl/issues/295
+
 3.8.0 (2026-11-05)
 ==================
 

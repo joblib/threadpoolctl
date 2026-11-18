@@ -2014,7 +2014,8 @@ def _main():
         "--import",
         dest="modules",
         nargs="*",
-        default=(),
+        action="extend",
+        default=[],
         help="Python modules to import before introspecting thread-pools.",
     )
     parser.add_argument(

@@ -1,8 +1,10 @@
-3.8.1 (under development)
+3.9.0 (under development)
 =========================
 
-- Fix a number of race conditions in OpenBLAS-pthreads/win32 controlling thread
-  logic, that could result in unexpected number of threads being set.
+- Introduce the `ThreadpoolController.limit_in_worker_thread` method to make it
+  easy to set correct limits from Python worker threads and fix a number of race
+  conditions in OpenBLAS-pthreads/win32 controlling thread logic, that could
+  result in unexpected number of threads being set.
   https://github.com/joblib/threadpoolctl/pull/300
 
 

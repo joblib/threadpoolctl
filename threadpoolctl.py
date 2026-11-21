@@ -1576,8 +1576,6 @@ class ThreadpoolController:
                 # state in their initializer, because it might never get restored.
                 continue
 
-            # "filepath" is for threadpoolctl 3.8+, "prefix" for backwards compat
-            # with older versions.
             new_limits.append(
                 {
                     "filepath": lib_controller.filepath,

@@ -1,4 +1,4 @@
-3.8.1 (under development)
+3.9.0 (under development)
 =========================
 
 - Fix a bug in `restore_original_limits()` where all limits were always

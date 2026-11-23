@@ -1828,6 +1828,13 @@ assert "ctypes.util" not in sys.modules
 
 @pytest.mark.parametrize(["api1", "api2"], [("blas", "openmp"), ("openmp", "blas")])
 def test_restore_only_restores_modified_limits(api1, api2, request):
+    flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
+    if flexiblas_controller:
+        pytest.skip(
+            "FlexiBLAS has issues with get_num_threads() because of "
+            "different behavior from wrapped OpenBLAS"
+        )
+
     try:
         lib1 = ThreadpoolController().select(user_api=api1).lib_controllers[0]
         orig_limit1 = lib1.get_num_threads()

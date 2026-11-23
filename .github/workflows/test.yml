@@ -132,6 +132,7 @@ jobs:
             CC_INNER_LOOP: "gcc"
             INSTALL_OPENCV: "true"
 
+          # Pin the Clang 18 jobs to Ubuntu 24.04 for its LLVM 18 packages.
           # Linux + Python 3.10 and homogeneous runtime nesting.
           - name: py310_conda_openblas_clang_clang
             os: ubuntu-24.04

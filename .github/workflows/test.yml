@@ -125,7 +125,7 @@ jobs:
 
           # Linux environment with development versions of numpy and scipy
           - name: pylatest_pip_dev
-            os : ubuntu-latest
+            os : ubuntu-24.04
             PACKAGER: "pip-dev"
             PYTHON_VERSION: "*"
             CC_OUTER_LOOP: "gcc"
@@ -134,7 +134,7 @@ jobs:
 
           # Linux + Python 3.10 and homogeneous runtime nesting.
           - name: py310_conda_openblas_clang_clang
-            os: ubuntu-latest
+            os: ubuntu-24.04
             PACKAGER: "conda"
             PYTHON_VERSION: "3.10"
             BLAS: "openblas"
@@ -145,7 +145,7 @@ jobs:
           # Linux environment with MKL and Clang (known to be unsafe for
           # threadpoolctl) to only test the warning from multiple OpenMP.
           - name: pylatest_conda_mkl_clang_gcc
-            os: ubuntu-latest
+            os: ubuntu-24.04
             PYTHON_VERSION: "*"
             PACKAGER: "conda"
             BLAS: "mkl"
@@ -154,7 +154,7 @@ jobs:
             TESTS: "libomp_libiomp_warning"
           # Linux environment with MKL, safe for threadpoolctl.
           - name: pylatest_conda_mkl_gcc_gcc
-            os: ubuntu-latest
+            os: ubuntu-24.04
             PYTHON_VERSION: "*"
             PACKAGER: "conda"
             BLAS: "mkl"
@@ -166,7 +166,7 @@ jobs:
           # Linux + Python 3.11 with numpy / scipy installed with pip from PyPI
           # and heterogeneous OpenMP runtimes.
           - name: py311_pip_openblas_gcc_clang
-            os: ubuntu-latest
+            os: ubuntu-24.04
             PACKAGER: "pip"
             PYTHON_VERSION: "3.11"
             CC_OUTER_LOOP: "gcc"
@@ -174,7 +174,7 @@ jobs:
           # Linux + conda-forge Python RC, extra deps from PyPI.
           # OpenCV is omitted: no wheels for the current RC ABI yet.
           - name: pyrc_pip
-            os: ubuntu-latest
+            os: ubuntu-24.04
             PACKAGER: "pip"
             # Using the "*" marker does not select the latest RC release
             # from the conda-forge `python_rc` channel hence the need to pin
@@ -185,7 +185,7 @@ jobs:
             CC_INNER_LOOP: "gcc"
           # Linux + conda-forge free-threaded Python RC, extra deps from PyPI.
           - name: pyrc_ft_pip
-            os: ubuntu-latest
+            os: ubuntu-24.04
             PACKAGER: "pip"
             # Using the "*" marker does not select the latest RC release
             # from the conda-forge `python_rc` channel hence the need to pin
@@ -197,7 +197,7 @@ jobs:
             CC_INNER_LOOP: "gcc"
           # Linux environment with numpy from conda-forge channel and openblas-openmp
           - name: pylatest_conda_forge
-            os: ubuntu-latest
+            os: ubuntu-24.04
             PACKAGER: "conda-forge"
             PYTHON_VERSION: "*"
             BLAS: "openblas"
@@ -207,7 +207,7 @@ jobs:
             CC_INNER_LOOP: "gcc"
           # Linux environment with no numpy and heterogeneous OpenMP runtimes.
           - name: pylatest_conda_nonumpy_gcc_clang
-            os: ubuntu-latest
+            os: ubuntu-24.04
             PACKAGER: "conda"
             PYTHON_VERSION: "*"
             NO_NUMPY: "true"
@@ -216,7 +216,7 @@ jobs:
 
           # Linux environments with numpy linked to BLIS
           - name: pylatest_blis_gcc_clang_openmp
-            os: ubuntu-latest
+            os: ubuntu-24.04
             PYTHON_VERSION: "*"
             INSTALL_BLAS: "blis"
             BLIS_NUM_THREAEDS: "4"
@@ -225,7 +225,7 @@ jobs:
             BLIS_CC: "clang-18"
             BLIS_ENABLE_THREADING: "openmp"
           - name: pylatest_blis_clang_gcc_pthreads
-            os: ubuntu-latest
+            os: ubuntu-24.04
             PYTHON_VERSION: "*"
             INSTALL_BLAS: "blis"
             BLIS_NUM_THREADS: "4"
@@ -234,7 +234,7 @@ jobs:
             BLIS_CC: "gcc-12"
             BLIS_ENABLE_THREADING: "pthreads"
           - name: pylatest_blis_no_threading
-            os: ubuntu-latest
+            os: ubuntu-24.04
             PYTHON_VERSION: "*"
             INSTALL_BLAS: "blis"
             BLIS_NUM_THREADS: "1"
@@ -245,7 +245,7 @@ jobs:
 
           # Linux env with FlexiBLAS
           - name: pylatest_flexiblas
-            os: ubuntu-latest
+            os: ubuntu-24.04
             PYTHON_VERSION: "*"
             INSTALL_BLAS: "flexiblas"
             PLATFORM_SPECIFIC_PACKAGES: "mkl"
@@ -254,7 +254,7 @@ jobs:
 
           # Python 3.14, free-threaded
           - name: py314_freethreaded_pip_openblas
-            os: ubuntu-latest
+            os: ubuntu-24.04
             PACKAGER: "conda-forge"
             BLAS: "openblas"
             PYTHON_VERSION: "3.14"

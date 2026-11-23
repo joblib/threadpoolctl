@@ -31,19 +31,17 @@ package compiled with GCC, the most widely used C compiler on that platform).
 
 ## Incompatibility between Intel OpenMP and LLVM OpenMP
 
-The only unrecoverable incompatibility we encountered happens when loading a
-mix of compiled extensions linked with **`libomp` (LLVM/Clang) and `libiomp`
-(ICC), on Linux and macOS**, manifested by crashes or deadlocks. It can happen
-even with the simplest OpenMP calls like getting the maximum number of threads
-that will be used in a subsequent parallel region. A possible explanation is that
-`libomp` is actually a fork of `libiomp` causing name colliding for instance.
-Using `threadpoolctl` may crash your program in such a setting.
+Loading compiled extensions linked with both **`libomp` (LLVM/Clang) and
+`libiomp` (Intel)** can cause crashes or deadlocks. Even querying the maximum
+number of threads for a subsequent parallel region can trigger the problem.
+The incompatibility has been observed on Linux and macOS, and a similar
+deadlock was [reported on Windows](https://github.com/scipy/scipy/issues/23989).
 
-**Fortunately this problem is very rare**: at the time of writing, all major
-binary distributions of Python packages for Linux use either GCC or ICC to
-build the Python scientific packages. Therefore this problem would only happen
-if some packagers decide to start shipping Python packages built with
-LLVM/Clang instead of GCC (this is the case for instance with conda's default channel).
+The risk depends on how the packages are built. For example, some Windows
+builds provide a `libiomp` that forwards to `libomp`, so both filenames can
+appear without two independent runtimes being loaded. `threadpoolctl` currently
+warns when it detects both library prefixes on Linux. On other platforms, the
+absence of this warning does not rule out a runtime conflict.
 
 ## Workarounds for Intel OpenMP and LLVM OpenMP case
 

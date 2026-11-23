@@ -1572,9 +1572,14 @@ class ThreadpoolController:
                 "only int is supported as limit for limit_in_worker_thread()"
             )
 
+        if user_api is None:
+            controller = self
+        else:
+            controller = self.select(user_api=user_api)
+
         new_limits = []
 
-        for lib_controller in self.lib_controllers:
+        for lib_controller in controller.lib_controllers:
             # If this logic grows beyond OpenBLAS, maybe add a new API to
             # LibController to detect shared process pools:
             if (
@@ -1591,8 +1596,7 @@ class ThreadpoolController:
                     "num_threads": limits,
                 }
             )
-
-        return self.limit(limits=new_limits, user_api=user_api)
+        return controller.limit(limits=new_limits, user_api=user_api)
 
     @_format_docstring(
         USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),

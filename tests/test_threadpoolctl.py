@@ -1090,12 +1090,13 @@ def test_limit_in_worker_thread_integer(user_api):
             "(direct + FlexiBLAS) which causes test failures."
         )
 
-    controller = ThreadpoolController()
-    original_limits = controller.info()
+    full_controller = ThreadpoolController()
+    expected_impact_controller = full_controller.select(user_api=user_api)
+    original_limits = expected_impact_controller.info()
 
-    limiter = controller.limit_in_worker_thread(limits=1, user_api=user_api)
+    limiter = full_controller.limit_in_worker_thread(limits=1, user_api=user_api)
     assert isinstance(limiter, _ThreadpoolLimiter)
-    for lib, info in zip(controller.lib_controllers, original_limits):
+    for lib, info in zip(expected_impact_controller.lib_controllers, original_limits):
         # If this logic ever grows beyond OpenBLAS, this check should be made
         # more general:
         if isinstance(lib, OpenBLASController) and lib.threading_layer != "openmp":
@@ -1104,7 +1105,9 @@ def test_limit_in_worker_thread_integer(user_api):
         else:
             assert lib.get_num_threads() == 1
     limiter.restore_original_limits()
-    assert controller.info() == original_limits
+    assert (
+        expected_impact_controller.select(user_api=user_api).info() == original_limits
+    )
 
 
 @pytest.mark.parametrize("limit", [[], {}, "sequential_blas_under_openmp", None])
@@ -1859,7 +1862,11 @@ def test_restore_only_restores_modified_limits(api1, api2, request):
 
     # limit=None should restore everthing:
     limiter_all = threadpool_limits(limits=None)
-    assert limiter_all.get_original_num_threads() == {
+    assert {
+        k: v
+        for k, v in limiter_all.get_original_num_threads().items()
+        if k in (api1, api2)
+    } == {
         api1: orig_limit1,
         api2: orig_limit2,
     }

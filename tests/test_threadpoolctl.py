@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import sys
 import time
-from threading import Lock, Thread, current_thread
+from threading import Event, Lock, Thread, current_thread
 
 import pytest
 
@@ -21,6 +21,7 @@ from threadpoolctl import (
     OpenBLASController,
     ThreadpoolController,
     _determine_thread_limit_scope,
+    _ThreadpoolLimiter,
     get_cached_controller,
     reset_cached_controller,
     threadpool_info,
@@ -873,7 +874,7 @@ def _restore_openblas_thread_counts(libs):
 
 
 def test_openblas_controlling_thread_cleared_on_limiter_context_manager_exit(request):
-    libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
+    libs, orig_limits = _require_resizable_non_openmp_openblas()
     request.addfinalizer(_restore_openblas_thread_counts(libs))
 
     with threadpool_limits(limits=1):
@@ -883,11 +884,11 @@ def test_openblas_controlling_thread_cleared_on_limiter_context_manager_exit(req
         assert _openblas_controlling_thread() is current_thread()
 
     assert _openblas_controlling_thread() is None
-    assert lib.get_num_threads() == orig_limit
+    assert [lib.get_num_threads() for lib in libs] == orig_limits
 
 
 def test_openblas_controlling_thread_cleared_on_decorator_exit_non_recursive(request):
-    libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
+    libs, orig_limits = _require_resizable_non_openmp_openblas()
     request.addfinalizer(_restore_openblas_thread_counts(libs))
 
     @threadpool_limits.wrap(limits=1)
@@ -902,16 +903,15 @@ def test_openblas_controlling_thread_cleared_on_decorator_exit_non_recursive(req
 
     outer()
     assert _openblas_controlling_thread() is None
-    assert lib.get_num_threads() == orig_limit
+    assert [lib.get_num_threads() for lib in libs] == orig_limits
 
 
 def _require_resizable_non_openmp_openblas():
     libs = _non_openmp_openblas()
-    lib = libs[0]
-    orig = lib.get_num_threads()
-    if orig is None or orig < 2:
+    orig = [lib.get_num_threads() for lib in libs]
+    if not orig or max(orig) < 2:
         pytest.skip("Test requires a non-OpenMP OpenBLAS with at least 2 threads")
-    return libs, lib, orig
+    return libs, orig
 
 
 @pytest.mark.parametrize(
@@ -921,8 +921,9 @@ def test_recursive_wrap_releases_the_shared_pool_claim(request, make_wrap):
     # One wrapped function calling itself must keep the limit between the inner
     # return and the outer return, then restore the original count and drop the
     # controlling thread. Another thread can then set the count.
-    libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
+    libs, orig_limits = _require_resizable_non_openmp_openblas()
     request.addfinalizer(_restore_openblas_thread_counts(libs))
+    lib = libs[0]
 
     # To avoid annoying libiomp/omp warning happening at import time.
     wrap = make_wrap()
@@ -944,7 +945,7 @@ def test_recursive_wrap_releases_the_shared_pool_claim(request, make_wrap):
             assert lib.get_num_threads() == 1
 
     recurse(1)
-    assert lib.get_num_threads() == orig_limit
+    assert lib.get_num_threads() == orig_limits[0]
 
     observed = {}
 
@@ -962,8 +963,9 @@ def test_recursive_wrap_releases_the_shared_pool_claim(request, make_wrap):
 
 
 def test_recursive_wrap_releases_the_shared_pool_claim_exception(request):
-    libs, lib, orig_limit = _require_resizable_non_openmp_openblas()
+    libs, orig_limits = _require_resizable_non_openmp_openblas()
     request.addfinalizer(_restore_openblas_thread_counts(libs))
+    lib = libs[0]
 
     @threadpool_limits.wrap(limits=1, user_api="blas")
     def recurse(depth):
@@ -977,7 +979,7 @@ def test_recursive_wrap_releases_the_shared_pool_claim_exception(request):
 
     with pytest.raises(ZeroDivisionError):
         recurse(1)
-    assert lib.get_num_threads() == orig_limit
+    assert lib.get_num_threads() == orig_limits[0]
     assert _openblas_controlling_thread() is None
 
 
@@ -1060,19 +1062,198 @@ def test_openblas_controlling_thread_manual_increment_decrement_api(request):
 
 
 def test_restore_original_limits_keeps_openblas_controlling_thread(request):
-    libs, lib, orig = _require_resizable_non_openmp_openblas()
+    libs, orig_limits = _require_resizable_non_openmp_openblas()
     request.addfinalizer(_restore_openblas_thread_counts(libs))
 
-    limiter = threadpool_limits(limits=1)
-    assert lib.get_num_threads() == 1
-    assert lib._SHARED_STATE.controlling_thread is current_thread()
+    limiter = ThreadpoolController().select(internal_api="openblas").limit(limits=1)
+    for lib in libs:
+        assert lib.get_num_threads() == 1
+        assert lib._SHARED_STATE.controlling_thread is current_thread()
 
     limiter.restore_original_limits()
-    assert lib.get_num_threads() == orig
-    assert lib._SHARED_STATE.controlling_thread is current_thread()
+    for lib, orig in zip(libs, orig_limits):
+        assert lib.get_num_threads() == orig
+        assert lib._SHARED_STATE.controlling_thread is current_thread()
 
     OpenBLASController.clear_controlling_thread()
-    assert lib._SHARED_STATE.controlling_thread is None
+    for lib in libs:
+        assert lib._SHARED_STATE.controlling_thread is None
+
+
+@pytest.mark.parametrize("user_api", ["openmp", "blas", None])
+def test_limit_in_worker_thread_integer(user_api):
+    """Python worker thread API should not set limits on shared thread pools."""
+    flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
+    if flexiblas_controller:
+        pytest.skip(
+            "FlexiBLAS means there are two controllers for same OpenBLAS "
+            "(direct + FlexiBLAS) which causes test failures."
+        )
+
+    controller = ThreadpoolController()
+    original_limits = controller.info()
+
+    limiter = controller.limit_in_worker_thread(limits=1, user_api=user_api)
+    assert isinstance(limiter, _ThreadpoolLimiter)
+    for lib, info in zip(controller.lib_controllers, original_limits):
+        # If this logic ever grows beyond OpenBLAS, this check should be made
+        # more general:
+        if isinstance(lib, OpenBLASController) and lib.threading_layer != "openmp":
+            # Should be unchanged:
+            assert lib.get_num_threads() == info["num_threads"]
+        else:
+            assert lib.get_num_threads() == 1
+    limiter.restore_original_limits()
+    assert controller.info() == original_limits
+
+
+@pytest.mark.parametrize("limit", [[], {}, "sequential_blas_under_openmp", None])
+def test_limit_in_worker_thread_not_integer(limit):
+    """Python worker thread API should not set limits on shared thread pools."""
+    controller = ThreadpoolController()
+    original_limits = controller.info()
+
+    with pytest.raises(TypeError, match="only int is supported"):
+        controller.limit_in_worker_thread(limits=limit)
+    assert controller.info() == original_limits
+
+
+def _race_condition_skip_problem_platforms():
+    flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
+
+    if sys.platform == "win32":
+        pytest.xfail("OpenMP on Windows has its own issues with overlapping setting")
+    if flexiblas_controller:
+        pytest.skip(
+            "FlexiBLAS means there are two controllers for same OpenBLAS "
+            "(direct + FlexiBLAS) which causes test failures."
+        )
+
+
+def test_overlapping_context_manager_restores_correctly(request):
+    """A thread that failed to set should also not restore."""
+    _race_condition_skip_problem_platforms()
+
+    libs, orig_limits = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+    openmp = ThreadpoolController().select(user_api="openmp")
+    original_openmp_info = openmp.info()
+
+    a_in, b_in, a_out = (Event() for _ in range(3))
+
+    a_limits_correct = []
+    b_limits_correct = []
+
+    def A():
+        with threadpool_limits(2):
+            a_in.set()
+            b_in.wait()
+        a_limits_correct.append(openmp.info() == original_openmp_info)
+        a_out.set()
+
+    def B():
+        a_in.wait()
+        with threadpool_limits(1):  # snapshot taken while A's limit is active
+            b_in.set()
+            a_out.wait()
+        b_limits_correct.append(openmp.info() == original_openmp_info)
+
+    ts = [Thread(target=A), Thread(target=B)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+
+    assert a_limits_correct == [True]
+    assert b_limits_correct == [True]
+    assert [lib.get_num_threads() for lib in libs] == orig_limits
+    assert openmp.info() == original_openmp_info
+
+
+def test_overlapping_set_and_restore(request):
+    """A thread that failed to set should also not restore."""
+    _race_condition_skip_problem_platforms()
+
+    libs, orig_limits = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+    openmp = ThreadpoolController().select(user_api="openmp")
+    original_openmp_info = openmp.info()
+
+    a_in, b_in, a_out = (Event() for _ in range(3))
+
+    a_limits_correct = []
+    b_limits_correct = []
+
+    def A():
+        limiter = threadpool_limits(2)
+        a_in.set()
+        b_in.wait()
+        limiter.restore_original_limits()
+        a_limits_correct.append(openmp.info() == original_openmp_info)
+        a_out.set()
+
+    def B():
+        a_in.wait()
+        limiter = threadpool_limits(1)  # snapshot taken while A's limit is active
+        b_in.set()
+        a_out.wait()
+        limiter.restore_original_limits()
+        b_limits_correct.append(openmp.info() == original_openmp_info)
+
+    ts = [Thread(target=A), Thread(target=B)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+
+    assert a_limits_correct == [True]
+    assert b_limits_correct == [True]
+    assert [lib.get_num_threads() for lib in libs] == orig_limits
+    assert openmp.info() == original_openmp_info
+
+
+def test_get_current_info_race_condition(request):
+    """Test for race condition in multi-threaded OpenBLAS-pthreads usage.
+
+    1. Thread A sets limit L.
+    2. Thread B gets limit L in `_ThreadpoolLimiter.__init__`.
+    3. Thread A restores to original limit O and releases control.
+    4. Thread B continues `__init__`, setting a limit and taking control.
+    5. Thread B restores to limit L.
+    """
+    _race_condition_skip_problem_platforms()
+
+    libs, orig_limits = _require_resizable_non_openmp_openblas()
+    request.addfinalizer(_restore_openblas_thread_counts(libs))
+
+    a_in, b_retrieved, a_out = (Event() for _ in range(3))
+
+    def A():
+        with threadpool_limits(2):
+            a_in.set()
+            b_retrieved.wait()
+        a_out.set()
+
+    class racy_threadpool_limits(threadpool_limits):
+        def _set_threadpool_limits(self):
+            # Tell A it can finish up:
+            b_retrieved.set()
+            # Wait until thread A is finished, so we can take control:
+            a_out.wait()
+            super()._set_threadpool_limits()
+
+    def B():
+        a_in.wait()
+        with racy_threadpool_limits(1):
+            pass
+
+    ts = [Thread(target=A), Thread(target=B)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+
+    assert [lib.get_num_threads() for lib in libs] == orig_limits
 
 
 # skip test if not run in a azure pipelines job since it relies on a specific flexiblas

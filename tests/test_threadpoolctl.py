@@ -1826,6 +1826,9 @@ assert "ctypes.util" not in sys.modules
     subprocess.check_call([sys.executable, "-c", script], env=env)
 
 
+@pytest.mark.skipif(
+    not cython_extensions_compiled, reason="Requires cython extensions to be compiled"
+)
 @pytest.mark.parametrize(["api1", "api2"], [("blas", "openmp"), ("openmp", "blas")])
 def test_restore_only_restores_modified_limits(api1, api2, request):
     flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
@@ -1845,16 +1848,16 @@ def test_restore_only_restores_modified_limits(api1, api2, request):
     if orig_limit1 < 3 or orig_limit2 < 3:
         pytest.skip("need at least 3 cores")
 
+    # Best effort to restore the a neutral state in case of test
+    # failure.
     restore_limiter = threadpool_limits(limits=None)
-
-    def done():
-        restore_limiter.restore_original_limits()
-
-    request.addfinalizer(done)
+    request.addfinalizer(restore_limiter.restore_original_limits)
 
     limiter1 = threadpool_limits(1, user_api=api1)
+    assert lib1.get_num_threads() == 1
     assert limiter1.get_original_num_threads() == {api1: orig_limit1}
     limiter2 = threadpool_limits(2, user_api=api2)
+    assert lib2.get_num_threads() == 2
     assert limiter2.get_original_num_threads() == {api2: orig_limit2}
 
     # This should only overwrite limits for api1, not api2:

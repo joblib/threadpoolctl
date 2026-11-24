@@ -1105,9 +1105,7 @@ def test_limit_in_worker_thread_integer(user_api):
         else:
             assert lib.get_num_threads() == 1
     limiter.restore_original_limits()
-    assert (
-        expected_impact_controller.select(user_api=user_api).info() == original_limits
-    )
+    assert expected_impact_controller.info() == original_limits
 
 
 @pytest.mark.parametrize("limit", [[], {}, "sequential_blas_under_openmp", None])

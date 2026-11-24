@@ -1138,6 +1138,9 @@ class _ThreadpoolLimiter:
     """
 
     def __init__(self, controller, *, limits=None, user_api=None):
+        if user_api is not None:
+            # Ensure we only restore the libraries we actually modified:
+            controller = controller.select(user_api=user_api)
         self._controller = controller
         self._limits, self._user_api = _check_limiter_params(
             controller, limits, user_api
@@ -1357,7 +1360,10 @@ class threadpool_limits(_ThreadpoolLimiter):
           calls within an OpenMP parallel region. The `user_api` parameter is
           ignored.
 
-        - If None, this function does not do anything.
+        - If None, this function does not do anything. The returned limiter
+          object acts as if all libraries were set to the current limit, so
+          you can use its `restore_original_limits()` method to restore all
+          libraries to their limit at the time this method was called.
 
     user_api : {USER_APIS} or None (default=None)
         APIs of libraries to limit. Used only if `limits` is an int.
@@ -1523,7 +1529,10 @@ class ThreadpoolController:
               calls within an OpenMP parallel region. The `user_api` parameter is
               ignored.
 
-            - If None, this function does not do anything.
+            - If None, this function does not do anything. The returned limiter
+              object acts as if all libraries were set to the current limit, so
+              you can use its `restore_original_limits()` method to restore all
+              libraries to their limit at the time this method was called.
 
         user_api : {USER_APIS} or None (default=None)
             APIs of libraries to limit. Used only if `limits` is an int.
@@ -1563,9 +1572,14 @@ class ThreadpoolController:
                 "only int is supported as limit for limit_in_worker_thread()"
             )
 
+        if user_api is None:
+            controller = self
+        else:
+            controller = self.select(user_api=user_api)
+
         new_limits = []
 
-        for lib_controller in self.lib_controllers:
+        for lib_controller in controller.lib_controllers:
             # If this logic grows beyond OpenBLAS, maybe add a new API to
             # LibController to detect shared process pools:
             if (
@@ -1582,8 +1596,7 @@ class ThreadpoolController:
                     "num_threads": limits,
                 }
             )
-
-        return self.limit(limits=new_limits, user_api=user_api)
+        return controller.limit(limits=new_limits, user_api=user_api)
 
     @_format_docstring(
         USER_APIS=", ".join(f'"{api}"' for api in _ALL_USER_APIS),

@@ -1,12 +1,18 @@
 3.9.0 (under development)
 =========================
 
+- Fix a bug in `limiter.restore_original_limits()` where all limits
+  were always restored, even if `limiter` is scoped to a strict subset
+  of the controllable libraries. Similarly,
+  `limiter.get_original_num_threads()` will only return original
+  values for those values that can be controlled by `limiter`.
+  https://github.com/joblib/threadpoolctl/pull/309
+
 - Introduce the `ThreadpoolController.limit_in_worker_thread` method to make it
   easy to set correct limits from Python worker threads and fix a number of race
   conditions in OpenBLAS-pthreads/win32 controlling thread logic, that could
   result in unexpected number of threads being set.
   https://github.com/joblib/threadpoolctl/pull/300
-
 
 3.8.0 (2026-11-05)
 ==================

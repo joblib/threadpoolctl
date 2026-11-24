@@ -1090,12 +1090,13 @@ def test_limit_in_worker_thread_integer(user_api):
             "(direct + FlexiBLAS) which causes test failures."
         )
 
-    controller = ThreadpoolController()
-    original_limits = controller.info()
+    full_controller = ThreadpoolController()
+    expected_impact_controller = full_controller.select(user_api=user_api)
+    original_limits = expected_impact_controller.info()
 
-    limiter = controller.limit_in_worker_thread(limits=1, user_api=user_api)
+    limiter = full_controller.limit_in_worker_thread(limits=1, user_api=user_api)
     assert isinstance(limiter, _ThreadpoolLimiter)
-    for lib, info in zip(controller.lib_controllers, original_limits):
+    for lib, info in zip(expected_impact_controller.lib_controllers, original_limits):
         # If this logic ever grows beyond OpenBLAS, this check should be made
         # more general:
         if isinstance(lib, OpenBLASController) and lib.threading_layer != "openmp":
@@ -1104,7 +1105,7 @@ def test_limit_in_worker_thread_integer(user_api):
         else:
             assert lib.get_num_threads() == 1
     limiter.restore_original_limits()
-    assert controller.info() == original_limits
+    assert expected_impact_controller.info() == original_limits
 
 
 @pytest.mark.parametrize("limit", [[], {}, "sequential_blas_under_openmp", None])
@@ -1821,3 +1822,68 @@ threadpoolctl.threadpool_info()
 assert "ctypes.util" not in sys.modules
 """
     subprocess.check_call([sys.executable, "-c", script], env=env)
+
+
+@pytest.mark.skipif(
+    not cython_extensions_compiled, reason="Requires cython extensions to be compiled"
+)
+@pytest.mark.parametrize(["api1", "api2"], [("blas", "openmp"), ("openmp", "blas")])
+def test_restore_only_restores_modified_limits(api1, api2, request):
+    flexiblas_controller = ThreadpoolController().select(internal_api="flexiblas")
+    if flexiblas_controller:
+        pytest.skip(
+            "FlexiBLAS has issues with get_num_threads() because of "
+            "different behavior from wrapped OpenBLAS"
+        )
+
+    try:
+        lib1 = ThreadpoolController().select(user_api=api1).lib_controllers[0]
+        orig_limit1 = lib1.get_num_threads()
+        lib2 = ThreadpoolController().select(user_api=api2).lib_controllers[0]
+        orig_limit2 = lib2.get_num_threads()
+    except IndexError:
+        pytest.skip("need both BLAS and OpenMP")
+    if orig_limit1 < 3 or orig_limit2 < 3:
+        pytest.skip("need at least 3 cores")
+
+    # Best effort to restore the a neutral state in case of test
+    # failure.
+    restore_limiter = threadpool_limits(limits=None)
+    request.addfinalizer(restore_limiter.restore_original_limits)
+
+    limiter1 = threadpool_limits(1, user_api=api1)
+    assert lib1.get_num_threads() == 1
+    assert limiter1.get_original_num_threads() == {api1: orig_limit1}
+    limiter2 = threadpool_limits(2, user_api=api2)
+    assert lib2.get_num_threads() == 2
+    assert limiter2.get_original_num_threads() == {api2: orig_limit2}
+
+    # This should only overwrite limits for api1, not api2:
+    limiter1.restore_original_limits()
+    assert lib1.get_num_threads() == orig_limit1
+    assert lib2.get_num_threads() == 2
+
+    # This should only overwrite limits for api2, not api1:
+    limiter2.restore_original_limits()
+    assert lib1.get_num_threads() == orig_limit1
+    assert lib2.get_num_threads() == orig_limit2
+
+    # limit=None should restore everthing:
+    limiter_all = threadpool_limits(limits=None)
+    assert {
+        k: v
+        for k, v in limiter_all.get_original_num_threads().items()
+        if k in (api1, api2)
+    } == {
+        api1: orig_limit1,
+        api2: orig_limit2,
+    }
+    assert lib1.get_num_threads() == orig_limit1
+    assert lib2.get_num_threads() == orig_limit2
+    threadpool_limits(1, user_api=api1)
+    threadpool_limits(2, user_api=api2)
+    assert lib1.get_num_threads() == 1
+    assert lib2.get_num_threads() == 2
+    limiter_all.restore_original_limits()
+    assert lib1.get_num_threads() == orig_limit1
+    assert lib2.get_num_threads() == orig_limit2
